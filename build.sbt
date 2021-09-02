@@ -22,8 +22,12 @@ lazy val commonSettings = Seq(
   scalacOptions += "-target:jvm-1.8"
 )
 
+libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test
+
+Test / testOptions ++= Seq( Tests.Argument("junitxml", "junit.outdir", sys.env.getOrElse("SBT_JUNIT_OUTPUT","/tmp")), Tests.Argument("console") )
 
 lazy val `common` = (project in file("common"))
+  .enablePlugins(plugins.JUnitXmlReportPlugin)
   .settings(commonSettings,
     Docker / aggregate := false,
     Docker / publish := {},
