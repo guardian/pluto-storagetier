@@ -18,7 +18,7 @@ case class ArchivedRecord(id:Option[Int],
                          )
 
 
-class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "archived_record") {
+class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearchive_archived_record") {
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
   def archiveHunterID = column[String]("s_archivehunter_id")
   def originalFilePath = column[String]("s_original_filepath")
