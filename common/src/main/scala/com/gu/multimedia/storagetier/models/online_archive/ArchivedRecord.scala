@@ -18,7 +18,7 @@ case class ArchivedRecord(id:Option[Int],
                          )
 
 
-class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "ARCHIVED_RECORD") {
+class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "archived_record") {
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
   def archiveHunterID = column[String]("s_archivehunter_id")
   def originalFilePath = column[String]("s_original_filepath")
@@ -32,6 +32,10 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "ARCHIVED_R
   def proxyVersion = column[Option[Int]]("i_proxy_version")
   def metadataXML = column[Option[String]]("s_metadata_xml_path")
   def metadataVersion = column[Option[Int]]("i_metadata_version")
+
+  def filepathIdx = index("filepath_idx", originalFilePath)
+  def archiveHunterIdIds = index("archivehunter_id_idx", archiveHunterID, unique = true)
+  def vidispineIdIdx = index("vidispine_item_idx", vidispineItemId)
 
   def * = (id.?, archiveHunterID, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
 }
