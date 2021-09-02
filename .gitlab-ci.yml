@@ -1,0 +1,80 @@
+tests:
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-core/projectlockerbuild:20200615_1
+  services:
+    - postgres:13-alpine
+  variables:
+    DB_HOST: postgres
+    POSTGRES_DB: storagetier-test
+    POSTGRES_PASSWORD: storagetier-test
+    POSTGRES_USER: storagetier
+    JAVA_OPTS: -Dsbt.ivy.home=./.ivy2 -Divy.home=./.ivy2
+    SBT_JUNIT_OUTPUT: ./junit-tests
+  script:
+    - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
+    - if [ -d "junit-tests" ]; then mkdir junit-tests; fi
+    - sbt test:compile
+    - sbt test
+    - mv ${HOME}/.sbt .sbt || true
+  artifacts:
+    reports:
+      junit: junit-tests/*.xml
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-sbt
+    paths:
+      - target/
+      - .sbt/
+      - .ivy2/
+  tags:
+    - gnm
+    - docker
+  only:
+    - master
+    - merge_requests
+
+# 'upload' block based on pluto-core, commented out until we actually have something to upload.
+# might replace this with per-subproject builds
+#
+#upload:
+#  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-core/projectlockerbuild:20210629_1
+#  stage: deploy
+#  services:
+#    - docker:19.03.11-dind
+#  variables:
+#    DOCKER_TLS_CERTDIR: "/certs" #this is mounted by the gitlab CI system so is populated from the dind service
+#    DOCKER_HOST: tcp://docker:2376
+#    DOCKER_DRIVER: overlay2
+#    DOCKER_TLS_VERIFY: 1
+#    JAVA_OPTS: -Dsbt.ivy.home=./.ivy2 -Divy.home=./.ivy2
+#  script:
+#    - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
+#    - ls -lhd /certs
+#    - ls -lh /certs/*
+#    - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
+#    - docker version
+#    - docker login -u "${DOCKER_USER}" -p "${DOCKER_PAT}"
+#    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID} -Ddocker.username=guardianmultimedia" sbt docker:publish
+#    - "echo ci_commit_branch: ${CI_COMMIT_BRANCH} >> build-info.yaml"
+#    - "echo ci_commit_ref_name: ${CI_COMMIT_REF_NAME} >> build-info.yaml"
+#    - "echo ci_commit_sha: ${CI_COMMIT_SHA} >> build-info.yaml"
+#    - "echo ci_commit_timestamp: ${CI_COMMIT_TIMESTAMP} >> build-info.yaml"
+#    - "echo ci_commit_title: \\\"${CI_COMMIT_TITLE}\\\" >> build-info.yaml"
+#    - "echo ci_job_url: ${CI_JOB_URL} >> build-info.yaml"
+#    - "echo ci_project_name: \\\"${CI_PROJECT_NAME}\\\" >> build-info.yaml"
+#    - "echo ci_merge_request_project_url: ${CI_MERGE_REQUEST_PROJECT_URL} >> build-info.yaml"
+#    - "echo ci_merge_request_title: \\\"${CI_MERGE_REQUEST_TITLE}\\\" >> build-info.yaml"
+#    - "echo ci_pipeline_iid: ${CI_PIPELINE_IID} >> build-info.yaml"
+#    - "echo built_image: guardianmultimedia/pluto-storagetier:$CI_PIPELINE_IID >> build-info.yaml"
+#  artifacts:
+#    paths:
+#      - build-info.yaml
+#  cache:
+#    key: ${CI_COMMIT_REF_SLUG}-sbt
+#    policy: pull
+#    paths:
+#      - target/
+#  tags:
+#    - gnm
+#    - docker
+#  only:
+#    - master
+#    - merge_requests

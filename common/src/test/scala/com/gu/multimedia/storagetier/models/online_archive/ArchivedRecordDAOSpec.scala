@@ -15,10 +15,11 @@ class ArchivedRecordDAOSpec extends Specification with BeforeAll with AfterEach 
 
   private lazy val dbHost = sys.env.getOrElse("DB_HOST", "localhost")
   private lazy val dbPort = sys.env.getOrElse("DB_PORT", "5432").toInt
-  private lazy val dbUser = sys.env.getOrElse("DB_USER", "storagetier")
-  private lazy val dbPasswd = sys.env.getOrElse("DB_PASSWD", "storagetier-test")
+  private lazy val dbUser = sys.env.getOrElse("POSTGRES_USER", "storagetier")
+  private lazy val dbPasswd = sys.env.getOrElse("POSTGRES_PASSWORD", "storagetier-test")
+  private lazy val dbName = sys.env.getOrElse("POSTGRES_DB", "storagetier-test")
+  private val db = Database.forURL(s"jdbc:postgresql://${dbHost}:${dbPort}/${dbName}",user=dbUser, password=dbPasswd)
 
-  private val db = Database.forURL(s"jdbc:postgresql://${dbHost}:${dbPort}/storagetier-test",user=dbUser, password=dbPasswd)
   private val dao = new ArchivedRecordDAO(db)
 
   override def beforeAll: Unit = {
