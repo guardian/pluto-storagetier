@@ -22,10 +22,10 @@ trait GenericDAO[T <: AbstractTable[_]] {
 
   def deleteById(pk:Int):Future[Int]
 
-  def listRecords(limit:Int, startAt:Int):Future[Seq[T#TableElementType]] = {
-    db.run(
-      TableQuery[T].take(limit).drop(startAt).result
-    )
-  }
+//  def listRecords(limit:Int, startAt:Int):Future[Seq[T#TableElementType]] = {
+//    db.run(
+//      TableQuery[T].take(limit).drop(startAt).result
+//    )
+//  }
 
 }

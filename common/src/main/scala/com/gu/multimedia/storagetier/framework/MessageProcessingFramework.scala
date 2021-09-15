@@ -5,7 +5,7 @@ import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider
 import com.rabbitmq.client.{AMQP, Consumer, Envelope, ShutdownSignalException}
 import io.circe.Json
 
-import scala.concurrent.Future
+import scala.concurrent.{Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import scala.concurrent.ExecutionContext.Implicits._
@@ -34,12 +34,15 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   routingKeyForSend: String,
                                   retryExchangeName:String,
                                   failedExchangeName:String,
+                                  failedQueueName:String,
                                   handlers:Seq[ProcessorConfiguration])
                                  (implicit connectionFactoryProvider: ConnectionFactoryProvider){
   private val logger = LoggerFactory.getLogger(getClass)
   private lazy val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
   private val factory = connectionFactoryProvider.get()
   private val cs = Charset.forName("UTF-8")
+
+  private val completionPromise = Promise[Unit]
 
   factory.setHost(rmqHost)
   factory.setCredentialsProvider(new DefaultCredentialsProvider(
@@ -60,14 +63,17 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
     override def handleCancelOk(consumerTag: String): Unit = {
       logger.info("Consumer was cancelled internally, exiting")
+      completionPromise.complete(Success())
     }
 
     override def handleCancel(consumerTag: String): Unit = {
       logger.info("Consumer was cancelled, exiting")
+      completionPromise.complete(Success())
     }
 
     override def handleShutdownSignal(consumerTag: String, sig: ShutdownSignalException): Unit = {
       logger.info(s"Broker connection is shutting down due to ${sig.getMessage}")
+      completionPromise.complete(Failure(sig))
     }
 
     override def handleRecoverOk(consumerTag: String): Unit = {
@@ -186,7 +192,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
         logger.warn(s"Got unexpected value type for retry-count header on message id ${properties.map(_.getMessageId)}, resetting to 1")
         1
     }
-    val delayTime = List(math.pow(2, nextRetryCount), 60000).min
+    val delayTime = List(math.pow(2, nextRetryCount), 60000).min.toInt
     val updatedMsgHeaders = originalMsgHeaders ++ Map("retry-count"->nextRetryCount.asInstanceOf[AnyRef])
     val newProps = new BasicProperties.Builder()
       .contentType("application/json")
@@ -202,14 +208,33 @@ class MessageProcessingFramework (ingest_queue_name:String,
    * Kick off the framework.  This returns a future which should only resolve when the framework terminates.
    * @return
    */
-  def run() = Future {
-    channel.queueDeclare(ingest_queue_name, true, false, false,Map[String,AnyRef]().asJava)
+  def run() = {
+    try {
+      val retryInputExchangeName = retryExchangeName + "-r"
 
-    handlers.foreach(conf=>{
-      channel.queueBind(ingest_queue_name, conf.exchangeName, conf.routingKey)
-    })
+      channel.exchangeDeclare(failedExchangeName, "topic", false)
+      channel.exchangeDeclare(output_exchange_name, "topic", true, false, Map("x-dead-letter-exchange" -> failedExchangeName.asInstanceOf[AnyRef]).asJava)
+      channel.exchangeDeclare(retryExchangeName, "topic", false)
+      channel.exchangeDeclare(retryInputExchangeName, "topic", false)
 
-    channel.basicConsume(ingest_queue_name, false, MsgConsumer)
+      channel.queueDeclare(failedQueueName, true, false, false, Map[String, AnyRef]().asJava)
+      channel.queueDeclare(retryExchangeName + "-q", true, false, false, Map("x-dead-letter-exchange" -> output_exchange_name.asInstanceOf[AnyRef]).asJava)
+      channel.queueBind(failedQueueName, failedExchangeName, "#")
+      channel.queueBind(retryExchangeName + "-q", retryExchangeName, "#", Map("x-dead-letter-exchange"->retryInputExchangeName.asInstanceOf[AnyRef]).asJava)
+
+      channel.queueDeclare(ingest_queue_name, true, false, false, Map[String, AnyRef]().asJava)
+
+      channel.queueBind(ingest_queue_name, retryInputExchangeName, "#")
+
+      handlers.foreach(conf => {
+        channel.queueBind(ingest_queue_name, conf.exchangeName, conf.routingKey)
+      })
+
+      channel.basicConsume(ingest_queue_name, false, MsgConsumer)
+    } catch {
+      case err:Throwable=>completionPromise.failure(err)
+    }
+    completionPromise.future
   }
 
   /**

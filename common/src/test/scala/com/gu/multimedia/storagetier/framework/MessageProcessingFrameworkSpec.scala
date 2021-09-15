@@ -32,6 +32,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "some.routing.key",
         "retry-exchg",
         "failed-exchg",
+        "failed-q",
         handlers)
 
       f.run()
@@ -66,6 +67,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "some.routing.key",
         "retry-exchg",
         "failed-exchg",
+        "failed-q",
         handlers)
 
       val envelope = new Envelope(12345678L, false, "fake-exchange","some.routing.key")
@@ -106,6 +108,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "some.routing.key",
         "retry-exchg",
         "failed-exchg",
+        "failed-q",
         handlers)
 
       val envelope = new Envelope(12345678L, false, "fake-exchange","some.routing.key")
@@ -159,6 +162,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "some.routing.key",
         "retry-exchg",
         "failed-exchg",
+        "failed-q",
         handlers)
 
       val envelope = new Envelope(12345678L, false, "some-exchange","some.routing.key")
@@ -216,6 +220,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       "some.routing.key",
       "retry-exchg",
       "failed-exchg",
+      "failed-q",
       handlers)
 
     val envelope = new Envelope(12345678L, false, "fake-exchange","some.routing.key")

@@ -19,6 +19,7 @@ object Main {
       new FakeMessageProcessor(db)
     )
   )
+
   def main(args:Array[String]) = {
     val framework = new MessageProcessingFramework(
       "storagetier-online-archive",
@@ -26,6 +27,7 @@ object Main {
       "pluto.storagetier.online-archive",
       "storagetier-online-archive-retry",
       "storagetier-online-archive-fail",
+      "storagetier-online-archive-dlq",
       config
     )
 
@@ -34,6 +36,7 @@ object Main {
         logger.info(s"framework run completed, result string was $cid")
       case Failure(err)=>
         logger.error(s"framework run failed: ${err.getMessage}",err)
+        sys.exit(1)
     })
   }
 }
