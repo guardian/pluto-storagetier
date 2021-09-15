@@ -1,15 +1,14 @@
 package com.gu.multimedia.storagetier.framework
+
 import com.rabbitmq.client.AMQP.BasicProperties
+import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider}
 import com.rabbitmq.client.{AMQP, Consumer, Envelope, ShutdownSignalException}
 import io.circe.Json
-import shapeless.{::, HList, HNil, Poly1}
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import scala.concurrent.ExecutionContext.Implicits._
-import io.circe.syntax._
-import io.circe.generic.auto._
 import org.slf4j.LoggerFactory
 
 import java.nio.ByteBuffer
@@ -43,34 +42,43 @@ class MessageProcessingFramework (ingest_queue_name:String,
   private val cs = Charset.forName("UTF-8")
 
   factory.setHost(rmqHost)
+  factory.setCredentialsProvider(new DefaultCredentialsProvider(
+    sys.env.getOrElse("RABBITMQ_USER","storagetier"),
+    sys.env.getOrElse("RABBITMQ_PASSWORD","password")
+  ))
 
-  val conn = factory.newConnection()
-  val channel = conn.createChannel()
+  private val conn = factory.newConnection()
+  private val channel = conn.createChannel()
 
   /**
    * handle the java api protocol for receiving messages
    */
   object MsgConsumer extends Consumer {
     override def handleConsumeOk(consumerTag: String): Unit = {
-
+      logger.info("Consumer started up")
     }
 
     override def handleCancelOk(consumerTag: String): Unit = {
-
+      logger.info("Consumer was cancelled internally, exiting")
     }
 
     override def handleCancel(consumerTag: String): Unit = {
-
+      logger.info("Consumer was cancelled, exiting")
     }
 
     override def handleShutdownSignal(consumerTag: String, sig: ShutdownSignalException): Unit = {
-
+      logger.info(s"Broker connection is shutting down due to ${sig.getMessage}")
     }
 
     override def handleRecoverOk(consumerTag: String): Unit = {
-
+      //we don't use basic.recover at present
     }
 
+    /**
+     * reliably decode a raw byte array into a UTF-8 string.
+     * @param raw raw byte array
+     * @return either a Right with the decoded string, or a Left with an error message
+     */
     private def convertToUTFString(raw:Array[Byte]):Either[String,String] = {
       try {
         val buf = ByteBuffer.wrap(raw)
@@ -81,6 +89,12 @@ class MessageProcessingFramework (ingest_queue_name:String,
       }
     }
 
+    /**
+     * wraps the circe parse method to change the Left type into a string,
+     * in order to make it easier to compose
+     * @param stringContent the string content to parse
+     * @return either a string containing an error or the parsed io.circe.Json object
+     */
     private def wrappedParse(stringContent:String):Either[String,Json] = {
       io.circe.parser.parse(stringContent)
     }.left.map(_.getMessage())
@@ -95,7 +109,8 @@ class MessageProcessingFramework (ingest_queue_name:String,
           logger.error(s"Message with ID ${properties.getMessageId} is invalid and will be dropped.")
           logger.error(s"${properties.getMessageId}: invalid content was ${convertToUTFString(body)}")
           logger.error(s"${properties.getMessageId}: error was $err")
-          val updatedHeaders = properties.getHeaders.asScala ++ mutable.Map("error"->err)
+          val originalHeaders = Option(properties.getHeaders).map(_.asScala).getOrElse(mutable.Map())
+          val updatedHeaders = originalHeaders ++ mutable.Map("error"->err)
           val dlqProps = new AMQP.BasicProperties.Builder()
             .contentType("application/octet-stream")
             .messageId(properties.getMessageId)
@@ -111,12 +126,11 @@ class MessageProcessingFramework (ingest_queue_name:String,
             val targetProcessor = matchingExchanges.head.processor
                 targetProcessor.handleMessage(msg) match {
                   case Left(errDesc)=>
-                    rejectMessage(envelope, Some(properties), msg)
+                    rejectMessage(envelope, Option(properties), msg)
                   case Right(returnValue)=>
                     confirmMessage(envelope.getDeliveryTag, returnValue)
                 }
             }
-
       }
 
       result match {
@@ -128,16 +142,41 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }
   }
 
+  /**
+   * internal method.
+   * Confirm that an event took place, by acknowleging processing of the original message and sending a message
+   * to our output exchange
+   * @param deliveryTag the delivery tag of the incoming message that was successfully processed
+   * @param confirmationData a circe Json body of content to send out onto our exchange
+   * @return
+   */
   private def confirmMessage(deliveryTag: Long, confirmationData:Json) = Try {
     val stringContent = confirmationData.noSpaces
 
     channel.basicAck(deliveryTag, false)
-    //FIXME: need to better investigate props
-    channel.basicPublish(output_exchange_name, routingKeyForSend, null, stringContent.getBytes(cs))
+    val msgProps = new AMQP.BasicProperties.Builder()
+      .contentType("application/octet-stream")
+      .build()
+
+    channel.basicPublish(output_exchange_name, routingKeyForSend, msgProps, stringContent.getBytes(cs))
   }
 
+  /**
+   * internal method.
+   * Performs message rejection by pushing it onto a retry-queue unless there have been too many retries.
+   * Note that 'rejected' messages are still ACK'd as they are sent on to a delay exchange
+   * @param envelope message Envelope
+   * @param properties message Properties
+   * @param content parsed message content, as a circe.Json type
+   * @return Success with unit value if it worked, or a Failure with exception if it didn't
+   */
   private def rejectMessage(envelope: Envelope, properties:Option[AMQP.BasicProperties], content:Json) = Try {
-    val originalMsgHeaders = properties.map(_.getHeaders.asScala).getOrElse(Map[String, AnyRef]())  //handle case where properties are null
+    //handle either properties or headers being null
+    val maybeHeaders = for {
+      props <- properties
+      headers <- Option(props.getHeaders).map(_.asScala)
+    } yield headers
+    val originalMsgHeaders = maybeHeaders.getOrElse(Map[String, AnyRef]())
 
     val nextRetryCount = originalMsgHeaders.getOrElse("retry-count",0) match {
       case intValue:Int=>
@@ -155,12 +194,12 @@ class MessageProcessingFramework (ingest_queue_name:String,
       .headers(updatedMsgHeaders.asJava)
       .build()
 
-    channel.basicPublish(retryExchangeName, envelope.getRoutingKey, true, newProps, content.noSpaces.getBytes(cs))
+    channel.basicPublish(retryExchangeName, envelope.getRoutingKey, false, newProps, content.noSpaces.getBytes(cs))
     channel.basicAck(envelope.getDeliveryTag, false)
   }
 
   /**
-   *
+   * Kick off the framework.  This returns a future which should only resolve when the framework terminates.
    * @return
    */
   def run() = Future {
@@ -171,5 +210,14 @@ class MessageProcessingFramework (ingest_queue_name:String,
     })
 
     channel.basicConsume(ingest_queue_name, false, MsgConsumer)
+  }
+
+  /**
+   * shuts down the broker connection
+   * @param timeout maximum time to wait for shutdown, in milliseconds. Default is 30,000 (=30s)
+   * @return a Success with unit value if it worked, or a Failure if there was a problem
+   */
+  def terminate(timeout:Int=30000) = Try {
+    conn.close(timeout)
   }
 }
