@@ -1,7 +1,8 @@
 import com.gu.multimedia.storagetier.framework._
 import org.slf4j.LoggerFactory
-import scala.concurrent.ExecutionContext.Implicits.global
+import sun.misc.{Signal, SignalHandler}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 
 object Main {
@@ -31,9 +32,20 @@ object Main {
       config
     )
 
+    //install a signal handler to terminate cleanly on INT (keyboard interrupt) and TERM (Kubernetes pod shutdown)
+    val terminationHandler = new SignalHandler {
+      override def handle(signal: Signal): Unit = {
+        logger.info(s"Caught signal $signal, terminating")
+        framework.terminate()
+      }
+    }
+    Signal.handle(new Signal("INT"), terminationHandler)
+    Signal.handle(new Signal("HUP"), terminationHandler)
+    Signal.handle(new Signal("TERM"), terminationHandler)
+
     framework.run().onComplete({
-      case Success(cid)=>
-        logger.info(s"framework run completed, result string was $cid")
+      case Success(_)=>
+        logger.info(s"framework run completed")
       case Failure(err)=>
         logger.error(s"framework run failed: ${err.getMessage}",err)
         sys.exit(1)

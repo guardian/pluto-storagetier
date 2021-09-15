@@ -73,7 +73,11 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
     override def handleShutdownSignal(consumerTag: String, sig: ShutdownSignalException): Unit = {
       logger.info(s"Broker connection is shutting down due to ${sig.getMessage}")
-      completionPromise.complete(Failure(sig))
+      if(sig.getMessage.contains("clean connection shutdown")) {
+        completionPromise.complete(Success())
+      } else {
+        completionPromise.complete(Failure(sig))
+      }
     }
 
     override def handleRecoverOk(consumerTag: String): Unit = {
@@ -141,9 +145,9 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
       result match {
         case Success(_)=>
-          logger.debug(s"${properties.getMessageId} Successfully handled message")
+          logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
         case Failure(err)=>
-          logger.error(s"${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
+          logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
       }
     }
   }
