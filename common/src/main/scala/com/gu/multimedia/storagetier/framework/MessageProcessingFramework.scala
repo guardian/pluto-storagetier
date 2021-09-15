@@ -192,7 +192,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
         logger.warn(s"Got unexpected value type for retry-count header on message id ${properties.map(_.getMessageId)}, resetting to 1")
         1
     }
-    val delayTime = List(math.pow(2, nextRetryCount), 60000).min.toInt
+    val delayTime = List(math.pow(2, nextRetryCount)*1000, 60000).min.toInt
     val updatedMsgHeaders = originalMsgHeaders ++ Map("retry-count"->nextRetryCount.asInstanceOf[AnyRef])
     val newProps = new BasicProperties.Builder()
       .contentType("application/json")
