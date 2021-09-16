@@ -118,7 +118,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
 
       val expectedProperties = new BasicProperties.Builder()
         .contentType("application/json")
-        .expiration("2.0")
+        .expiration("2000")
         .headers(Map("retry-count"->1.asInstanceOf[AnyRef]).asJava)
         .build()
 
@@ -230,7 +230,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
 
     val expectedProperties = new BasicProperties.Builder()
       .contentType("application/json")
-      .expiration("2.0")
+      .expiration("2000")
       .headers(Map("retry-count"->1.asInstanceOf[AnyRef]).asJava)
       .build()
 
