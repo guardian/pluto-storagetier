@@ -22,7 +22,7 @@ object Main {
   )
 
   def main(args:Array[String]) = {
-    val framework = new MessageProcessingFramework(
+    MessageProcessingFramework(
       "storagetier-online-archive",
       "storagetier-online-archive-out",
       "pluto.storagetier.online-archive",
@@ -30,25 +30,27 @@ object Main {
       "storagetier-online-archive-fail",
       "storagetier-online-archive-dlq",
       config
-    )
+    ) match {
+      case Left(err) => logger.error(s"Could not initiate message processing framework: $err")
+      case Right(framework) =>
+        //install a signal handler to terminate cleanly on INT (keyboard interrupt) and TERM (Kubernetes pod shutdown)
+        val terminationHandler = new SignalHandler {
+          override def handle(signal: Signal): Unit = {
+            logger.info(s"Caught signal $signal, terminating")
+            framework.terminate()
+          }
+        }
+        Signal.handle(new Signal("INT"), terminationHandler)
+        Signal.handle(new Signal("HUP"), terminationHandler)
+        Signal.handle(new Signal("TERM"), terminationHandler)
 
-    //install a signal handler to terminate cleanly on INT (keyboard interrupt) and TERM (Kubernetes pod shutdown)
-    val terminationHandler = new SignalHandler {
-      override def handle(signal: Signal): Unit = {
-        logger.info(s"Caught signal $signal, terminating")
-        framework.terminate()
-      }
+        framework.run().onComplete({
+          case Success(_) =>
+            logger.info(s"framework run completed")
+          case Failure(err) =>
+            logger.error(s"framework run failed: ${err.getMessage}", err)
+            sys.exit(1)
+        })
     }
-    Signal.handle(new Signal("INT"), terminationHandler)
-    Signal.handle(new Signal("HUP"), terminationHandler)
-    Signal.handle(new Signal("TERM"), terminationHandler)
-
-    framework.run().onComplete({
-      case Success(_)=>
-        logger.info(s"framework run completed")
-      case Failure(err)=>
-        logger.error(s"framework run failed: ${err.getMessage}",err)
-        sys.exit(1)
-    })
   }
 }

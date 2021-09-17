@@ -134,7 +134,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
             rejectMessage(envelope, Some(properties), msg)
           } else {
             val targetProcessor = matchingExchanges.head.processor
-                targetProcessor.handleMessage(msg) match {
+                targetProcessor.handleMessage(envelope.getRoutingKey, msg) match {
                   case Left(errDesc)=>
                     rejectMessage(envelope, Option(properties), msg)
                   case Right(returnValue)=>
@@ -248,5 +248,26 @@ class MessageProcessingFramework (ingest_queue_name:String,
    */
   def terminate(timeout:Int=30000) = Try {
     conn.close(timeout)
+  }
+}
+
+object MessageProcessingFramework {
+  def apply(ingest_queue_name:String,
+            output_exchange_name:String,
+            routingKeyForSend: String,
+            retryExchangeName:String,
+            failedExchangeName:String,
+            failedQueueName:String,
+            handlers:Seq[ProcessorConfiguration])
+           (implicit connectionFactoryProvider: ConnectionFactoryProvider) = {
+    val exchangeNames = handlers.map(_.exchangeName)
+    if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
+      Left(s"You have ${exchangeNames.length-exchangeNames.distinct.length} duplicate exchange names in your configuration, that is not valid.")
+    } else {
+      Right(
+        new MessageProcessingFramework(ingest_queue_name, output_exchange_name,
+          routingKeyForSend, retryExchangeName, failedExchangeName, failedQueueName, handlers)
+      )
+    }
   }
 }

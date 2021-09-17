@@ -6,6 +6,10 @@ import slick.jdbc.PostgresProfile.api._
 
 import scala.concurrent.Future
 
+/**
+ * This trait defines a protocol for our basic data access objects, i.e. to write and delete records
+ * @tparam T the type of the database table row class in question
+ */
 trait GenericDAO[T <: AbstractTable[_]] {
   protected val db:Database
   /**

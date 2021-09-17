@@ -84,7 +84,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was no(mockedMessageProcessor).handleMessage(any)
+      there was no(mockedMessageProcessor).handleMessage(any, any)
     }
 
     "reject and retry a valid message if there is no configured handler" in {
@@ -137,7 +137,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was no(mockedMessageProcessor).handleMessage(any)
+      there was no(mockedMessageProcessor).handleMessage(any, any)
     }
 
     "pass a valid message to the configured handler and return a successful reply" in {
@@ -152,7 +152,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
 
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any) returns Right(responseMsg)
+      mockedMessageProcessor.handleMessage(any, any) returns Right(responseMsg)
       val handlers = Seq(
         ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
       )
@@ -194,7 +194,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was one(mockedMessageProcessor).handleMessage(any)
+      there was one(mockedMessageProcessor).handleMessage(any, any)
     }
   }
 
@@ -209,7 +209,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
     connectionFactoryProvider.get() returns mockRmqFactory
 
     val mockedMessageProcessor = mock[MessageProcessor]
-    mockedMessageProcessor.handleMessage(any) returns Left("test error")
+    mockedMessageProcessor.handleMessage(any, any) returns Left("test error")
 
     val handlers = Seq(
       ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
@@ -249,6 +249,6 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       any,
       any
     )
-    there was no(mockedMessageProcessor).handleMessage(any)
+    there was no(mockedMessageProcessor).handleMessage(any, any)
   }
 }
