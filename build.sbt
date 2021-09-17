@@ -32,6 +32,7 @@ lazy val `common` = (project in file("common"))
     Docker / aggregate := false,
     Docker / publish := {},
     libraryDependencies ++= Seq(
+      "com.rabbitmq" % "amqp-client" % "5.13.1",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,

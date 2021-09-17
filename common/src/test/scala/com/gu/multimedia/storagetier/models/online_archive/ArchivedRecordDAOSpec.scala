@@ -22,7 +22,7 @@ class ArchivedRecordDAOSpec extends Specification with BeforeAll with AfterEach 
 
   private val dao = new ArchivedRecordDAO(db)
 
-  override def beforeAll: Unit = {
+  override def beforeAll(): Unit = {
     db.run(
       TableQuery[ArchivedRecordRow].schema.createIfNotExists
     )

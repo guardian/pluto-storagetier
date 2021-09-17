@@ -7,7 +7,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
 
-class ArchivedRecordDAO(db:Database) extends GenericDAO[ArchivedRecord]{
+class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[ArchivedRecordRow]{
   override def writeRecord(rec: ArchivedRecord):Future[Int] = {
     rec.id match {
       case None=>               //no id => try to insert the record
