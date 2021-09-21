@@ -33,6 +33,7 @@ lazy val `common` = (project in file("common"))
     Docker / publish := {},
     libraryDependencies ++= Seq(
       "com.rabbitmq" % "amqp-client" % "5.13.1",
+      "commons-codec" % "commons-codec" % "1.15",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
@@ -40,10 +41,10 @@ lazy val `common` = (project in file("common"))
       "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
       "org.postgresql" % "postgresql" % "42.2.23",
       "org.slf4j" % "slf4j-api" % slf4jVersion,
-      "ch.qos.logback" % "logback-core" % "1.2.5",
-      "ch.qos.logback" % "logback-classic" % "1.2.5",
-      "org.specs2" %% "specs2-core" % "4.12.3" % Test,
-      "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
+      "ch.qos.logback" % "logback-core" % "1.2.6",
+      "ch.qos.logback" % "logback-classic" % "1.2.6",
+      "org.specs2" %% "specs2-core" % "4.12.12" % Test,
+      "org.specs2" %% "specs2-mock" % "4.12.12" % Test,
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test
     )
   )
@@ -63,6 +64,7 @@ lazy val `online_archive` = (project in file("online_archive"))
     dockerBaseImage := "openjdk:11-jdk-slim",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-archive",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
