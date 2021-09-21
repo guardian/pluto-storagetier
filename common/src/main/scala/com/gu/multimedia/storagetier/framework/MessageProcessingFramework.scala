@@ -39,12 +39,14 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                  (implicit connectionFactoryProvider: ConnectionFactoryProvider){
   private val logger = LoggerFactory.getLogger(getClass)
   private lazy val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
+  private lazy val rmqVhost = sys.env.getOrElse("RABBITMQ_VHOST","pluto-ng")
   private val factory = connectionFactoryProvider.get()
   private val cs = Charset.forName("UTF-8")
 
   private val completionPromise = Promise[Unit]
 
   factory.setHost(rmqHost)
+  factory.setVirtualHost(rmqVhost)
   factory.setCredentialsProvider(new DefaultCredentialsProvider(
     sys.env.getOrElse("RABBITMQ_USER","storagetier"),
     sys.env.getOrElse("RABBITMQ_PASSWORD","password")

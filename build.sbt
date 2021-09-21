@@ -60,7 +60,7 @@ lazy val `online_archive` = (project in file("online_archive"))
     Docker / dockerRepository := Some("guardianmultimedia"),
     Docker / packageName := "guardianmultimedia/storagetier-online-archive",
     packageName := "mediacensus",
-    dockerBaseImage := "openjdk:11-jdk-alpine",
+    dockerBaseImage := "openjdk:11-jdk-slim",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-archive",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,

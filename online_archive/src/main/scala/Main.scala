@@ -15,7 +15,7 @@ object Main {
 
   val config = Seq(
     ProcessorConfiguration(
-      "test-input-exchange",
+      "assetsweeper",
       "#",
       new FakeMessageProcessor(db)
     )
