@@ -202,7 +202,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
         _.map(record=>{
           val req = HttpRequest(uri = s"${config.baseUri}/pluto-core/api/project/${record.project}")
           callToPluto[ProjectRecord](req)
-        }).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] here into a Future[Option[Option]]
+        }).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] into a Future[Option[Option]]
       )
   }
 }

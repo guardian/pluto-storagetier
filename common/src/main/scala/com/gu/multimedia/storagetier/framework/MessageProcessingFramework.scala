@@ -114,7 +114,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
     override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]): Unit = {
       val matchingExchanges = handlers.filter(_.exchangeName==envelope.getExchange)
 
-      val result = convertToUTFString(body).flatMap(wrappedParse) match {
+      convertToUTFString(body).flatMap(wrappedParse) match {
         case Left(err)=>
           //drop the dodgy message and send it directly to the DLX
           channel.basicNack(envelope.getDeliveryTag, false, false)
@@ -136,20 +136,19 @@ class MessageProcessingFramework (ingest_queue_name:String,
             rejectMessage(envelope, Some(properties), msg)
           } else {
             val targetProcessor = matchingExchanges.head.processor
-                targetProcessor.handleMessage(envelope.getRoutingKey, msg) match {
-                  case Left(errDesc)=>
-                    rejectMessage(envelope, Option(properties), msg)
-                  case Right(returnValue)=>
-                    confirmMessage(envelope.getDeliveryTag, returnValue)
-                }
+              targetProcessor.handleMessage(envelope.getRoutingKey, msg).map({
+                case Left(errDesc)=>
+                  logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
+                  rejectMessage(envelope, Option(properties), msg)
+                  logger.debug(s"MsgID ${properties.getMessageId} Successfully rejected message")
+                case Right(returnValue)=>
+                  confirmMessage(envelope.getDeliveryTag, returnValue)
+                  logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
+              }).recover({
+                case err:Throwable=>
+                  logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
+              })
             }
-      }
-
-      result match {
-        case Success(_)=>
-          logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
-        case Failure(err)=>
-          logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
       }
     }
   }

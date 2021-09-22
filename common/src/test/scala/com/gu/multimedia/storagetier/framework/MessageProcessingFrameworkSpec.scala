@@ -7,7 +7,10 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import io.circe.syntax._
 import io.circe.generic.auto._
+
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class MessageProcessingFrameworkSpec extends Specification with Mockito {
   "MessageProcessingFramework" should {
@@ -152,7 +155,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
 
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any, any) returns Right(responseMsg)
+      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
       val handlers = Seq(
         ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
       )
@@ -209,7 +212,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
     connectionFactoryProvider.get() returns mockRmqFactory
 
     val mockedMessageProcessor = mock[MessageProcessor]
-    mockedMessageProcessor.handleMessage(any, any) returns Left("test error")
+    mockedMessageProcessor.handleMessage(any, any) returns Future(Left("test error"))
 
     val handlers = Seq(
       ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
