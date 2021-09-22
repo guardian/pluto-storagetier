@@ -71,6 +71,7 @@ lazy val `online_archive` = (project in file("online_archive"))
       "org.scala-lang.modules" %% "scala-xml" % "2.0.1",
       "org.specs2" %% "specs2-core" % "4.12.3" % Test,
       "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
-      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test
+      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
+      "com.amazonaws" % "aws-java-sdk-s3" % "1.11.372"
     )
   )
