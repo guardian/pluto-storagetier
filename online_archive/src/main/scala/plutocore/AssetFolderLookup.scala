@@ -167,6 +167,13 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
     }
   }
 
+  protected def putBackBase(path:Path):Either[String, Path] = {
+    Try { config.assetFolderBasePath.resolve(path) } match {
+      case Success(p)=>Right(p)
+      case Failure(err)=>Left(err.getMessage)
+    }
+  }
+
   /**
    * try to find the asset folder associated with the given file
    * @param forFile a Path representing the _file name_ (not directory!) to look up
@@ -178,14 +185,15 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
     val maybeAssetFolder = for {
       relativePath <- relativizeFilePath(forFile)
       assetFolder <- findExpectedAssetfolder(relativePath)
-    } yield assetFolder
+      fullPath <- putBackBase(assetFolder)
+    } yield fullPath
 
     maybeAssetFolder match {
       case Left(err)=>
         logger.warn(err)
         Future(None)
       case Right(assetFolder)=>
-        val req = HttpRequest(uri = s"${config.baseUri}/pluto-core/api/assetfolder/lookup?path=${URLEncoder.encode(assetFolder.toString, StandardCharsets.UTF_8)}")
+        val req = HttpRequest(uri = s"${config.baseUri}/api/assetfolder/lookup?path=${URLEncoder.encode(assetFolder.toString, StandardCharsets.UTF_8)}")
         callToPluto[AssetFolderRecord](req)
     }
   }
@@ -202,7 +210,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
     assetFolderRecordLookup(forFile)
       .flatMap(
         _.map(record=>{
-          val req = HttpRequest(uri = s"${config.baseUri}/pluto-core/api/project/${record.project}")
+          val req = HttpRequest(uri = s"${config.baseUri}/api/project/${record.project}")
           callToPluto[ProjectRecord](req)
         }).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] into a Future[Option[Option]]
       )

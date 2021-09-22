@@ -34,22 +34,34 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     maybeProject match {
       case Some(project)=>
         if(project.deletable.getOrElse(false)) {  //If the project is marked as “deletable”, record to datastore as “ignored”
+          logger.info(s"Not archiving '$fullPath' as it belongs to '${project.title}' (${project.id.map(i=>s"project id $i").getOrElse("no project id")}) which is marked as deletable")
           //FIXME: currently no way to indicate "ignored" on the datastore records
           //FIXME: made-up json syntax
           Future(
             Right(
-              Map("status"->"ok","ignored"->"true", "filepath"->fullPath.toString, "directory"->file.filepath, "filename"->file.filename, "reason"->"Project is deletable").asJson
+              Map("status"->"ok",
+                "ignored"->"true",
+                "filepath"->fullPath.toString,
+                "directory"->file.filepath,
+                "filename"->file.filename,
+                "reason"->"Project is deletable").asJson
             )
           )
         } else if(project.sensitive.getOrElse(false)) {
+          logger.info(s"Not archiving '$fullPath' as it belongs to '${project.title}' (${project.id.map(i=>s"project id $i").getOrElse("no project id")}) which is marked as sensitive")
           //FIXME: currently no way to indicate "ignored" on the datastore records
           //FIXME: made-up json syntax
           Future(
             Right(
-              Map("status"->"ok","ignored"->"true", "filepath"->fullPath.toString, "directory"->file.filepath, "filename"->file.filename, "reason"->"Project is sensitive").asJson
+              Map("status"->"ok","ignored"->"true",
+                "filepath"->fullPath.toString,
+                "directory"->file.filepath,
+                "filename"->file.filename,
+                "reason"->"Project is sensitive").asJson
             )
           )
         } else {
+          logger.info(s"Archiving file '$fullPath'")
           Future(
             Left(
               "not implemented yet"
@@ -65,6 +77,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
         )
     }
   }
+
   /**
    * Override this method in your subclass to handle an incoming message
    *
