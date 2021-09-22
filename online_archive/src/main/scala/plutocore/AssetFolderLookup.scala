@@ -181,7 +181,9 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
     } yield assetFolder
 
     maybeAssetFolder match {
-      case Left(err)=>Future.failed(new RuntimeException(err))
+      case Left(err)=>
+        logger.warn(err)
+        Future(None)
       case Right(assetFolder)=>
         val req = HttpRequest(uri = s"${config.baseUri}/pluto-core/api/assetfolder/lookup?path=${URLEncoder.encode(assetFolder.toString, StandardCharsets.UTF_8)}")
         callToPluto[AssetFolderRecord](req)

@@ -147,6 +147,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
               }).recover({
                 case err:Throwable=>
                   logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
+                  rejectMessage(envelope, Option(properties), msg)
               })
             }
       }
