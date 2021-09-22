@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.framework.MessageProcessor
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import io.circe.Json
 import messages.AssetSweeperNewFile
 import io.circe.generic.auto._
@@ -15,7 +15,12 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
-                                  (implicit archivedRecordDAO: ArchivedRecordDAO, failureRecordDAO: FailureRecordDAO, ec:ExecutionContext, mat:Materializer, system:ActorSystem) extends MessageProcessor {
+                                  (implicit archivedRecordDAO: ArchivedRecordDAO,
+                                   failureRecordDAO: FailureRecordDAO,
+                                   ignoredRecordDAO: IgnoredRecordDAO,
+                                   ec:ExecutionContext,
+                                   mat:Materializer,
+                                   system:ActorSystem) extends MessageProcessor {
   private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -31,50 +36,45 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     })
 
   def processFileAndProject(file:AssetSweeperNewFile, fullPath:Path, maybeProject: Option[ProjectRecord]):Future[Either[String, Json]] = {
-    maybeProject match {
+    val ignoreReason = maybeProject match {
       case Some(project)=>
         if(project.deletable.getOrElse(false)) {  //If the project is marked as “deletable”, record to datastore as “ignored”
           logger.info(s"Not archiving '$fullPath' as it belongs to '${project.title}' (${project.id.map(i=>s"project id $i").getOrElse("no project id")}) which is marked as deletable")
-          //FIXME: currently no way to indicate "ignored" on the datastore records
-          //FIXME: made-up json syntax
-          Future(
-            Right(
-              Map("status"->"ok",
-                "ignored"->"true",
-                "filepath"->fullPath.toString,
-                "directory"->file.filepath,
-                "filename"->file.filename,
-                "reason"->"Project is deletable").asJson
-            )
-          )
+          Some(s"project ${project.id.getOrElse(-1)} is deletable")
         } else if(project.sensitive.getOrElse(false)) {
           logger.info(s"Not archiving '$fullPath' as it belongs to '${project.title}' (${project.id.map(i=>s"project id $i").getOrElse("no project id")}) which is marked as sensitive")
-          //FIXME: currently no way to indicate "ignored" on the datastore records
-          //FIXME: made-up json syntax
-          Future(
-            Right(
-              Map("status"->"ok","ignored"->"true",
-                "filepath"->fullPath.toString,
-                "directory"->file.filepath,
-                "filename"->file.filename,
-                "reason"->"Project is sensitive").asJson
-            )
-          )
+          Some(s"project ${project.id.getOrElse(-1)} is sensitive")
         } else {
-          logger.info(s"Archiving file '$fullPath'")
-          Future(
-            Left(
-              "not implemented yet"
-            )
-          )
+          None
         }
       case None=>
         logger.warn(s"No project could be found that is associated with ${fullPath}, assuming that it does need external archive")
+        None
+    }
+
+    ignoreReason match {
+      case None=> //no reason to ignore - we should archive
+        logger.info(s"Archiving file '$fullPath'")
         Future(
-          Right(
-            Map("status"->"ok","ignored"->"true", "filepath"->fullPath.toString, "directory"->file.filepath, "filename"->file.filename, "reason"->"Project is sensitive").asJson
+          Left(
+            "not implemented yet"
           )
         )
+      case Some(reason)=>
+        val rec = IgnoredRecord(None, fullPath.toString, reason, None, None)
+        //record the fact we ignored the file to the database. This should not raise duplicate record errors.
+        ignoredRecordDAO
+          .writeRecord(rec)
+          .map(_=> {
+            //FIXME: made-up json syntax
+            Right(
+              Map("status" -> "ok", "ignored" -> "true",
+                "filepath" -> fullPath.toString,
+                "directory" -> file.filepath,
+                "filename" -> file.filename,
+                "reason" -> reason).asJson
+            )
+          })
     }
   }
 

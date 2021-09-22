@@ -2,9 +2,10 @@ package com.gu.multimedia.storagetier.models.online_archive
 import com.gu.multimedia.storagetier.models.GenericDAO
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.JdbcBackend.Database
+import slick.jdbc.meta.MTable
 import slick.lifted.TableQuery
-import scala.concurrent.ExecutionContext.Implicits.global
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[ArchivedRecordRow]{
@@ -38,4 +39,16 @@ class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[A
       TableQuery[ArchivedRecordRow].filter(_.id===pk).delete
     )
   }
+
+  override def initialiseSchema = db.run(
+    //Workaround for Slick _always_ trying to create indexes even if .createIfNotExist is used
+    //See https://github.com/lagom/lagom/issues/1720#issuecomment-459351282
+    MTable.getTables.flatMap { tables=>
+      if(!tables.exists(_.name.name == TableQuery[ArchivedRecordRow].baseTableRow.tableName)) {
+        TableQuery[ArchivedRecordRow].schema.create
+      } else {
+        DBIO.successful(())
+      }
+    }.transactionally
+  )
 }

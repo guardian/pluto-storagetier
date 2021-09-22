@@ -52,4 +52,8 @@ class FailureRecordDAO(override protected val db:Database) extends GenericDAO[Fa
       TableQuery[FailureRecordRow].filter(_.id === pk).delete
     )
   }
+
+  override def initialiseSchema = db.run(
+    TableQuery[FailureRecordRow].schema.createIfNotExists
+  )
 }

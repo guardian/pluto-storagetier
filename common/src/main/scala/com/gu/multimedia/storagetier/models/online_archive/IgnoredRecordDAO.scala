@@ -1,14 +1,18 @@
 package com.gu.multimedia.storagetier.models.online_archive
 
 import com.gu.multimedia.storagetier.models.GenericDAO
+import org.postgresql.util.PSQLException
+import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend.Database
 import slick.lifted.TableQuery
 import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.meta.MTable
+
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecordRow] {
-
+  private val logger = LoggerFactory.getLogger(getClass)
 
   /**
    * Write the given record to the database, returning a Future containing the written record primary key.
@@ -24,7 +28,17 @@ class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecor
       case None=>
         db.run(
           TableQuery[IgnoredRecordRow] returning TableQuery[IgnoredRecordRow].map(_.id) += rec
-        )
+        ).recoverWith({
+          case err:PSQLException=>
+            //catch duplicate key value errors as we don't want them to be fatal.
+            //if you need to find out whether the record was set then check the returned int, 0 => nothing
+            if(err.getMessage.contains("duplicate key value violates unique constraint")) {
+              logger.debug(s"already have a record for ${rec.originalFilePath}")
+              Future(0)
+            } else {
+              Future.failed(err)
+            }
+        })
       case Some(existingId)=>
         db.run(
           TableQuery[IgnoredRecordRow].filter(_.id===existingId).update(rec)
@@ -54,4 +68,17 @@ class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecor
       TableQuery[IgnoredRecordRow].filter(_.id===pk).delete
     )
   }
+
+  override def initialiseSchema = db.run(
+    //Workaround for Slick _always_ trying to create indexes even if .createIfNotExist is used
+    //See https://github.com/lagom/lagom/issues/1720#issuecomment-459351282
+    MTable.getTables.flatMap { tables=>
+      if(!tables.exists(_.name.name == TableQuery[IgnoredRecordRow].baseTableRow.tableName)) {
+        TableQuery[IgnoredRecordRow].schema.create
+      } else {
+        DBIO.successful(())
+      }
+    }.transactionally
+
+  )
 }

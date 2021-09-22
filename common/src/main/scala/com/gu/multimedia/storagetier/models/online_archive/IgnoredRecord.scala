@@ -11,5 +11,6 @@ class IgnoredRecordRow(tag:Tag) extends Table[IgnoredRecord](tag, "onlinearchive
   def vidispineItemId = column[Option[String]]("s_vidispine_item_id")
   def vidispineVersionId = column[Option[Int]]("s_vidispine_version_id")
 
+  def filePathIndex = index("filepath_unique", originalFilePath, unique = true)
   def * = (id.?, originalFilePath, ignoreReason, vidispineItemId, vidispineVersionId) <> (IgnoredRecord.tupled, IgnoredRecord.unapply)
 }
