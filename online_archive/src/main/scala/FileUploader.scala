@@ -1,76 +1,59 @@
-import com.amazonaws.{AmazonClientException, AmazonServiceException}
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.model.AmazonS3Exception
 import com.amazonaws.services.s3.transfer.{TransferManagerBuilder, Upload}
 import org.slf4j.LoggerFactory
 
 import java.io.File
+import scala.util.{Success, Failure, Try}
 
-object FileUploader {
+class FileUploader(client: AmazonS3, bucketName: String) {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def copyFileToS3(client: AmazonS3, bucketName: String, fileName: String): Unit = {
+  def copyFileToS3(fileName: String): Try[Option[String]] = Try {
     val file: File = new File(fileName)
 
-    if (!file.exists || !file.isFile)
-      return
-
-    // TODO is this the correct path
-    val filePath = file.getAbsolutePath
-
-    // Check if a matching (path and size) file exists in S3
-    try {
-      val metadata = client.getObjectMetadata(bucketName, filePath)
-      val objectSize = metadata.getContentLength
-
-      if (file.length == objectSize) {
-        logger.info(s"File $fileName already exist on S3")
-        return
-      }
-
-      logger.warn(s"File $fileName with different file size already exist on S3, creating file with incremented name instead")
-      tryUploadFileName(client, bucketName, filePath, 1)
-    } catch {
-      case _: AmazonS3Exception =>
-        // no file exists upload file
-        uploadFile(client, bucketName, file, filePath)
+    if (!file.exists || !file.isFile) {
+      logger.info(s"File $fileName doesn't exist")
+      return Try(None)
     }
+
+    return Try(tryUploadFile(file))
   }
 
-  private def tryUploadFileName(client: AmazonS3, bucketName: String, fileName: String, increment: Int): Unit = {
-    val file: File = new File(fileName)
+  private def tryUploadFile(file: File, increment: Int = 0): Option[String] = {
     // TODO is this the correct file path?
     val filePath = file.getAbsolutePath
+    val newFilePath = if (increment > 0) s"$filePath-$increment" else filePath
 
-    val newFilePath = s"$filePath-$increment"
-    try {
+    Try {
       client.getObjectMetadata(bucketName, newFilePath)
+    } match {
+      case Success(metadata) =>
+        val objectSize = metadata.getContentLength
+        if (file.length == objectSize) {
+          logger.info(s"Object $newFilePath already exist on S3")
+          return None
+        }
 
-      // file already exist, try next increment
-      tryUploadFileName(client, bucketName, fileName, increment + 1)
-    } catch {
-      case _: AmazonS3Exception =>
-        // no file exists upload file
-        uploadFile(client, bucketName, file, newFilePath)
+        logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
+        tryUploadFile(file, increment + 1)
+
+      case Failure(e) =>
+        e match {
+          case _: AmazonS3Exception =>
+            uploadFile(file, newFilePath)
+          case _ => throw e
+        }
     }
   }
 
-  private def uploadFile(client: AmazonS3, bucketName: String, file: File, keyName: String): Unit = {
+  private def uploadFile(file: File, keyName: String): Option[String] = {
     val transferManager = TransferManagerBuilder.standard.withS3Client(client).build
 
     try {
       val transfer: Upload = transferManager.upload(bucketName, keyName, file)
-      try {
-        transfer.waitForCompletion()
-        logger.info(s"Successfully uploaded file $keyName to S3 $bucketName")
-      } catch {
-        case e: AmazonServiceException => logger.error(s"Failed to upload file $keyName to S3 $bucketName. ${e.getMessage}", e)
-        case e: AmazonClientException => logger.error(s"Failed to upload file $keyName to S3 $bucketName. ${e.getMessage}", e)
-        case e: InterruptedException => logger.error(s"Failed to upload file $keyName to S3 $bucketName. ${e.getMessage}", e)
-      }
-    } catch {
-      case e: AmazonServiceException =>
-        logger.error(s"Failed to upload file $keyName to S3 $bucketName. ${e.getMessage}", e)
+      transfer.waitForCompletion()
+      Some(keyName)
     } finally {
       transferManager.shutdownNow()
     }
