@@ -177,6 +177,10 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         .contentType("application/octet-stream")
         .build()
 
+      //the consumer has been updated to expect an asynchronous reply from the processor, but we have no easy way of
+      //finding the future to wait on it here. So, do it the hacky way for the time being and assume that it will
+      //run within a couple of seconds
+      Thread.sleep(2000)
       there was one(mockRmqChannel).basicAck(12345678L, false)
       there was no(mockRmqChannel).basicNack(any,any,any)
       there was one(mockRmqChannel).basicPublish(
