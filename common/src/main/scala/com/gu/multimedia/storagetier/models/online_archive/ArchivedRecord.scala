@@ -4,6 +4,7 @@ import slick.jdbc.PostgresProfile.api._
 
 case class ArchivedRecord(id:Option[Int],
                           archiveHunterID:String,
+                          archiveHunterIDValidated:Boolean,
                           originalFilePath:String,
                           uploadedBucket:String,
                           uploadedPath:String,
@@ -26,6 +27,7 @@ object ArchivedRecord extends ((Option[Int], String, String, String, String, Opt
 class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearchive_archived_record") {
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
   def archiveHunterID = column[String]("s_archivehunter_id")
+  def archiveHunterIDValidated = column[Boolean]("b_archivehunter_id_validated")
   def originalFilePath = column[String]("s_original_filepath")
   def uploadedBucket = column[String]("s_uploaded_bucket")
   def uploadedPath = column[String]("s_uploaded_path")
@@ -42,5 +44,5 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearch
   def archiveHunterIdIds = index("archivehunter_id_idx", archiveHunterID, unique = true)
   def vidispineIdIdx = index("vidispine_item_idx", vidispineItemId)
 
-  def * = (id.?, archiveHunterID, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
+  def * = (id.?, archiveHunterID, archiveHunterIDValidated, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
 }

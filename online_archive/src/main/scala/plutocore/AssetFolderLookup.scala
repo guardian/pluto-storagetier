@@ -24,41 +24,12 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
   private implicit val dispatcher = actorSystem.dispatcher
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val multiSlashRemover = "^/{2,}".r
-
-  /**
-   * internal method that consumes a given response entity to a String
-   *
-   * @param entity ResponseEntity object
-   * @return a Future containing the String of the content
-   */
-  private def consumeResponseEntity(entity: ResponseEntity) = {
-    val sink = Sink.reduce[ByteString]((acc, elem) => acc ++ elem)
-    entity.dataBytes.toMat(sink)(Keep.right).run().map(_.utf8String)
-  }
-
-  /**
-   * convenience method that consumes a given response entity and parses it into a Json object
-   *
-   * @param entity ResponseEntity object
-   * @return a Future containing either the ParsingFailure error or the parsed Json object
-   */
-  def consumeResponseEntityJson(entity: ResponseEntity) = consumeResponseEntity(entity)
-    .map(io.circe.parser.parse)
+  import utils.AkkaHttpHelpers._
 
   /* extract call to static object to make testing easier */
   def callHttp = Http()
 
-  def contentBodyToJson[T: io.circe.Decoder](contentBody: Future[String]) = contentBody
-    .map(io.circe.parser.parse)
-    .map(_.map(json => (json \\ "result").headOption.getOrElse(json))) //if the actual object is hidden under a "result" field take that
-    .map(_.flatMap(_.as[T]))
-    .map({
-      case Left(err) =>
-        logger.error(s"Problematic response: ${contentBody.value}")
-        throw new RuntimeException("Could not understand server response: ", err)
-      case Right(data) => Some(data)
-    })
+  private val multiSlashRemover = "^/{2,}".r
 
   /**
    * internal method that performs a call to pluto, handles response codes/retries and unmarshals reutrned JSON to a domain object.

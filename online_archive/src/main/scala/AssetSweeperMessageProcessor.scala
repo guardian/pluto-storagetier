@@ -65,15 +65,8 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
         //record the fact we ignored the file to the database. This should not raise duplicate record errors.
         ignoredRecordDAO
           .writeRecord(rec)
-          .map(_=> {
-            //FIXME: made-up json syntax
-            Right(
-              Map("status" -> "ok", "ignored" -> "true",
-                "filepath" -> fullPath.toString,
-                "directory" -> file.filepath,
-                "filename" -> file.filename,
-                "reason" -> reason).asJson
-            )
+          .map(writtenRecord=> {
+            Right(writtenRecord.asJson)
           })
     }
   }
