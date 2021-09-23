@@ -28,42 +28,40 @@ object FileUploader {
         return
       }
 
-      // If a conflict (another file exists with different size)
-      // warn and upload it with a generated unique name (i.e. -1, -2, -3 etc. appended)
-      logger.warn(s"File $fileName already exist on S3, creating file with incremented name instead")
-      uploadFile(client, bucketName, filePath, 1)
+      logger.warn(s"File $fileName with different file size already exist on S3, creating file with incremented name instead")
+      tryUploadFileName(client, bucketName, filePath, 1)
     } catch {
       case _: AmazonS3Exception =>
         // no file exists upload file
-        transferFile(client, bucketName, file, filePath)
+        uploadFile(client, bucketName, file, filePath)
     }
   }
 
-  private def uploadFile(client: AmazonS3, bucketName: String, fileName: String, increment: Int): Unit = {
+  private def tryUploadFileName(client: AmazonS3, bucketName: String, fileName: String, increment: Int): Unit = {
     val file: File = new File(fileName)
     // TODO is this the correct file path?
     val filePath = file.getAbsolutePath
 
-    val newFilePath = s"$filePath-$increment";
+    val newFilePath = s"$filePath-$increment"
     try {
       client.getObjectMetadata(bucketName, newFilePath)
 
       // file already exist, try next increment
-      uploadFile(client, bucketName, fileName, increment + 1)
+      tryUploadFileName(client, bucketName, fileName, increment + 1)
     } catch {
       case _: AmazonS3Exception =>
         // no file exists upload file
-        transferFile(client, bucketName, file, newFilePath)
+        uploadFile(client, bucketName, file, newFilePath)
     }
   }
 
-  private def transferFile(client: AmazonS3, bucketName: String, file: File, keyName: String): Unit = {
+  private def uploadFile(client: AmazonS3, bucketName: String, file: File, keyName: String): Unit = {
     val transferManager = TransferManagerBuilder.standard.withS3Client(client).build
 
     try {
-      val transfer: Upload = transferManager.upload(bucketName, keyName, file);
+      val transfer: Upload = transferManager.upload(bucketName, keyName, file)
       try {
-        transfer.waitForCompletion
+        transfer.waitForCompletion()
         logger.info(s"Successfully uploaded file $keyName to S3 $bucketName")
       } catch {
         case e: AmazonServiceException => logger.error(s"Failed to upload file $keyName to S3 $bucketName. ${e.getMessage}", e)
@@ -74,7 +72,7 @@ object FileUploader {
       case e: AmazonServiceException =>
         logger.error(s"Failed to upload file $keyName to S3 $bucketName. ${e.getMessage}", e)
     } finally {
-      transferManager.shutdownNow();
+      transferManager.shutdownNow()
     }
   }
 }
