@@ -2,6 +2,8 @@ package com.gu.multimedia.storagetier.framework
 
 import io.circe.Json
 
+import scala.concurrent.Future
+
 /**
  * this trait represents the protocol which must be implemented by any message processor class.
  * In order to use it, simply subclass the trait in your class and implement the `handleMessage` method.
@@ -33,6 +35,6 @@ trait MessageProcessor {
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  def handleMessage(routingKey:String, msg:Json):Either[String,Json]
+  def handleMessage(routingKey:String, msg:Json):Future[Either[String,Json]]
 }
 

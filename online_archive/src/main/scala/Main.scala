@@ -1,9 +1,15 @@
+import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.gu.multimedia.storagetier.framework._
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import org.slf4j.LoggerFactory
+import plutocore.PlutoCoreEnvironmentConfigProvider
 import sun.misc.{Signal, SignalHandler}
 
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
+import scala.concurrent.duration._
 
 object Main {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -13,11 +19,24 @@ object Main {
   private val db = DatabaseProvider.get()
   private implicit val rmqConnectionFactoryProvider =  ConnectionFactoryProviderReal
 
+  private implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
+  private implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
+  private implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
+
+  private implicit lazy val actorSystem = ActorSystem()
+  private implicit lazy val mat = Materializer(actorSystem)
+  private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
+
   val config = Seq(
     ProcessorConfiguration(
       "assetsweeper",
-      "#",
-      new FakeMessageProcessor(db)
+      "assetsweeper.asset_folder_importer.file.#",
+      new AssetSweeperMessageProcessor(plutoConfig)
     )
   )
 
@@ -44,13 +63,24 @@ object Main {
         Signal.handle(new Signal("HUP"), terminationHandler)
         Signal.handle(new Signal("TERM"), terminationHandler)
 
-        framework.run().onComplete({
-          case Success(_) =>
-            logger.info(s"framework run completed")
-          case Failure(err) =>
-            logger.error(s"framework run failed: ${err.getMessage}", err)
-            sys.exit(1)
-        })
+        //first initialise all the tables that we need, then run the framework.
+        //add in more table initialises as required
+        Future.sequence(Seq(
+          ignoredRecordDAO.initialiseSchema,
+          archivedRecordDAO.initialiseSchema,
+          failureRecordDAO.initialiseSchema,
+        ))
+          .flatMap(_=>framework.run())
+          .onComplete({
+            case Success(_) =>
+              logger.info(s"framework run completed")
+              Await.ready(actorSystem.terminate(), 10.minutes)
+              sys.exit(0)
+            case Failure(err) =>
+              logger.error(s"framework run failed: ${err.getMessage}", err)
+              Await.ready(actorSystem.terminate(), 10.minutes)
+              sys.exit(1)
+          })
     }
   }
 }

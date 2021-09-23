@@ -26,6 +26,11 @@ trait GenericDAO[T <: AbstractTable[_]] {
 
   def deleteById(pk:Int):Future[Int]
 
+  /**
+   * intialises the given table, if it does not exist yet
+   * @return
+   */
+  def initialiseSchema:Future[Unit]
 //  def listRecords(limit:Int, startAt:Int):Future[Seq[T#TableElementType]] = {
 //    db.run(
 //      TableQuery[T].take(limit).drop(startAt).result

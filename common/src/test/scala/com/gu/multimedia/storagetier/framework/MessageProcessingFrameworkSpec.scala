@@ -7,7 +7,10 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import io.circe.syntax._
 import io.circe.generic.auto._
+
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class MessageProcessingFrameworkSpec extends Specification with Mockito {
   "MessageProcessingFramework" should {
@@ -152,7 +155,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
 
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any, any) returns Right(responseMsg)
+      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
       val handlers = Seq(
         ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
       )
@@ -174,6 +177,10 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         .contentType("application/octet-stream")
         .build()
 
+      //the consumer has been updated to expect an asynchronous reply from the processor, but we have no easy way of
+      //finding the future to wait on it here. So, do it the hacky way for the time being and assume that it will
+      //run within a couple of seconds
+      Thread.sleep(2000)
       there was one(mockRmqChannel).basicAck(12345678L, false)
       there was no(mockRmqChannel).basicNack(any,any,any)
       there was one(mockRmqChannel).basicPublish(
@@ -209,7 +216,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
     connectionFactoryProvider.get() returns mockRmqFactory
 
     val mockedMessageProcessor = mock[MessageProcessor]
-    mockedMessageProcessor.handleMessage(any, any) returns Left("test error")
+    mockedMessageProcessor.handleMessage(any, any) returns Future(Left("test error"))
 
     val handlers = Seq(
       ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
