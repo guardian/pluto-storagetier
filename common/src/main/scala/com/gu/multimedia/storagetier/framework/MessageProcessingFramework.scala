@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.framework
 
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider}
-import com.rabbitmq.client.{AMQP, Consumer, Envelope, ShutdownSignalException}
+import com.rabbitmq.client.{AMQP, Consumer, Envelope, LongString, ShutdownSignalException}
 import io.circe.Json
 
 import scala.concurrent.{Future, Promise}
@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory
 
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
+import java.util.UUID
 import scala.collection.mutable
 
 /**
@@ -27,6 +28,7 @@ import scala.collection.mutable
  * @param retryExchangeName name of the exchange that is used for dead-letter retries
  * @param failedExchangeName name of the dead-letter exchange that will be used for non-retryable messages
  * @param handlers handler configuration
+ * @param maximumDelayTime maximum time to set for a delivery retry, in milliseconds. Defaults to 120,000 (=2min)
  * @param connectionFactoryProvider implicitly provided ConnectionFactoryProvider, which allows us to get a rabbitmq instnace
  */
 class MessageProcessingFramework (ingest_queue_name:String,
@@ -35,7 +37,9 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   retryExchangeName:String,
                                   failedExchangeName:String,
                                   failedQueueName:String,
-                                  handlers:Seq[ProcessorConfiguration])
+                                  handlers:Seq[ProcessorConfiguration],
+                                  maximumDelayTime:Int=120000,
+                                  maximumRetryLimit:Int=500)
                                  (implicit connectionFactoryProvider: ConnectionFactoryProvider){
   private val logger = LoggerFactory.getLogger(getClass)
   private lazy val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
@@ -44,6 +48,10 @@ class MessageProcessingFramework (ingest_queue_name:String,
   private val cs = Charset.forName("UTF-8")
 
   private val completionPromise = Promise[Unit]
+
+  private val retryInputExchangeName = retryExchangeName + "-r"
+
+  import AMQPBasicPropertiesExtensions._
 
   factory.setHost(rmqHost)
   factory.setVirtualHost(rmqVhost)
@@ -87,21 +95,6 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }
 
     /**
-     * reliably decode a raw byte array into a UTF-8 string.
-     * @param raw raw byte array
-     * @return either a Right with the decoded string, or a Left with an error message
-     */
-    private def convertToUTFString(raw:Array[Byte]):Either[String,String] = {
-      try {
-        val buf = ByteBuffer.wrap(raw)
-        Right(cs.decode(buf).rewind().toString)
-      } catch {
-        case err:Throwable=>
-          Left(err.getMessage)
-      }
-    }
-
-    /**
      * wraps the circe parse method to change the Left type into a string,
      * in order to make it easier to compose
      * @param stringContent the string content to parse
@@ -112,30 +105,42 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }.left.map(_.getMessage())
 
     override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]): Unit = {
-      val matchingExchanges = handlers.filter(_.exchangeName==envelope.getExchange)
+      val matchingProcessors =
+        if(envelope.getExchange==retryInputExchangeName) {  //if the message came from the retry exchange, then look up the original exchange and use that
+          val retryAttempt = Try {
+            properties.getHeaders.asScala.getOrElse("retry-count",0).asInstanceOf[Int]
+          }.toOption.getOrElse(0)
+
+          logger.debug(s"Message ${properties.getMessageId} is a retry, on attempt ${retryAttempt}")
+          logger.debug(s"Message headers: ${properties.getHeaders}")
+
+          if(retryAttempt>=maximumRetryLimit) {
+            permanentlyRejectMessage(envelope, properties, body, "Too many retries")
+            return
+          }
+          properties.getHeader[LongString]("x-original-exchange") match {
+            case Some(effectiveExchange)=>
+              logger.debug(s"Original exchange is $effectiveExchange, routing to that processor")
+              handlers.filter(_.exchangeName==effectiveExchange.toString)
+            case None=>
+              logger.error(s"Could not determine the original exchange for retried message ${properties.getMessageId}")
+              Seq()
+          }
+        } else {  //otherwise just use the exchange given by the envelope
+          handlers.filter(_.exchangeName==envelope.getExchange)
+        }
+
+      logger.debug(s"${matchingProcessors.length} processors matched, will use the first")
 
       convertToUTFString(body).flatMap(wrappedParse) match {
         case Left(err)=>
-          //drop the dodgy message and send it directly to the DLX
-          channel.basicNack(envelope.getDeliveryTag, false, false)
-          logger.error(s"Message with ID ${properties.getMessageId} is invalid and will be dropped.")
-          logger.error(s"${properties.getMessageId}: invalid content was ${convertToUTFString(body)}")
-          logger.error(s"${properties.getMessageId}: error was $err")
-          val originalHeaders = Option(properties.getHeaders).map(_.asScala).getOrElse(mutable.Map())
-          val updatedHeaders = originalHeaders ++ mutable.Map("error"->err)
-          val dlqProps = new AMQP.BasicProperties.Builder()
-            .contentType("application/octet-stream")
-            .messageId(properties.getMessageId)
-            .headers(updatedHeaders.asJava)
-            .build()
-
-          Try { channel.basicPublish(failedExchangeName, envelope.getRoutingKey, dlqProps, body) }
+          permanentlyRejectMessage(envelope, properties, body, err)
         case Right(msg)=>
-          if(matchingExchanges.isEmpty) {
+          if(matchingProcessors.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
             rejectMessage(envelope, Some(properties), msg)
           } else {
-            val targetProcessor = matchingExchanges.head.processor
+            val targetProcessor = matchingProcessors.head.processor
               targetProcessor.handleMessage(envelope.getRoutingKey, msg).map({
                 case Left(errDesc)=>
                   logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
@@ -153,6 +158,22 @@ class MessageProcessingFramework (ingest_queue_name:String,
       }
     }
   }
+
+  /**
+   * reliably decode a raw byte array into a UTF-8 string.
+   * @param raw raw byte array
+   * @return either a Right with the decoded string, or a Left with an error message
+   */
+  private def convertToUTFString(raw:Array[Byte]):Either[String,String] = {
+    try {
+      val buf = ByteBuffer.wrap(raw)
+      Right(cs.decode(buf).rewind().toString)
+    } catch {
+      case err:Throwable=>
+        Left(err.getMessage)
+    }
+  }
+
 
   /**
    * internal method.
@@ -173,9 +194,39 @@ class MessageProcessingFramework (ingest_queue_name:String,
     channel.basicPublish(output_exchange_name, routingKeyForSend, msgProps, stringContent.getBytes(cs))
   }
 
+  private def permanentlyRejectMessage(envelope: Envelope, properties:AMQP.BasicProperties, body:Array[Byte], err:String) = {
+    //drop the dodgy message and send it directly to the DLX
+    channel.basicNack(envelope.getDeliveryTag, false, false)
+    logger.error(s"Message with ID ${properties.getMessageId} is invalid and will be dropped.")
+    logger.error(s"${properties.getMessageId}: invalid content was ${convertToUTFString(body)}")
+    logger.error(s"${properties.getMessageId}: error was $err")
+    val originalHeaders = Option(properties.getHeaders).map(_.asScala).getOrElse(mutable.Map())
+
+    val updatedHeaders = originalHeaders ++ mutable.Map(
+      "error"->err,
+      "x-original-exchange"->envelope.getExchange,
+      "x-original-routing-key"->envelope.getRoutingKey
+    )
+
+    val dlqProps = new AMQP.BasicProperties.Builder()
+      .contentType("application/octet-stream")
+      .messageId(properties.getMessageId)
+      .headers(updatedHeaders.asJava)
+      .build()
+
+    Try { channel.basicPublish(failedExchangeName, envelope.getRoutingKey, dlqProps, body) }
+  }
+
   /**
    * internal method.
    * Performs message rejection by pushing it onto a retry-queue unless there have been too many retries.
+   * Exponential backoff is implemented through a deadletter queue mechanism - the message is re-sent here onto the
+   * "retry exchange" with an "expiration" property equal to the delay time. The "retry exchange" then forwards on to
+   * a "retry queue" which holds the message until the "expiration" time is up, then dead-letters it onto the "retry input
+   * exchange".  The "retry input exchange" is bound to a "retry input queue" which receives the message.  We subscribe to
+   * the "retry input queue" so an instance will the receive the message.
+   * We set some custom headers on the message so we can tell which exchange it was originally sent from and route it
+   * internally to the correct processor
    * Note that 'rejected' messages are still ACK'd as they are sent on to a delay exchange
    * @param envelope message Envelope
    * @param properties message Properties
@@ -198,40 +249,85 @@ class MessageProcessingFramework (ingest_queue_name:String,
         logger.warn(s"Got unexpected value type for retry-count header on message id ${properties.map(_.getMessageId)}, resetting to 1")
         1
     }
-    val delayTime = List(math.pow(2, nextRetryCount)*1000, 60000).min.toInt
-    val updatedMsgHeaders = originalMsgHeaders ++ Map("retry-count"->nextRetryCount.asInstanceOf[AnyRef])
+    val delayTime = List(math.pow(2, nextRetryCount)*1000, maximumDelayTime).min.toInt
+    logger.debug(s"delayTime is $delayTime")
+    val originalExchange = properties
+      .flatMap(_.getHeader[LongString]("x-original-exchange"))
+      .map(_.toString)
+      .getOrElse(envelope.getExchange)
+
+    val updatedMsgHeaders = originalMsgHeaders ++ Map(
+      "retry-count"->nextRetryCount.asInstanceOf[AnyRef],
+      "x-original-exchange"->originalExchange.asInstanceOf[AnyRef],
+      "x-original-routing-key"->envelope.getRoutingKey.asInstanceOf[AnyRef]
+    )
+
     val newProps = new BasicProperties.Builder()
       .contentType("application/json")
       .expiration(delayTime.toString)
       .headers(updatedMsgHeaders.asJava)
+      .messageId(properties.map(_.getMessageId).getOrElse(UUID.randomUUID().toString))
       .build()
 
     channel.basicPublish(retryExchangeName, envelope.getRoutingKey, false, newProps, content.noSpaces.getBytes(cs))
     channel.basicAck(envelope.getDeliveryTag, false)
   }
 
+  private def simpleQueueDeclare(queueName:String) = channel.queueDeclare(queueName, true, false, false,Map[String, AnyRef]().asJava )
   /**
    * Kick off the framework.  This returns a future which should only resolve when the framework terminates.
    * @return
    */
   def run() = {
     try {
-      val retryInputExchangeName = retryExchangeName + "-r"
+      //output exchange where we send our completion notifications
+      channel.exchangeDeclare(output_exchange_name, "topic",
+        true,
+        false,
+        Map("x-dead-letter-exchange" -> failedExchangeName.asInstanceOf[AnyRef]).asJava
+      )
 
-      channel.exchangeDeclare(failedExchangeName, "topic", false)
-      channel.exchangeDeclare(output_exchange_name, "topic", true, false, Map("x-dead-letter-exchange" -> failedExchangeName.asInstanceOf[AnyRef]).asJava)
+      //dead-letter queue for permanent failures
+      channel.exchangeDeclare(failedExchangeName,
+        "topic",
+        true)
+      simpleQueueDeclare(failedQueueName)
+      channel.queueBind(failedQueueName, failedExchangeName, "#")
+
+      //messages posted to the retryExchange are routed to a queue where they are delayed by the TTL provided on
+      //the message and are then sent back to the retryInputExchange
       channel.exchangeDeclare(retryExchangeName, "topic", false)
+
+      //messages come onto the RetryInputExchange and we pick them up and re-process them from there
       channel.exchangeDeclare(retryInputExchangeName, "topic", false)
 
-      channel.queueDeclare(failedQueueName, true, false, false, Map[String, AnyRef]().asJava)
-      channel.queueDeclare(retryExchangeName + "-q", true, false, false, Map("x-dead-letter-exchange" -> output_exchange_name.asInstanceOf[AnyRef]).asJava)
-      channel.queueBind(failedQueueName, failedExchangeName, "#")
-      channel.queueBind(retryExchangeName + "-q", retryExchangeName, "#", Map("x-dead-letter-exchange"->retryInputExchangeName.asInstanceOf[AnyRef]).asJava)
+      //link the retryExchange back to the retryInputExchange with a queue named after the retryInputExchange.
+      // The message is received from retryExchange then expires
+      // after its provided TTL which then triggers it to be "dead-lettered" back onto the retryInputExchange
+      channel.queueDeclare(retryInputExchangeName,
+        true,
+        false,
+        false,
+        Map[String,AnyRef](
+          "x-dead-letter-exchange"->retryInputExchangeName.asInstanceOf[AnyRef],
+          "x-message-ttl"->maximumDelayTime.asInstanceOf[AnyRef]
+        ).asJava
+      )
+      channel.queueBind(retryInputExchangeName, retryExchangeName, "#")
 
-      channel.queueDeclare(ingest_queue_name, true, false, false, Map[String, AnyRef]().asJava)
+      //we declare a single queue that receives all the messages we are interested in, and bind it to the retry input exchange
+      channel.queueDeclare(ingest_queue_name,
+        true,
+        false,
+        false,
+        Map[String,AnyRef](
+          "x-dead-letter-exchange"->failedExchangeName.asInstanceOf[AnyRef],
+        ).asJava
+      )
 
       channel.queueBind(ingest_queue_name, retryInputExchangeName, "#")
 
+      //now we also bind it to all of the exchanges that are listed in our configuration
       handlers.foreach(conf => {
         channel.queueBind(ingest_queue_name, conf.exchangeName, conf.routingKey)
       })
