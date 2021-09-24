@@ -12,12 +12,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class OwnMessageProcessor(config:ArchiveHunterConfig)
                          (implicit val archivedRecordDAO: ArchivedRecordDAO,
+                          archiveHunterCommunicator: ArchiveHunterCommunicator,
                           ec:ExecutionContext,
                           mat:Materializer,
                           actorSystem: ActorSystem) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
-
-  private val archiveHunterCommunicator = new ArchiveHunterCommunicator(config)
 
   /**
    * records the successful validation to the datbase record and returns an updated copy of said record

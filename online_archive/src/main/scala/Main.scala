@@ -1,5 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import org.slf4j.LoggerFactory
@@ -33,6 +34,14 @@ object Main {
     case Right(config)=>config
   }
 
+  private lazy val archiveHunterConfig = new ArchiveHunterEnvironmentConfigProvider().get() match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
+  private implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
+
   val config = Seq(
     ProcessorConfiguration(
       "assetsweeper",
@@ -42,7 +51,7 @@ object Main {
     ProcessorConfiguration(
       OUTPUT_EXCHANGE_NAME,
       "storagetier.onlinearchive.newfile.success",
-      new OwnMessageProcessor()
+      new OwnMessageProcessor(archiveHunterConfig)
     )
   )
 

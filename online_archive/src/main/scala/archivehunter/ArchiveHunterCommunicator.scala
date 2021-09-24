@@ -35,7 +35,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     logger.debug(s"stringToSign: $stringtoSign")
 
     val secret = new SecretKeySpec(config.sharedSecret.getBytes(StandardCharsets.UTF_8), "SHA256")
-    val mac = Mac.getInstance("SHA256")
+    val mac = Mac.getInstance("HmacSHA256")
     mac.init(secret)
     val hashBytes = mac.doFinal(stringtoSign.getBytes(StandardCharsets.UTF_8))
     Base64.getEncoder.encodeToString(hashBytes)
