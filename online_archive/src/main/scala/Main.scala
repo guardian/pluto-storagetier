@@ -14,6 +14,7 @@ import scala.concurrent.duration._
 object Main {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  private val OUTPUT_EXCHANGE_NAME = "storagetier-online-archive"
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
   private val db = DatabaseProvider.get()
@@ -37,13 +38,18 @@ object Main {
       "assetsweeper",
       "assetsweeper.asset_folder_importer.file.#",
       new AssetSweeperMessageProcessor(plutoConfig)
+    ),
+    ProcessorConfiguration(
+      OUTPUT_EXCHANGE_NAME,
+      "storagetier.onlinearchive.newfile.success",
+      new OwnMessageProcessor()
     )
   )
 
   def main(args:Array[String]) = {
     MessageProcessingFramework(
       "storagetier-online-archive",
-      "storagetier-online-archive-out",
+      OUTPUT_EXCHANGE_NAME,
       "pluto.storagetier.online-archive",
       "storagetier-online-archive-retry",
       "storagetier-online-archive-fail",

@@ -151,6 +151,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
                   logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
               }).recover({
                 case err:Throwable=>
+                  //FIXME: when rabbitmq retries merged in then this should cause a permanent failure not a retry failure
                   logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
                   rejectMessage(envelope, Option(properties), msg)
               })

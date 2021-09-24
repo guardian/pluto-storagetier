@@ -40,6 +40,23 @@ class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[A
     )
   }
 
+  /**
+   * sets the "is archivehunter id validated" value for the given record, without touching anything else
+   *
+   * @param pk ID of the record to update
+   * @param newStatus new value to set for the status
+   * @return a Future, containing the number of records updated
+   */
+  def updateIdValidationStatus(pk:Int, newStatus:Boolean) = {
+    val q = for {
+      row <- TableQuery[ArchivedRecordRow] if row.id===pk
+    } yield row.archiveHunterIDValidated
+
+    db.run(
+      q.update(newStatus)
+    )
+  }
+
   override def initialiseSchema = db.run(
     //Workaround for Slick _always_ trying to create indexes even if .createIfNotExist is used
     //See https://github.com/lagom/lagom/issues/1720#issuecomment-459351282
@@ -51,4 +68,8 @@ class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[A
       }
     }.transactionally
   )
+
+  override def getRecord(pk: Int): Future[Option[ArchivedRecord]] = db.run(
+    TableQuery[ArchivedRecordRow].filter(_.id===pk).result
+  ).map(_.headOption)
 }

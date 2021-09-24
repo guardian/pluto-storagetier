@@ -110,7 +110,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
    * @param docId ArchiveHunter ID to search for
    * @param uploadedBucket bucket where we uploaded the content
    * @param uploadedPath path on the bucket where we uploaded the content
-   * @return a Future containing a boolean flag.
+   * @return a Future containing a boolean flag.  If the future fails then treat it as a permanant error and do not re-try
    */
   def lookupArchivehunterId(docId:String, uploadedBucket:String, uploadedPath:String) = {
     val req = HttpRequest(uri=s"${config.baseUri}/api/entry/$docId")
