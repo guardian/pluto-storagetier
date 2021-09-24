@@ -2,6 +2,7 @@ package archivehunter
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.headers.{GenericHttpCredentials, OAuth2BearerToken}
 import akka.http.scaladsl.model.{HttpRequest, Uri}
 import akka.stream.Materializer
 import org.slf4j.LoggerFactory
@@ -14,6 +15,8 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.concurrent.{ExecutionContext, Future}
 import io.circe.generic.auto._
+
+import java.security.MessageDigest
 
 class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
@@ -30,12 +33,15 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
    * @param formattedTime String of the date/time in RFC 1123 format
    * @return a String of the base64-encoded digest for ArchiveHunter
    */
-  private def getToken(uri:Uri, formattedTime:String) = {
-    val stringtoSign = s"$formattedTime\n${uri.path.toString()}"
+  private def getToken(uri:Uri, formattedTime:String, contentLength:Int,
+                       requestMethod:String,
+                       contentChecksum:String) = {
+    val stringtoSign = s"$formattedTime\n$contentLength\n$contentChecksum\n$requestMethod\n${uri.toString()}"
+
     logger.debug(s"stringToSign: $stringtoSign")
 
-    val secret = new SecretKeySpec(config.sharedSecret.getBytes(StandardCharsets.UTF_8), "SHA256")
-    val mac = Mac.getInstance("HmacSHA256")
+    val secret = new SecretKeySpec(config.sharedSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA384")
+    val mac = Mac.getInstance("HmacSHA384")
     mac.init(secret)
     val hashBytes = mac.doFinal(stringtoSign.getBytes(StandardCharsets.UTF_8))
     Base64.getEncoder.encodeToString(hashBytes)
@@ -57,13 +63,17 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
   } else {
     logger.debug(s"Request URL is ${req.uri.toString()}")
 
+    val checksumBytes = MessageDigest.getInstance("SHA-384").digest("".getBytes)
+    val contentChecksum = Base64.getEncoder.encodeToString(checksumBytes)
+
     val signatureTime = overrideTime.getOrElse(ZonedDateTime.now()).withZoneSameInstant(ZoneId.of("UTC"))
     val httpDate = httpDateFormatter.format(signatureTime)
-    val token = getToken(req.uri, httpDate)
+    val token = getToken(req.uri, httpDate, 0, "GET", contentChecksum)
 
     val updatedRequest = req.withHeaders(req.headers ++ Seq(
-      akka.http.scaladsl.model.headers.RawHeader("X-Gu-Tools-HMAC-Token", token),
-      akka.http.scaladsl.model.headers.RawHeader("X-Gu-Tools-HMAC-Date", httpDate)
+      akka.http.scaladsl.model.headers.RawHeader("Date", httpDate),
+      akka.http.scaladsl.model.headers.RawHeader("X-Sha384-Checksum", contentChecksum),
+      akka.http.scaladsl.model.headers.Authorization(GenericHttpCredentials("HMAC", token))
     ))
 
     callHttp
@@ -94,7 +104,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
             }
           case 500 | 502 | 503 | 504 =>
             contentBody.flatMap(body => {
-              logger.error(s"Pluto returned a server error: $body. Retrying...")
+              logger.error(s"ArchiveHunter returned a server error ${response.status}: \"$body\". Retrying...")
               Thread.sleep(500 * attempt)
               callToArchiveHunter(req, attempt + 1)
             })

@@ -11,6 +11,7 @@
     <logger name="FakeMessageProcessor" level="DEBUG"/>
     <logger name="plutocore" level="DEBUG"/>
     <logger name="AssetSweeperMessageProcessor" level="DEBUG"/>
+    <logger name="archivehunter" level="DEBUG"/>
     <logger name="Main$" level="DEBUG"/>
 
     <root level="ERROR">
