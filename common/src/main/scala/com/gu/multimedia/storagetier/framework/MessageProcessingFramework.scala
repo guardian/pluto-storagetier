@@ -38,7 +38,8 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   failedExchangeName:String,
                                   failedQueueName:String,
                                   handlers:Seq[ProcessorConfiguration],
-                                  maximumDelayTime:Int=120000)
+                                  maximumDelayTime:Int=120000,
+                                  maximumRetryLimit:Int=500)
                                  (implicit connectionFactoryProvider: ConnectionFactoryProvider){
   private val logger = LoggerFactory.getLogger(getClass)
   private lazy val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
@@ -113,6 +114,10 @@ class MessageProcessingFramework (ingest_queue_name:String,
           logger.debug(s"Message ${properties.getMessageId} is a retry, on attempt ${retryAttempt}")
           logger.debug(s"Message headers: ${properties.getHeaders}")
 
+          if(retryAttempt>=maximumRetryLimit) {
+            permanentlyRejectMessage(envelope, properties, body, "Too many retries")
+            return
+          }
           properties.getHeader[LongString]("x-original-exchange") match {
             case Some(effectiveExchange)=>
               logger.debug(s"Original exchange is $effectiveExchange, routing to that processor")
