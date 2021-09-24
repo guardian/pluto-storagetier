@@ -41,7 +41,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       f.run()
       there was one(mockRmqFactory).newConnection()
       there was one(mockRmqConnection).createChannel()
-      there was one(mockRmqChannel).queueDeclare("input-queue", true, false, false,Map[String,AnyRef]().asJava)
+      there was one(mockRmqChannel).queueDeclare("input-queue",
+        true,
+        false,
+        false,
+        Map[String,AnyRef]("x-dead-letter-exchange" -> "failed-exchg").asJava)
       there was one(mockRmqChannel).queueBind("input-queue","some-exchange","input.routing.key")
       there was one(mockRmqChannel).basicConsume("input-queue", false, f.MsgConsumer)
 
@@ -122,7 +126,12 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val expectedProperties = new BasicProperties.Builder()
         .contentType("application/json")
         .expiration("2000")
-        .headers(Map("retry-count"->1.asInstanceOf[AnyRef]).asJava)
+        .headers(Map(
+          "retry-count"->1.asInstanceOf[AnyRef],
+          "x-original-exchange"->"fake-exchange".asInstanceOf[AnyRef],
+          "x-original-routing-key"->"some.routing.key".asInstanceOf[AnyRef],
+        ).asJava)
+        .messageId("fake-message-id")
         .build()
 
       there was one(mockRmqChannel).basicAck(12345678L, false)
@@ -238,7 +247,12 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
     val expectedProperties = new BasicProperties.Builder()
       .contentType("application/json")
       .expiration("2000")
-      .headers(Map("retry-count"->1.asInstanceOf[AnyRef]).asJava)
+      .headers(Map(
+        "retry-count"->1.asInstanceOf[AnyRef],
+        "x-original-exchange"->"fake-exchange".asInstanceOf[AnyRef],
+        "x-original-routing-key"->"some.routing.key".asInstanceOf[AnyRef],
+      ).asJava)
+      .messageId("fake-message-id")
       .build()
 
     there was one(mockRmqChannel).basicAck(12345678L, false)

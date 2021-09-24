@@ -63,30 +63,6 @@ class MessageProcessingFramework (ingest_queue_name:String,
   private val channel = conn.createChannel()
 
   /**
-   * performs a comparison between two "topic" routing keys
-   * @param sourceRoutingKey the source key to compare to
-   * @param msgRoutingKey the key that came in with a message
-   * @return true if they match or false if not
-   */
-  def matchRoutingKeys(sourceRoutingKey:String, msgRoutingKey:String):Boolean = {
-    val sourceRoutingKeyParts = sourceRoutingKey.split("\\.")
-    val msgRoutingKeyParts = msgRoutingKey.split("\\.")
-
-    for(i <- 0 to Math.min(sourceRoutingKey.length, msgRoutingKey.length)) {
-      if(sourceRoutingKeyParts(i)=="#") { //wildcard # => match everything else
-        return true //stop the iteration, we have a match because the source is happy to match anything else
-      }
-      if(sourceRoutingKeyParts(i)!="*" && sourceRoutingKeyParts(i)!=msgRoutingKeyParts(i)) {  //wildcard "*" => match anything in this segment
-        return false  //mismatch, break out of the loop
-      }
-      //otherwise we have matched up to this point, continue
-    }
-    //at this point we have matched everything in both keys - but if one is longer than the other then
-    //we still have a mismatch. If they are both the same length then we have an exact (non-wildcard) match.
-    sourceRoutingKey.length!=msgRoutingKey.length
-  }
-
-  /**
    * handle the java api protocol for receiving messages
    */
   object MsgConsumer extends Consumer {
@@ -118,21 +94,6 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }
 
     /**
-     * reliably decode a raw byte array into a UTF-8 string.
-     * @param raw raw byte array
-     * @return either a Right with the decoded string, or a Left with an error message
-     */
-    private def convertToUTFString(raw:Array[Byte]):Either[String,String] = {
-      try {
-        val buf = ByteBuffer.wrap(raw)
-        Right(cs.decode(buf).rewind().toString)
-      } catch {
-        case err:Throwable=>
-          Left(err.getMessage)
-      }
-    }
-
-    /**
      * wraps the circe parse method to change the Left type into a string,
      * in order to make it easier to compose
      * @param stringContent the string content to parse
@@ -144,7 +105,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
     override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]): Unit = {
       val matchingProcessors =
-        if(envelope.getExchange==retryInputExchangeName) {
+        if(envelope.getExchange==retryInputExchangeName) {  //if the message came from the retry exchange, then look up the original exchange and use that
           val retryAttempt = Try {
             properties.getHeaders.asScala.getOrElse("retry-count",0).asInstanceOf[Int]
           }.toOption.getOrElse(0)
@@ -154,31 +115,21 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
           properties.getHeader[LongString]("x-original-exchange") match {
             case Some(effectiveExchange)=>
+              logger.debug(s"Original exchange is $effectiveExchange, routing to that processor")
               handlers.filter(_.exchangeName==effectiveExchange.toString)
             case None=>
               logger.error(s"Could not determine the original exchange for retried message ${properties.getMessageId}")
               Seq()
           }
-        } else {
+        } else {  //otherwise just use the exchange given by the envelope
           handlers.filter(_.exchangeName==envelope.getExchange)
         }
 
+      logger.debug(s"${matchingProcessors.length} processors matched, will use the first")
+
       convertToUTFString(body).flatMap(wrappedParse) match {
         case Left(err)=>
-          //drop the dodgy message and send it directly to the DLX
-          channel.basicNack(envelope.getDeliveryTag, false, false)
-          logger.error(s"Message with ID ${properties.getMessageId} is invalid and will be dropped.")
-          logger.error(s"${properties.getMessageId}: invalid content was ${convertToUTFString(body)}")
-          logger.error(s"${properties.getMessageId}: error was $err")
-          val originalHeaders = Option(properties.getHeaders).map(_.asScala).getOrElse(mutable.Map())
-          val updatedHeaders = originalHeaders ++ mutable.Map("error"->err)
-          val dlqProps = new AMQP.BasicProperties.Builder()
-            .contentType("application/octet-stream")
-            .messageId(properties.getMessageId)
-            .headers(updatedHeaders.asJava)
-            .build()
-
-          Try { channel.basicPublish(failedExchangeName, envelope.getRoutingKey, dlqProps, body) }
+          permanentlyRejectMessage(envelope, properties, body, err)
         case Right(msg)=>
           if(matchingProcessors.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
@@ -204,6 +155,22 @@ class MessageProcessingFramework (ingest_queue_name:String,
   }
 
   /**
+   * reliably decode a raw byte array into a UTF-8 string.
+   * @param raw raw byte array
+   * @return either a Right with the decoded string, or a Left with an error message
+   */
+  private def convertToUTFString(raw:Array[Byte]):Either[String,String] = {
+    try {
+      val buf = ByteBuffer.wrap(raw)
+      Right(cs.decode(buf).rewind().toString)
+    } catch {
+      case err:Throwable=>
+        Left(err.getMessage)
+    }
+  }
+
+
+  /**
    * internal method.
    * Confirm that an event took place, by acknowleging processing of the original message and sending a message
    * to our output exchange
@@ -220,6 +187,29 @@ class MessageProcessingFramework (ingest_queue_name:String,
       .build()
 
     channel.basicPublish(output_exchange_name, routingKeyForSend, msgProps, stringContent.getBytes(cs))
+  }
+
+  private def permanentlyRejectMessage(envelope: Envelope, properties:AMQP.BasicProperties, body:Array[Byte], err:String) = {
+    //drop the dodgy message and send it directly to the DLX
+    channel.basicNack(envelope.getDeliveryTag, false, false)
+    logger.error(s"Message with ID ${properties.getMessageId} is invalid and will be dropped.")
+    logger.error(s"${properties.getMessageId}: invalid content was ${convertToUTFString(body)}")
+    logger.error(s"${properties.getMessageId}: error was $err")
+    val originalHeaders = Option(properties.getHeaders).map(_.asScala).getOrElse(mutable.Map())
+
+    val updatedHeaders = originalHeaders ++ mutable.Map(
+      "error"->err,
+      "x-original-exchange"->envelope.getExchange,
+      "x-original-routing-key"->envelope.getRoutingKey
+    )
+
+    val dlqProps = new AMQP.BasicProperties.Builder()
+      .contentType("application/octet-stream")
+      .messageId(properties.getMessageId)
+      .headers(updatedHeaders.asJava)
+      .build()
+
+    Try { channel.basicPublish(failedExchangeName, envelope.getRoutingKey, dlqProps, body) }
   }
 
   /**
@@ -321,7 +311,15 @@ class MessageProcessingFramework (ingest_queue_name:String,
       channel.queueBind(retryInputExchangeName, retryExchangeName, "#")
 
       //we declare a single queue that receives all the messages we are interested in, and bind it to the retry input exchange
-      simpleQueueDeclare(ingest_queue_name)
+      channel.queueDeclare(ingest_queue_name,
+        true,
+        false,
+        false,
+        Map[String,AnyRef](
+          "x-dead-letter-exchange"->failedExchangeName.asInstanceOf[AnyRef],
+        ).asJava
+      )
+
       channel.queueBind(ingest_queue_name, retryInputExchangeName, "#")
 
       //now we also bind it to all of the exchanges that are listed in our configuration
