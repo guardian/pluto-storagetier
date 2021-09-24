@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.framework
 
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider}
-import com.rabbitmq.client.{AMQP, Consumer, Envelope, LongString, ShutdownSignalException}
+import com.rabbitmq.client.{AMQP, Channel, Connection, Consumer, Envelope, LongString, ShutdownSignalException}
 import io.circe.Json
 
 import scala.concurrent.{Future, Promise}
@@ -40,28 +40,13 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   handlers:Seq[ProcessorConfiguration],
                                   maximumDelayTime:Int=120000,
                                   maximumRetryLimit:Int=500)
-                                 (implicit connectionFactoryProvider: ConnectionFactoryProvider){
+                                 (channel:Channel, conn:Connection){
   private val logger = LoggerFactory.getLogger(getClass)
-  private lazy val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
-  private lazy val rmqVhost = sys.env.getOrElse("RABBITMQ_VHOST","pluto-ng")
-  private val factory = connectionFactoryProvider.get()
   private val cs = Charset.forName("UTF-8")
-
   private val completionPromise = Promise[Unit]
-
   private val retryInputExchangeName = retryExchangeName + "-r"
 
   import AMQPBasicPropertiesExtensions._
-
-  factory.setHost(rmqHost)
-  factory.setVirtualHost(rmqVhost)
-  factory.setCredentialsProvider(new DefaultCredentialsProvider(
-    sys.env.getOrElse("RABBITMQ_USER","storagetier"),
-    sys.env.getOrElse("RABBITMQ_PASSWORD","password")
-  ))
-
-  private val conn = factory.newConnection()
-  private val channel = conn.createChannel()
 
   /**
    * handle the java api protocol for receiving messages
@@ -350,6 +335,24 @@ class MessageProcessingFramework (ingest_queue_name:String,
 }
 
 object MessageProcessingFramework {
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  private def initialiseRabbitMQ(implicit connectionFactoryProvider: ConnectionFactoryProvider) = Try {
+    val factory = connectionFactoryProvider.get()
+    val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
+    val rmqVhost = sys.env.getOrElse("RABBITMQ_VHOST","pluto-ng")
+
+    factory.setHost(rmqHost)
+    factory.setVirtualHost(rmqVhost)
+    factory.setCredentialsProvider(new DefaultCredentialsProvider(
+      sys.env.getOrElse("RABBITMQ_USER","storagetier"),
+      sys.env.getOrElse("RABBITMQ_PASSWORD","password")
+    ))
+
+    val conn = factory.newConnection()
+    (conn.createChannel(), conn)
+  }
+
   def apply(ingest_queue_name:String,
             output_exchange_name:String,
             routingKeyForSend: String,
@@ -362,10 +365,16 @@ object MessageProcessingFramework {
     if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
       Left(s"You have ${exchangeNames.length-exchangeNames.distinct.length} duplicate exchange names in your configuration, that is not valid.")
     } else {
-      Right(
-        new MessageProcessingFramework(ingest_queue_name, output_exchange_name,
-          routingKeyForSend, retryExchangeName, failedExchangeName, failedQueueName, handlers)
-      )
+      initialiseRabbitMQ match {
+        case Failure(err) =>
+          logger.error(s"Could not initialise RabbitMQ: ${err.getMessage}")
+          Left(err.getMessage)
+        case Success((channel, conn)) =>
+          Right(
+            new MessageProcessingFramework(ingest_queue_name, output_exchange_name,
+              routingKeyForSend, retryExchangeName, failedExchangeName, failedQueueName, handlers)(channel, conn)
+          )
+      }
     }
   }
 }

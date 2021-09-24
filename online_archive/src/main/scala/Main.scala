@@ -18,12 +18,8 @@ object Main {
   private val OUTPUT_EXCHANGE_NAME = "storagetier-online-archive"
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
-  private val db = DatabaseProvider.get()
+  private lazy val db = DatabaseProvider.get()
   private implicit val rmqConnectionFactoryProvider =  ConnectionFactoryProviderReal
-
-  private implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
-  private implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
-  private implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
 
   private implicit lazy val actorSystem = ActorSystem()
   private implicit lazy val mat = Materializer(actorSystem)
@@ -40,22 +36,26 @@ object Main {
       sys.exit(1)
     case Right(config)=>config
   }
-  private implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
 
-  val config = Seq(
-    ProcessorConfiguration(
-      "assetsweeper",
-      "assetsweeper.asset_folder_importer.file.#",
-      new AssetSweeperMessageProcessor(plutoConfig)
-    ),
-    ProcessorConfiguration(
-      OUTPUT_EXCHANGE_NAME,
-      "storagetier.onlinearchive.newfile.success",
-      new OwnMessageProcessor(archiveHunterConfig)
+  def main(args:Array[String]):Unit = {
+    implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
+    implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
+    implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
+    implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
+
+    val config = Seq(
+      ProcessorConfiguration(
+        "assetsweeper",
+        "assetsweeper.asset_folder_importer.file.#",
+        new AssetSweeperMessageProcessor(plutoConfig)
+      ),
+      ProcessorConfiguration(
+        OUTPUT_EXCHANGE_NAME,
+        "storagetier.onlinearchive.newfile.success",
+        new OwnMessageProcessor(archiveHunterConfig)
+      )
     )
-  )
 
-  def main(args:Array[String]) = {
     MessageProcessingFramework(
       "storagetier-online-archive",
       OUTPUT_EXCHANGE_NAME,
@@ -65,7 +65,9 @@ object Main {
       "storagetier-online-archive-dlq",
       config
     ) match {
-      case Left(err) => logger.error(s"Could not initiate message processing framework: $err")
+      case Left(err) =>
+        logger.error(s"Could not initiate message processing framework: $err")
+        actorSystem.terminate()
       case Right(framework) =>
         //install a signal handler to terminate cleanly on INT (keyboard interrupt) and TERM (Kubernetes pod shutdown)
         val terminationHandler = new SignalHandler {
