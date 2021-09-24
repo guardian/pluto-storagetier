@@ -33,15 +33,10 @@ object Main {
   }
 
   val config = Seq(
-//    ProcessorConfiguration(
-//      "assetsweeper",
-//      "assetsweeper.asset_folder_importer.file.#",
-//      new AssetSweeperMessageProcessor(plutoConfig)
-//    )
     ProcessorConfiguration(
       "assetsweeper",
-      "#",
-      new FakeMessageProcessor(db)
+      "assetsweeper.asset_folder_importer.file.#",
+      new AssetSweeperMessageProcessor(plutoConfig)
     )
   )
 
