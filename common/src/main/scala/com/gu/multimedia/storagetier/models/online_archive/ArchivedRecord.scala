@@ -17,6 +17,11 @@ case class ArchivedRecord(id:Option[Int],
                           metadataVersion:Option[Int]
                          )
 
+object ArchivedRecord extends ((Option[Int], String, String, String, String, Option[Int], Option[String], Option[Int], Option[String], Option[String], Option[Int], Option[String], Option[Int]) => ArchivedRecord ){
+  def apply(archiveHunterID:String, originalFilePath:String, uploadedBucket:String, uploadedPath:String, uploadedVersion:Option[Int]) = {
+    new ArchivedRecord(None, archiveHunterID, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, None,None,None,None,None,None,None)
+  }
+}
 
 class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearchive_archived_record") {
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
