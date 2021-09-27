@@ -26,6 +26,8 @@ trait GenericDAO[T <: AbstractTable[_]] {
 
   def deleteById(pk:Int):Future[Int]
 
+  def getRecord(pk:Int):Future[Option[T#TableElementType]]
+
   /**
    * intialises the given table, if it does not exist yet
    * @return

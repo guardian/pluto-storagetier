@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.framework
 
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.impl.AMQBasicProperties
-import com.rabbitmq.client.{AMQP, Channel, Connection, ConnectionFactory, Envelope}
+import com.rabbitmq.client.{AMQP, Channel, Connection, ConnectionFactory, Consumer, Envelope}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import io.circe.syntax._
@@ -21,8 +21,6 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val mockRmqFactory = mock[ConnectionFactory]
       mockRmqFactory.newConnection() returns mockRmqConnection
 
-      implicit val connectionFactoryProvider:ConnectionFactoryProvider = mock[ConnectionFactoryProvider]
-      connectionFactoryProvider.get() returns mockRmqFactory
 
       val mockedMessageProcessor = mock[MessageProcessor]
 
@@ -36,11 +34,9 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "retry-exchg",
         "failed-exchg",
         "failed-q",
-        handlers)
+        handlers)(mockRmqChannel, mockRmqConnection)
 
       f.run()
-      there was one(mockRmqFactory).newConnection()
-      there was one(mockRmqConnection).createChannel()
       there was one(mockRmqChannel).queueDeclare("input-queue",
         true,
         false,
@@ -75,7 +71,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "retry-exchg",
         "failed-exchg",
         "failed-q",
-        handlers)
+        handlers)(mockRmqChannel, mockRmqConnection)
 
       val envelope = new Envelope(12345678L, false, "fake-exchange","some.routing.key")
       val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()
@@ -116,7 +112,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "retry-exchg",
         "failed-exchg",
         "failed-q",
-        handlers)
+        handlers)(mockRmqChannel, mockRmqConnection)
 
       val envelope = new Envelope(12345678L, false, "fake-exchange","some.routing.key")
       val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()
@@ -175,7 +171,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "retry-exchg",
         "failed-exchg",
         "failed-q",
-        handlers)
+        handlers)(mockRmqChannel, mockRmqConnection)
 
       val envelope = new Envelope(12345678L, false, "some-exchange","some.routing.key")
       val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()
@@ -183,7 +179,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       f.MsgConsumer.handleDelivery("test-consumer",envelope, msgProps, msgBytes)
 
       val expectedProperties = new AMQP.BasicProperties.Builder()
-        .contentType("application/octet-stream")
+        .contentType("application/json")
+        .contentEncoding("UTF-8")
+        .headers(Map(
+          "x-in-response-to"->"fake-message-id"
+        ).asInstanceOf[Map[String,AnyRef]].asJava)
         .build()
 
       //the consumer has been updated to expect an asynchronous reply from the processor, but we have no easy way of
@@ -194,7 +194,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       there was no(mockRmqChannel).basicNack(any,any,any)
       there was one(mockRmqChannel).basicPublish(
         org.mockito.ArgumentMatchers.eq("output-exchg"),
-        org.mockito.ArgumentMatchers.eq("some.routing.key"),
+        org.mockito.ArgumentMatchers.eq("some.routing.key.success"),
         org.mockito.ArgumentMatchers.eq(expectedProperties),
         org.mockito.ArgumentMatchers.eq(responseMsg.noSpaces.getBytes)
       )
@@ -237,7 +237,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       "retry-exchg",
       "failed-exchg",
       "failed-q",
-      handlers)
+      handlers)(mockRmqChannel, mockRmqConnection)
 
     val envelope = new Envelope(12345678L, false, "fake-exchange","some.routing.key")
     val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()

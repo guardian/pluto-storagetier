@@ -72,44 +72,4 @@ class AssetFolderLookupSpec extends Specification with Mockito{
     }
   }
 
-  "AssetFolderLookup.contentBodyToJson" should {
-    "parse and extract the relevant data" in {
-      implicit val mat = mock[Materializer]
-      implicit val system = mock[ActorSystem]
-      system.dispatcher returns ExecutionContext.global
-
-      val fakeConfig = PlutoCoreConfig("test","test",Paths.get("/path/to/assetfolders"))
-      val toTest = new AssetFolderLookup(fakeConfig)
-
-      val rawJsonString = """{"status":"ok","path":"/path/to/somefolder","project":"12345"}"""
-      val result = Await.result(toTest.contentBodyToJson[AssetFolderRecord](Future(rawJsonString)), 1.second)
-      result must beSome(AssetFolderRecord("/path/to/somefolder","12345"))
-    }
-
-    "fail the future if the data can't be parsed" in {
-      implicit val mat = mock[Materializer]
-      implicit val system = mock[ActorSystem]
-      system.dispatcher returns ExecutionContext.global
-
-      val fakeConfig = PlutoCoreConfig("test","test",Paths.get("/path/to/assetfolders"))
-      val toTest = new AssetFolderLookup(fakeConfig)
-
-      val rawJsonString = """{"status":"ok","path":"/path/to/somefolder",project":"12345"}"""
-      val result = Try { Await.result(toTest.contentBodyToJson[AssetFolderRecord](Future(rawJsonString)), 1.second) }
-      result must beFailedTry
-    }
-
-    "fail the future if the data can't be unmarshalled" in {
-      implicit val mat = mock[Materializer]
-      implicit val system = mock[ActorSystem]
-      system.dispatcher returns ExecutionContext.global
-
-      val fakeConfig = PlutoCoreConfig("test","test",Paths.get("/path/to/assetfolders"))
-      val toTest = new AssetFolderLookup(fakeConfig)
-
-      val rawJsonString = """{"status":"ok","path":"/path/to/somefolder"}"""
-      val result = Try { Await.result(toTest.contentBodyToJson[AssetFolderRecord](Future(rawJsonString)), 1.second) }
-      result must beFailedTry
-    }
-  }
 }

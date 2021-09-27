@@ -1,5 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import org.slf4j.LoggerFactory
@@ -14,14 +15,11 @@ import scala.concurrent.duration._
 object Main {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  private val OUTPUT_EXCHANGE_NAME = "storagetier-online-archive"
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
-  private val db = DatabaseProvider.get()
+  private lazy val db = DatabaseProvider.get()
   private implicit val rmqConnectionFactoryProvider =  ConnectionFactoryProviderReal
-
-  private implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
-  private implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
-  private implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
 
   private implicit lazy val actorSystem = ActorSystem()
   private implicit lazy val mat = Materializer(actorSystem)
@@ -32,25 +30,44 @@ object Main {
     case Right(config)=>config
   }
 
-  val config = Seq(
-    ProcessorConfiguration(
-      "assetsweeper",
-      "assetsweeper.asset_folder_importer.file.#",
-      new AssetSweeperMessageProcessor(plutoConfig)
-    )
-  )
+  private lazy val archiveHunterConfig = new ArchiveHunterEnvironmentConfigProvider().get() match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
 
-  def main(args:Array[String]) = {
+  def main(args:Array[String]):Unit = {
+    implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
+    implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
+    implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
+    implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
+
+    val config = Seq(
+      ProcessorConfiguration(
+        "assetsweeper",
+        "assetsweeper.asset_folder_importer.file.#",
+        new AssetSweeperMessageProcessor(plutoConfig)
+      ),
+      ProcessorConfiguration(
+        OUTPUT_EXCHANGE_NAME,
+        "storagetier.onlinearchive.newfile.success",
+        new OwnMessageProcessor()
+      )
+    )
+
     MessageProcessingFramework(
       "storagetier-online-archive",
-      "storagetier-online-archive-out",
+      OUTPUT_EXCHANGE_NAME,
       "pluto.storagetier.online-archive",
       "storagetier-online-archive-retry",
       "storagetier-online-archive-fail",
       "storagetier-online-archive-dlq",
       config
     ) match {
-      case Left(err) => logger.error(s"Could not initiate message processing framework: $err")
+      case Left(err) =>
+        logger.error(s"Could not initiate message processing framework: $err")
+        actorSystem.terminate()
       case Right(framework) =>
         //install a signal handler to terminate cleanly on INT (keyboard interrupt) and TERM (Kubernetes pod shutdown)
         val terminationHandler = new SignalHandler {

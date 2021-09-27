@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.framework
 
 import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider}
-import com.rabbitmq.client.{AMQP, Consumer, Envelope, LongString, ShutdownSignalException}
+import com.rabbitmq.client.{AMQP, Channel, Connection, Consumer, Envelope, LongString, ShutdownSignalException}
 import io.circe.Json
 
 import scala.concurrent.{Future, Promise}
@@ -40,28 +40,13 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   handlers:Seq[ProcessorConfiguration],
                                   maximumDelayTime:Int=120000,
                                   maximumRetryLimit:Int=500)
-                                 (implicit connectionFactoryProvider: ConnectionFactoryProvider){
+                                 (channel:Channel, conn:Connection){
   private val logger = LoggerFactory.getLogger(getClass)
-  private lazy val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
-  private lazy val rmqVhost = sys.env.getOrElse("RABBITMQ_VHOST","pluto-ng")
-  private val factory = connectionFactoryProvider.get()
   private val cs = Charset.forName("UTF-8")
-
   private val completionPromise = Promise[Unit]
-
   private val retryInputExchangeName = retryExchangeName + "-r"
 
   import AMQPBasicPropertiesExtensions._
-
-  factory.setHost(rmqHost)
-  factory.setVirtualHost(rmqVhost)
-  factory.setCredentialsProvider(new DefaultCredentialsProvider(
-    sys.env.getOrElse("RABBITMQ_USER","storagetier"),
-    sys.env.getOrElse("RABBITMQ_PASSWORD","password")
-  ))
-
-  private val conn = factory.newConnection()
-  private val channel = conn.createChannel()
 
   /**
    * handle the java api protocol for receiving messages
@@ -147,12 +132,12 @@ class MessageProcessingFramework (ingest_queue_name:String,
                   rejectMessage(envelope, Option(properties), msg)
                   logger.debug(s"MsgID ${properties.getMessageId} Successfully rejected message")
                 case Right(returnValue)=>
-                  confirmMessage(envelope.getDeliveryTag, returnValue)
+                  confirmMessage(envelope.getDeliveryTag, Option(properties).flatMap(p=>Option(p.getMessageId)), returnValue)
                   logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
               }).recover({
                 case err:Throwable=>
                   logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
-                  rejectMessage(envelope, Option(properties), msg)
+                  permanentlyRejectMessage(envelope, properties, body, err.getMessage)
               })
             }
       }
@@ -183,15 +168,17 @@ class MessageProcessingFramework (ingest_queue_name:String,
    * @param confirmationData a circe Json body of content to send out onto our exchange
    * @return
    */
-  private def confirmMessage(deliveryTag: Long, confirmationData:Json) = Try {
+  private def confirmMessage(deliveryTag: Long, previousMessageId:Option[String], confirmationData:Json) = Try {
     val stringContent = confirmationData.noSpaces
 
     channel.basicAck(deliveryTag, false)
     val msgProps = new AMQP.BasicProperties.Builder()
-      .contentType("application/octet-stream")
+      .contentType("application/json")
+      .contentEncoding("UTF-8")
+      .headers(Map("x-in-response-to"->previousMessageId.orNull.asInstanceOf[AnyRef]).asJava)
       .build()
 
-    channel.basicPublish(output_exchange_name, routingKeyForSend, msgProps, stringContent.getBytes(cs))
+    channel.basicPublish(output_exchange_name, routingKeyForSend + ".success", msgProps, stringContent.getBytes(cs))
   }
 
   private def permanentlyRejectMessage(envelope: Envelope, properties:AMQP.BasicProperties, body:Array[Byte], err:String) = {
@@ -350,6 +337,24 @@ class MessageProcessingFramework (ingest_queue_name:String,
 }
 
 object MessageProcessingFramework {
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  private def initialiseRabbitMQ(implicit connectionFactoryProvider: ConnectionFactoryProvider) = Try {
+    val factory = connectionFactoryProvider.get()
+    val rmqHost = sys.env.getOrElse("RABBITMQ_HOST", "localhost")
+    val rmqVhost = sys.env.getOrElse("RABBITMQ_VHOST","pluto-ng")
+
+    factory.setHost(rmqHost)
+    factory.setVirtualHost(rmqVhost)
+    factory.setCredentialsProvider(new DefaultCredentialsProvider(
+      sys.env.getOrElse("RABBITMQ_USER","storagetier"),
+      sys.env.getOrElse("RABBITMQ_PASSWORD","password")
+    ))
+
+    val conn = factory.newConnection()
+    (conn.createChannel(), conn)
+  }
+
   def apply(ingest_queue_name:String,
             output_exchange_name:String,
             routingKeyForSend: String,
@@ -361,11 +366,19 @@ object MessageProcessingFramework {
     val exchangeNames = handlers.map(_.exchangeName)
     if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
       Left(s"You have ${exchangeNames.length-exchangeNames.distinct.length} duplicate exchange names in your configuration, that is not valid.")
+    } else if(routingKeyForSend.endsWith(".")) {
+      Left("output routing key cannot end with a .")
     } else {
-      Right(
-        new MessageProcessingFramework(ingest_queue_name, output_exchange_name,
-          routingKeyForSend, retryExchangeName, failedExchangeName, failedQueueName, handlers)
-      )
+      initialiseRabbitMQ match {
+        case Failure(err) =>
+          logger.error(s"Could not initialise RabbitMQ: ${err.getMessage}")
+          Left(err.getMessage)
+        case Success((channel, conn)) =>
+          Right(
+            new MessageProcessingFramework(ingest_queue_name, output_exchange_name,
+              routingKeyForSend, retryExchangeName, failedExchangeName, failedQueueName, handlers)(channel, conn)
+          )
+      }
     }
   }
 }

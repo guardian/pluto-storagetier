@@ -81,4 +81,8 @@ class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecor
     }.transactionally
 
   )
+
+  override def getRecord(pk: Int): Future[Option[IgnoredRecord]] = db.run(
+    TableQuery[IgnoredRecordRow].filter(_.id===pk).result
+  ).map(_.headOption)
 }

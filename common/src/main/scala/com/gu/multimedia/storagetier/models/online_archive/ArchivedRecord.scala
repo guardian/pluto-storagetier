@@ -2,8 +2,19 @@ package com.gu.multimedia.storagetier.models.online_archive
 
 import slick.jdbc.PostgresProfile.api._
 
+/*
+{
+"id":12345,
+"archiveHunterID": "abcdefg",
+"archiveHunterIDValidated": false,
+"originalFilePath": "/original/path/to/file.ext",
+"uploadedBucket": "somebucket",
+"uploadedPath": "path/to/file.ext",
+}
+ */
 case class ArchivedRecord(id:Option[Int],
                           archiveHunterID:String,
+                          archiveHunterIDValidated:Boolean,
                           originalFilePath:String,
                           uploadedBucket:String,
                           uploadedPath:String,
@@ -17,15 +28,16 @@ case class ArchivedRecord(id:Option[Int],
                           metadataVersion:Option[Int]
                          )
 
-object ArchivedRecord extends ((Option[Int], String, String, String, String, Option[Int], Option[String], Option[Int], Option[String], Option[String], Option[Int], Option[String], Option[Int]) => ArchivedRecord ){
+object ArchivedRecord extends ((Option[Int], String, Boolean, String, String, String, Option[Int], Option[String], Option[Int], Option[String], Option[String], Option[Int], Option[String], Option[Int]) => ArchivedRecord ){
   def apply(archiveHunterID:String, originalFilePath:String, uploadedBucket:String, uploadedPath:String, uploadedVersion:Option[Int]) = {
-    new ArchivedRecord(None, archiveHunterID, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, None,None,None,None,None,None,None)
+    new ArchivedRecord(None, archiveHunterID, false, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, None,None,None,None,None,None,None)
   }
 }
 
 class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearchive_archived_record") {
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
   def archiveHunterID = column[String]("s_archivehunter_id")
+  def archiveHunterIDValidated = column[Boolean]("b_archivehunter_id_validated")
   def originalFilePath = column[String]("s_original_filepath")
   def uploadedBucket = column[String]("s_uploaded_bucket")
   def uploadedPath = column[String]("s_uploaded_path")
@@ -42,5 +54,5 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearch
   def archiveHunterIdIds = index("archivehunter_id_idx", archiveHunterID, unique = true)
   def vidispineIdIdx = index("vidispine_item_idx", vidispineItemId)
 
-  def * = (id.?, archiveHunterID, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
+  def * = (id.?, archiveHunterID, archiveHunterIDValidated, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
 }
