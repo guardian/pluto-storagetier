@@ -6,7 +6,6 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
 import java.io.File
-import scala.util.Try
 
 class FileUploaderSpec extends Specification with Mockito {
   "FileUploader" should {

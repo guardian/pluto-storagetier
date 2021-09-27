@@ -44,10 +44,10 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
         if (fileNotFound(s3e)) {
           uploadFile(file, newFilePath)
         } else {
-          Try { throw s3e }
+          Failure(s3e)
         }
       case Failure(e) =>
-        Try { throw e }
+        Failure(e)
     }
   }
 
