@@ -87,10 +87,9 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
           case 404 =>
             Future(None)
           case 403|401 =>
-            throw new RuntimeException(s"Archive Hunter said permission denied.") //throwing an exception here will fail the future,
-          //which is picked up in onComplete in the call
+            Future.failed(new RuntimeException(s"Archive Hunter said permission denied."))
           case 400 =>
-            contentBody.map(body => throw new RuntimeException(s"Archive Hunter returned bad data error: $body"))
+            contentBody.flatMap(body => Future.failed(new RuntimeException(s"Archive Hunter returned bad data error: $body")))
           case 301 =>
             logger.warn(s"Received unexpected redirect from pluto to ${response.getHeader("Location")}")
             val h = response.getHeader("Location")
@@ -100,7 +99,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
               val updatedReq = req.withUri(Uri(newUri.value()))
               callToArchiveHunter(updatedReq, attempt + 1)
             } else {
-              throw new RuntimeException("Unexpected redirect without location")
+              Future.failed(new RuntimeException("Unexpected redirect without location"))
             }
           case 500 | 502 | 503 | 504 =>
             contentBody.flatMap(body => {
