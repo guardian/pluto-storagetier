@@ -9,19 +9,34 @@ import scala.util.{Failure, Success, Try}
 class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketName: String) {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def copyFileToS3(file: File): Try[Option[String]] = {
+  /**
+   * Attempt to copy the given file to S3 under a distinct name.
+   * If a file with the same name AND the same file size exists, then returns a Success with the found file name
+   * If no file with the name exists, will upload it and return a Success with the file name as uploaded.
+   * If a file with the same name but a DIFFERENT file size exists, will suffix the name "-1", "-2" etc. until a 'free'
+   * filename is found. The file is then uploaded and a Success returned with the uploaded file name.
+   * If there is an error, then Failure is returned
+   * @param file a java.io.File instance representing the file to upload
+   * @param maybeUploadPath Optional destination path to upload it to. If not set, then the absolute path of `file` is used.
+   * @return a Try, containing an Option with a String containing the uploaded file name.
+   */
+  def copyFileToS3(file: File, maybeUploadPath:Option[String]): Try[Option[String]] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Failure(new Exception(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
-      tryUploadFile(file)
+      tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath))
     }
   }
 
-  private def tryUploadFile(file: File, increment: Int = 0): Try[Option[String]] = {
-    // TODO is this the correct file path?
-    val filePath = file.getAbsolutePath
-
+  /**
+   * internal method. Recursively checks for an existing file and starts the upload when it finds a 'free' filename
+   * @param file java.nio.File to upload
+   * @param filePath path to upload it to
+   * @param increment iteration number
+   * @return
+   */
+  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[Option[String]] = {
     val newFilePath = if (increment <= 0) filePath else {
       // check if fle has an extension and insert the increment before it if this is the case
       val pos = filePath.lastIndexOf(".")
@@ -34,11 +49,11 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
       case Success(metadata) =>
         val objectSize = metadata.getContentLength
         if (file.length == objectSize) {
-          logger.info(s"Object $newFilePath already exist on S3")
-          Try { Some(newFilePath) }
+          logger.info(s"Object $newFilePath already exists on S3")
+          Success(Some(newFilePath))
         } else {
           logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
-          tryUploadFile(file, increment + 1)
+          tryUploadFile(file, filePath, increment + 1)
         }
       case Failure(s3e: AmazonS3Exception) =>
         if (fileNotFound(s3e)) {
@@ -51,10 +66,21 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
     }
   }
 
+  /**
+   * returns `true` if the given AmazonS3Exception represents "file not found
+   * @param s3e AmazonS3Exception to inspect
+   * @return
+   */
   private def fileNotFound(s3e: AmazonS3Exception): Boolean = {
     s3e.getStatusCode == 404 && s3e.getErrorCode == "404 Not Found"
   }
 
+  /**
+   * performs an upload via S3 TransferManager, blocking the current thread until it is ready
+   * @param file java.nio.file to upload
+   * @param keyName S3 key name to upload to
+   * @return
+   */
   private def uploadFile(file: File, keyName: String): Try[Option[String]] = {
     Try { transferManager.upload(bucketName, keyName, file).waitForCompletion }.map(_=>Some(keyName))
   }
