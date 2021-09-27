@@ -25,7 +25,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       archivedRecordDAO.getRecord(any) returns Future(Some(updatedRecord))
       archivedRecordDAO.updateIdValidationStatus(any,any) returns Future(1)
 
-      val toTest = new OwnMessageProcessor(ArchiveHunterConfig("https://some.base","secret-goes-here"))
+      val toTest = new OwnMessageProcessor()
 
       val incomingRecord = ArchivedRecord(
         Some(1234),
@@ -62,7 +62,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       archivedRecordDAO.getRecord(any) returns Future(Some(updatedRecord))
       archivedRecordDAO.updateIdValidationStatus(any,any) returns Future(1)
 
-      val toTest = new OwnMessageProcessor(ArchiveHunterConfig("https://some.base","secret-goes-here"))
+      val toTest = new OwnMessageProcessor()
 
       val incomingRecord = ArchivedRecord(
         Some(1234),
@@ -99,7 +99,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       archivedRecordDAO.getRecord(any) returns Future(Some(updatedRecord))
       archivedRecordDAO.updateIdValidationStatus(any,any) returns Future(1)
 
-      val toTest = new OwnMessageProcessor(ArchiveHunterConfig("https://some.base","secret-goes-here"))
+      val toTest = new OwnMessageProcessor()
 
       val incomingRecord = ArchivedRecord(
         Some(1234),
@@ -136,7 +136,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       archivedRecordDAO.getRecord(any) returns Future(Some(updatedRecord))
       archivedRecordDAO.updateIdValidationStatus(any,any) returns Future(1)
 
-      val toTest = new OwnMessageProcessor(ArchiveHunterConfig("https://some.base","secret-goes-here"))
+      val toTest = new OwnMessageProcessor()
 
       val incomingRecord = Map[String,String]("key"->"value")
       val result = Try { Await.result(toTest.handleArchivehunterValidation(incomingRecord.asJson), 3.seconds) }

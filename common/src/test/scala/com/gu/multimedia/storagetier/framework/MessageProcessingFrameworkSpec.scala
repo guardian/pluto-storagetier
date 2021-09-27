@@ -179,7 +179,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       f.MsgConsumer.handleDelivery("test-consumer",envelope, msgProps, msgBytes)
 
       val expectedProperties = new AMQP.BasicProperties.Builder()
-        .contentType("application/octet-stream")
+        .contentType("application/json")
+        .contentEncoding("UTF-8")
+        .headers(Map(
+          "x-in-response-to"->"fake-message-id"
+        ).asInstanceOf[Map[String,AnyRef]].asJava)
         .build()
 
       //the consumer has been updated to expect an asynchronous reply from the processor, but we have no easy way of
@@ -190,7 +194,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       there was no(mockRmqChannel).basicNack(any,any,any)
       there was one(mockRmqChannel).basicPublish(
         org.mockito.ArgumentMatchers.eq("output-exchg"),
-        org.mockito.ArgumentMatchers.eq("some.routing.key"),
+        org.mockito.ArgumentMatchers.eq("some.routing.key.success"),
         org.mockito.ArgumentMatchers.eq(expectedProperties),
         org.mockito.ArgumentMatchers.eq(responseMsg.noSpaces.getBytes)
       )

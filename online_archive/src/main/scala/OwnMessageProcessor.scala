@@ -10,8 +10,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class OwnMessageProcessor(config:ArchiveHunterConfig)
-                         (implicit val archivedRecordDAO: ArchivedRecordDAO,
+class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
                           archiveHunterCommunicator: ArchiveHunterCommunicator,
                           ec:ExecutionContext,
                           mat:Materializer,

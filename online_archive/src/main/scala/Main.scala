@@ -52,7 +52,7 @@ object Main {
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
         "storagetier.onlinearchive.newfile.success",
-        new OwnMessageProcessor(archiveHunterConfig)
+        new OwnMessageProcessor()
       )
     )
 
