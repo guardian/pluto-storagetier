@@ -85,4 +85,8 @@ class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecor
   override def getRecord(pk: Int): Future[Option[IgnoredRecord]] = db.run(
     TableQuery[IgnoredRecordRow].filter(_.id===pk).result
   ).map(_.headOption)
+
+  def findBySourceFilename(filename:String) = db.run(
+    TableQuery[IgnoredRecordRow].filter(_.originalFilePath===filename).result
+  ).map(_.headOption)
 }
