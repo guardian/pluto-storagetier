@@ -20,7 +20,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
    * @param maybeUploadPath Optional destination path to upload it to. If not set, then the absolute path of `file` is used.
    * @return a Try, containing an Option with a String containing the uploaded file name.
    */
-  def copyFileToS3(file: File, maybeUploadPath:Option[String]): Try[Option[String]] = {
+  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Try[Option[String]] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Failure(new Exception(s"File ${file.getAbsolutePath} doesn't exist"))
