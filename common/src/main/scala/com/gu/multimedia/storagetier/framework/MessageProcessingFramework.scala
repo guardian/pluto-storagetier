@@ -132,7 +132,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
                   rejectMessage(envelope, Option(properties), msg)
                   logger.debug(s"MsgID ${properties.getMessageId} Successfully rejected message")
                 case Right(returnValue)=>
-                  confirmMessage(envelope.getDeliveryTag, returnValue)
+                  confirmMessage(envelope.getDeliveryTag, Option(properties).flatMap(p=>Option(p.getMessageId)), returnValue)
                   logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
               }).recover({
                 case err:Throwable=>
@@ -168,15 +168,17 @@ class MessageProcessingFramework (ingest_queue_name:String,
    * @param confirmationData a circe Json body of content to send out onto our exchange
    * @return
    */
-  private def confirmMessage(deliveryTag: Long, confirmationData:Json) = Try {
+  private def confirmMessage(deliveryTag: Long, previousMessageId:Option[String], confirmationData:Json) = Try {
     val stringContent = confirmationData.noSpaces
 
     channel.basicAck(deliveryTag, false)
     val msgProps = new AMQP.BasicProperties.Builder()
-      .contentType("application/octet-stream")
+      .contentType("application/json")
+      .contentEncoding("UTF-8")
+      .headers(Map("x-in-response-to"->previousMessageId.orNull.asInstanceOf[AnyRef]).asJava)
       .build()
 
-    channel.basicPublish(output_exchange_name, routingKeyForSend, msgProps, stringContent.getBytes(cs))
+    channel.basicPublish(output_exchange_name, routingKeyForSend + ".success", msgProps, stringContent.getBytes(cs))
   }
 
   private def permanentlyRejectMessage(envelope: Envelope, properties:AMQP.BasicProperties, body:Array[Byte], err:String) = {
@@ -364,6 +366,8 @@ object MessageProcessingFramework {
     val exchangeNames = handlers.map(_.exchangeName)
     if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
       Left(s"You have ${exchangeNames.length-exchangeNames.distinct.length} duplicate exchange names in your configuration, that is not valid.")
+    } else if(routingKeyForSend.endsWith(".")) {
+      Left("output routing key cannot end with a .")
     } else {
       initialiseRabbitMQ match {
         case Failure(err) =>

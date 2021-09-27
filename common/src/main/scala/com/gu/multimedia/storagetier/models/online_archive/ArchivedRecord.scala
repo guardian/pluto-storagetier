@@ -2,6 +2,16 @@ package com.gu.multimedia.storagetier.models.online_archive
 
 import slick.jdbc.PostgresProfile.api._
 
+/*
+{
+"id":12345,
+"archiveHunterID": "abcdefg",
+"archiveHunterIDValidated": false,
+"originalFilePath": "/original/path/to/file.ext",
+"uploadedBucket": "somebucket",
+"uploadedPath": "path/to/file.ext",
+}
+ */
 case class ArchivedRecord(id:Option[Int],
                           archiveHunterID:String,
                           archiveHunterIDValidated:Boolean,

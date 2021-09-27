@@ -23,7 +23,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
   import utils.AkkaHttpHelpers._
   import ArchiveHunterResponses._
 
-  private val httpDateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
+  final val httpDateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
 
   protected def callHttp = Http()
 
@@ -33,10 +33,10 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
    * @param formattedTime String of the date/time in RFC 1123 format
    * @return a String of the base64-encoded digest for ArchiveHunter
    */
-  private def getToken(uri:Uri, formattedTime:String, contentLength:Int,
+  protected def getToken(uri:Uri, formattedTime:String, contentLength:Int,
                        requestMethod:String,
                        contentChecksum:String) = {
-    val stringtoSign = s"$formattedTime\n$contentLength\n$contentChecksum\n$requestMethod\n${uri.toString()}"
+    val stringtoSign = s"$formattedTime\n$contentLength\n$contentChecksum\n$requestMethod\n${uri.path.toString()}"
 
     logger.debug(s"stringToSign: $stringtoSign")
 
@@ -86,7 +86,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
             contentBodyToJson(contentBody)
           case 404 =>
             Future(None)
-          case 403 =>
+          case 403|401 =>
             throw new RuntimeException(s"Archive Hunter said permission denied.") //throwing an exception here will fail the future,
           //which is picked up in onComplete in the call
           case 400 =>
@@ -124,17 +124,17 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
    */
   def lookupArchivehunterId(docId:String, uploadedBucket:String, uploadedPath:String) = {
     val req = HttpRequest(uri=s"${config.baseUri}/api/entry/$docId")
-    callToArchiveHunter[ArchiveHunterEntryResponse](req).map({
+    callToArchiveHunter[ArchiveHunterEntryResponse](req).flatMap({
       case None=>
-        false    //the ID does not exist
+        Future(false)    //the ID does not exist
       case Some(response)=>  //hooray, the ID does exist
-        if(response.entityType!="entry") {
-          throw new RuntimeException(s"Expected an entity type of 'entry' but ArchiveHunter gave us '${response.entityType}'!")
-        } else if(response.entity.path!=uploadedPath || response.entity.bucket!=uploadedBucket) {
-          throw new RuntimeException(s"The ID links to another file, we expected $uploadedBucket:$uploadedPath but got ${response.entity.bucket}:${response.entity.path}")
+        if(response.objectClass!="entry") {
+          Future.failed(new RuntimeException(s"Expected an entity type of 'entry' but ArchiveHunter gave us '${response.objectClass}'!"))
+        } else if(response.entry.path!=uploadedPath || response.entry.bucket!=uploadedBucket) {
+          Future.failed(new RuntimeException(s"The ID links to another file, we expected $uploadedBucket:$uploadedPath but got ${response.entry.bucket}:${response.entry.path}"))
         } else {
-          logger.info(s"Found s3://${response.entity.bucket}/${response.entity.path} with storage class ${response.entity.storageClass} and last-modified time ${response.entity.last_modified}")
-          true
+          logger.info(s"Found s3://${response.entry.bucket}/${response.entry.path} with storage class ${response.entry.storageClass} and last-modified time ${response.entry.last_modified}")
+          Future(true)
         }
     })
   }
