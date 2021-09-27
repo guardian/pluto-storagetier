@@ -19,9 +19,8 @@ class FileUploaderSpec extends Specification with Mockito {
       file.isFile returns false
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      val result = Try(fileUploader.copyFileToS3(file)).get
 
-      result must beAFailedTry
+      fileUploader.copyFileToS3(file) must beAFailedTry
     }
 
     "Failure when Exception with wrong status code returned from S3" in {
@@ -34,14 +33,14 @@ class FileUploaderSpec extends Specification with Mockito {
       val mockTransferManager = mock[TransferManager]
       val builder = new AmazonS3ExceptionBuilder()
       builder.setStatusCode(400)
+      builder.setErrorCode("400 Unknown")
 
       val mockExc = builder.build()
       mockedS3.getObjectMetadata(any[String],any[String]) throws mockExc
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      val result = Try(fileUploader.copyFileToS3(file)).get
 
-      result must beAFailedTry
+      fileUploader.copyFileToS3(file) must beAFailedTry
     }
 
     "File uploaded when it doesn't already exist in bucket" in {
@@ -64,9 +63,8 @@ class FileUploaderSpec extends Specification with Mockito {
       mockedS3.getObjectMetadata(any[String],any[String]) throws mockExc
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      val result = Try(fileUploader.copyFileToS3(file)).get
 
-      result must beASuccessfulTry
+      fileUploader.copyFileToS3(file) must beASuccessfulTry(Some("filePath"))
     }
   }
 
@@ -93,10 +91,8 @@ class FileUploaderSpec extends Specification with Mockito {
     mockedS3.getObjectMetadata(any[String],any[String]) returns someMetadata thenThrows mockExc
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-    val result = Try(fileUploader.copyFileToS3(file)).get
 
-    result must beASuccessfulTry
-    result.get mustEqual Some("filePath-1")
+    fileUploader.copyFileToS3(file) must beASuccessfulTry(Some("filePath-1"))
   }
 
   "File not uploaded when an already existing file with same file size exists i bucket" in {
@@ -122,9 +118,7 @@ class FileUploaderSpec extends Specification with Mockito {
     mockedS3.getObjectMetadata(any[String],any[String]) returns someMetadata thenThrows mockExc
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-    val result = Try(fileUploader.copyFileToS3(file)).get
 
-    result must beASuccessfulTry
-    result.get mustEqual Some("filePath")
+    fileUploader.copyFileToS3(file) must beASuccessfulTry(Some("filePath"))
   }
 }
