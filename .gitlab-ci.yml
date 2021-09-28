@@ -21,15 +21,28 @@ online_archive:
     - sbt test
     - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
     - docker version
-    - sbt docker:publishLocal
+    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt docker:publishLocal
     - mv ${HOME}/.sbt .sbt || true
     - if [ "${AWS_ACCESS_KEY_ID}" == "" ]; then echo Cannot upload without aws credential; exit 0; fi
     - aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 855023211239.dkr.ecr.eu-west-1.amazonaws.com
     - docker tag guardianmultimedia/storagetier-online-archive:$CI_PIPELINE_IID 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-archive:$CI_PIPELINE_IID
     - docker push 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-archive:$CI_PIPELINE_IID
+    - "echo ci_commit_branch: ${CI_COMMIT_BRANCH} >> build-info.yaml"
+    - "echo ci_commit_ref_name: ${CI_COMMIT_REF_NAME} >> build-info.yaml"
+    - "echo ci_commit_sha: ${CI_COMMIT_SHA} >> build-info.yaml"
+    - "echo ci_commit_timestamp: ${CI_COMMIT_TIMESTAMP} >> build-info.yaml"
+    - "echo ci_commit_title: \\\"${CI_COMMIT_TITLE}\\\" >> build-info.yaml"
+    - "echo ci_job_url: ${CI_JOB_URL} >> build-info.yaml"
+    - "echo ci_project_name: \\\"${CI_PROJECT_NAME}\\\" >> build-info.yaml"
+    - "echo ci_merge_request_project_url: ${CI_MERGE_REQUEST_PROJECT_URL} >> build-info.yaml"
+    - "echo ci_merge_request_title: \\\"${CI_MERGE_REQUEST_TITLE}\\\" >> build-info.yaml"
+    - "echo ci_pipeline_iid: ${CI_PIPELINE_IID} >> build-info.yaml"
+    - "echo built_image: guardianmultimedia/pluto-storagetier:$CI_PIPELINE_IID >> build-info.yaml"
   artifacts:
     reports:
       junit: junit-tests/*.xml
+    paths:
+      - build-info.yaml
   cache:
     key: ${CI_COMMIT_REF_SLUG}-sbt
     paths:
