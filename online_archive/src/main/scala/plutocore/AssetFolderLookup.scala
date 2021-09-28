@@ -117,7 +117,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
    * @param path a Path representing the path to make relative to the asset folder root
    * @return a Right with the relative path.  If the requested path is not below the asset root or both paths are relative then the call will fail.
    */
-  protected def relativizeFilePath(path:Path) =
+  def relativizeFilePath(path:Path) =
     Try { config.assetFolderBasePath.relativize(path.toAbsolutePath.normalize()) } match {
       case Success(p)=>
         logger.debug(s"Relative file path is $p")

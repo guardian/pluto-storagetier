@@ -1,16 +1,16 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.framework.MessageProcessor
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO, RetryStates}
 import io.circe.Json
 import messages.AssetSweeperNewFile
 import io.circe.generic.auto._
 import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
-import io.circe.generic.auto._
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 
-import java.nio.file.{Path, Paths}
+import java.io.File
+import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -20,7 +20,8 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
                                    ignoredRecordDAO: IgnoredRecordDAO,
                                    ec:ExecutionContext,
                                    mat:Materializer,
-                                   system:ActorSystem) extends MessageProcessor {
+                                   system:ActorSystem,
+                                   uploader: FileUploader) extends MessageProcessor {
   private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -55,11 +56,24 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     ignoreReason match {
       case None=> //no reason to ignore - we should archive
         logger.info(s"Archiving file '$fullPath'")
-        Future(
-          Left(
-            "not implemented yet"
-          )
-        )
+        val relativePath = asLookup.relativizeFilePath(fullPath).toString
+        val file = new File(fullPath.toString)
+        Future.fromTry(uploader.copyFileToS3(file, Some(relativePath))).flatMap({
+          case fileName=>
+            val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
+            val rec = ArchivedRecord(archiveHunterID, originalFilePath=relativePath, uploadedBucket = uploader.bucketName,
+              uploadedPath = fileName, uploadedVersion = None)
+
+            archivedRecordDAO.writeRecord(rec).map(writtenRecord=>Right(writtenRecord.asJson))
+        }).recoverWith(err=>{
+          val rec = FailureRecord(id = None,
+            originalFilePath = relativePath,
+            attempt = 1,
+            errorMessage = err.getMessage,
+            errorComponent = ErrorComponents.Internal,
+            retryState = RetryStates.WillRetry)
+          failureRecordDAO.writeRecord(rec).map(_=>err).flatMap(_=>Future.failed(err))
+        })
       case Some(reason)=>
         val rec = IgnoredRecord(None, fullPath.toString, reason, None, None)
         //record the fact we ignored the file to the database. This should not raise duplicate record errors.
@@ -96,7 +110,6 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
             result <- processFileAndProject(newFile, fullPath, projectRecord)
           } yield result
         }
-
     }
   }
 }
