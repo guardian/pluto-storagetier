@@ -32,11 +32,45 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    * @return
    */
   private def compositingGetPath(newFile:AssetSweeperNewFile) = Future.fromTry(
-      Try {
+    Try {
       Paths.get(newFile.filepath, newFile.filename)
     })
 
-  def processFileAndProject(file:AssetSweeperNewFile, fullPath:Path, maybeProject: Option[ProjectRecord]):Future[Either[String, Json]] = {
+  private def callUpload(fullPath:Path, relativePath:Path) = {
+    logger.info(s"Archiving file '$fullPath' to s3://${uploader.bucketName}/$relativePath")
+    Future.fromTry(
+      uploader.copyFileToS3(fullPath.toFile, Some(relativePath.toString))
+    ).flatMap(fileName=>{
+      logger.debug(s"$fullPath: Upload completed")
+      val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
+      logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
+      val rec = ArchivedRecord(archiveHunterID,
+        originalFilePath=fullPath.toString,
+        uploadedBucket = uploader.bucketName,
+        uploadedPath = fileName,
+        uploadedVersion = None)
+
+      archivedRecordDAO
+        .writeRecord(rec)
+        .map(recId=>
+          Right(
+            rec
+              .copy(id=Some(recId))
+              .asJson
+          )
+        )
+    }).recoverWith(err=>{
+      val rec = FailureRecord(id = None,
+        originalFilePath = fullPath.toString,
+        attempt = 1,  //FIXME: need to be passed the retry number by the Framework
+        errorMessage = err.getMessage,
+        errorComponent = ErrorComponents.Internal,
+        retryState = RetryStates.WillRetry)
+      failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
+    })
+  }
+
+  def processFileAndProject(fullPath:Path, maybeProject: Option[ProjectRecord]):Future[Either[String, Json]] = {
     val ignoreReason = maybeProject match {
       case Some(project)=>
         if(project.deletable.getOrElse(false)) {  //If the project is marked as “deletable”, record to datastore as “ignored”
@@ -55,35 +89,21 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
 
     ignoreReason match {
       case None=> //no reason to ignore - we should archive
-        val relativePath = asLookup.relativizeFilePath(fullPath).toString
-        logger.info(s"Archiving file '$fullPath' to s3://${uploader.bucketName}/$relativePath")
-        Future.fromTry(uploader.copyFileToS3(fullPath.toFile, Some(relativePath))).flatMap(fileName=>{
-          logger.debug(s"$fullPath: Upload completed")
-          val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
-          logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
-            val rec = ArchivedRecord(archiveHunterID,
-              originalFilePath=relativePath,
-              uploadedBucket = uploader.bucketName,
-              uploadedPath = fileName,
-              uploadedVersion = None)
+        asLookup.relativizeFilePath(fullPath) match {
+          case Left(err)=>
+            logger.error(s"Could not relativize file path $fullPath: $err. Uploading to $fullPath")
+            callUpload(fullPath, fullPath)
+          case Right(relativePath)=>
+            callUpload(fullPath, relativePath)
+        }
 
-            archivedRecordDAO.writeRecord(rec).map(recId=>Right(rec.copy(id=Some(recId)).asJson))
-        }).recoverWith(err=>{
-          val rec = FailureRecord(id = None,
-            originalFilePath = relativePath,
-            attempt = 1,  //FIXME: need to be passed the retry number by the Framework
-            errorMessage = err.getMessage,
-            errorComponent = ErrorComponents.Internal,
-            retryState = RetryStates.WillRetry)
-          failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
-        })
       case Some(reason)=>
         val rec = IgnoredRecord(None, fullPath.toString, reason, None, None)
         //record the fact we ignored the file to the database. This should not raise duplicate record errors.
         ignoredRecordDAO
           .writeRecord(rec)
-          .map(writtenRecord=> {
-            Right(writtenRecord.asJson)
+          .map(recId=> {
+            Right(rec.copy(id=Some(recId)).asJson)
           })
     }
   }
@@ -110,7 +130,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
           for {
             fullPath <- compositingGetPath(newFile)
             projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
-            result <- processFileAndProject(newFile, fullPath, projectRecord)
+            result <- processFileAndProject(fullPath, projectRecord)
           } yield result
         }
     }

@@ -25,7 +25,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Failure(new Exception(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
-      tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath))
+      tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
 
