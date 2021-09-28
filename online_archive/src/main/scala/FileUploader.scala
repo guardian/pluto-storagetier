@@ -87,7 +87,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
 }
 
 object FileUploader {
-  private def initTransferManager = wrapJavaMethod[TransferManager](()=>TransferManagerBuilder.defaultTransferManager())
+  private def initTransferManager = wrapJavaMethod(()=>TransferManagerBuilder.defaultTransferManager())
   private def initS3Client = wrapJavaMethod(()=>AmazonS3ClientBuilder.defaultClient())
 
   private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
@@ -105,3 +105,4 @@ object FileUploader {
       }
     }
   }
+}
