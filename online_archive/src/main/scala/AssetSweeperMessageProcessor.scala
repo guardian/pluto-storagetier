@@ -49,30 +49,33 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
           None
         }
       case None=>
-        logger.warn(s"No project could be found that is associated with ${fullPath}, assuming that it does need external archive")
+        logger.warn(s"No project could be found that is associated with $fullPath, assuming that it does need external archive")
         None
     }
 
     ignoreReason match {
       case None=> //no reason to ignore - we should archive
-        logger.info(s"Archiving file '$fullPath'")
         val relativePath = asLookup.relativizeFilePath(fullPath).toString
-        val file = new File(fullPath.toString)
-        Future.fromTry(uploader.copyFileToS3(file, Some(relativePath))).flatMap({
-          case fileName=>
-            val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
-            val rec = ArchivedRecord(archiveHunterID, originalFilePath=relativePath, uploadedBucket = uploader.bucketName,
-              uploadedPath = fileName, uploadedVersion = None)
+        logger.info(s"Archiving file '$fullPath' to s3://${uploader.bucketName}/$relativePath")
+        Future.fromTry(uploader.copyFileToS3(fullPath.toFile, Some(relativePath))).flatMap(fileName=>{
+          logger.debug(s"$fullPath: Upload completed")
+          val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
+          logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
+            val rec = ArchivedRecord(archiveHunterID,
+              originalFilePath=relativePath,
+              uploadedBucket = uploader.bucketName,
+              uploadedPath = fileName,
+              uploadedVersion = None)
 
-            archivedRecordDAO.writeRecord(rec).map(writtenRecord=>Right(writtenRecord.asJson))
+            archivedRecordDAO.writeRecord(rec).map(recId=>Right(rec.copy(id=Some(recId)).asJson))
         }).recoverWith(err=>{
           val rec = FailureRecord(id = None,
             originalFilePath = relativePath,
-            attempt = 1,
+            attempt = 1,  //FIXME: need to be passed the retry number by the Framework
             errorMessage = err.getMessage,
             errorComponent = ErrorComponents.Internal,
             retryState = RetryStates.WillRetry)
-          failureRecordDAO.writeRecord(rec).map(_=>err).flatMap(_=>Future.failed(err))
+          failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
         })
       case Some(reason)=>
         val rec = IgnoredRecord(None, fullPath.toString, reason, None, None)
