@@ -134,7 +134,8 @@ class MessageProcessingFramework (ingest_queue_name:String,
                 confirmMessage(envelope.getDeliveryTag,
                   targetConfig.outputRoutingKey,
                   Option(properties).flatMap(p=>Option(p.getMessageId)),
-                  returnValue)
+                  returnValue,
+                  targetConfig.testingForceReplyId)
                 logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
             }).recover({
               case err:Throwable=>
@@ -170,13 +171,14 @@ class MessageProcessingFramework (ingest_queue_name:String,
    * @param confirmationData a circe Json body of content to send out onto our exchange
    * @return
    */
-  private def confirmMessage(deliveryTag: Long, routingKeyForSend:String, previousMessageId:Option[String], confirmationData:Json) = Try {
+  private def confirmMessage(deliveryTag: Long, routingKeyForSend:String, previousMessageId:Option[String], confirmationData:Json, newMessageId:Option[UUID]=None) = Try {
     val stringContent = confirmationData.noSpaces
 
     channel.basicAck(deliveryTag, false)
     val msgProps = new AMQP.BasicProperties.Builder()
       .contentType("application/json")
       .contentEncoding("UTF-8")
+      .messageId(newMessageId.getOrElse(UUID.randomUUID()).toString)
       .headers(Map("x-in-response-to"->previousMessageId.orNull.asInstanceOf[AnyRef]).asJava)
       .build()
 

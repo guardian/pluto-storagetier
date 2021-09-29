@@ -8,6 +8,7 @@ import org.specs2.mutable.Specification
 import io.circe.syntax._
 import io.circe.generic.auto._
 
+import java.util.UUID
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -158,8 +159,9 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
       mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
+      val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
-        ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
+        ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor, Some(replyuuid))
       )
 
       val f = new MessageProcessingFramework("input-queue",
@@ -177,6 +179,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val expectedProperties = new AMQP.BasicProperties.Builder()
         .contentType("application/json")
         .contentEncoding("UTF-8")
+        .messageId("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
         .headers(Map(
           "x-in-response-to"->"fake-message-id"
         ).asInstanceOf[Map[String,AnyRef]].asJava)
