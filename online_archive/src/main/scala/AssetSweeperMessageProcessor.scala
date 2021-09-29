@@ -4,12 +4,11 @@ import com.gu.multimedia.storagetier.framework.MessageProcessor
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO, RetryStates}
 import io.circe.Json
 import messages.AssetSweeperNewFile
+import AssetSweeperNewFile.Decoder._ //need a custom decoder for this message due to the timestamp formats
 import io.circe.generic.auto._
 import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
-
-import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
