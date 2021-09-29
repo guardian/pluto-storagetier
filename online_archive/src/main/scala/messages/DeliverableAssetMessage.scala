@@ -8,7 +8,7 @@ import java.time.ZonedDateTime
  */
 case class DeliverableAssetMessage(
                                   id:Int,
-                                  deliverableTypeId:Int,
+                                  deliverableTypeId:Option[Int],
                                   filename:String,
                                   size:Long,
                                   access_dt:Option[ZonedDateTime],

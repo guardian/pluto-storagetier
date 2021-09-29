@@ -9,9 +9,9 @@ case class PlutoDeliverablesConfig(uploadBasePath:String, presevePathParts:Int)
 
 object PlutoDeliverablesConfig extends ((String, Int)=>PlutoDeliverablesConfig) {
   /**
-   * default constructor for PlutoDeliverablesConfig. Takes the upload base path from the environment variable DELIVERABLES_UPLOAD_BASE
+   * default constructor for PlutoDeliverablesConfig. Takes the upload base path from the environment variable DELIVERABLES_UPLOAD_BASEPATH
    * and defaults to `Masters` if that is not found. Keeps the immediate parent directory only.
    * @return
    */
-  def apply() = new PlutoDeliverablesConfig(sys.env.getOrElse("DELIVERABLES_UPLOAD_BASE","Masters"), 2)
+  def apply() = new PlutoDeliverablesConfig(sys.env.getOrElse("DELIVERABLES_UPLOAD_BASEPATH","Masters"), 2)
 }
