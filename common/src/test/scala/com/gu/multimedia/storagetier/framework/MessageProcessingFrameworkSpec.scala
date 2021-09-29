@@ -25,12 +25,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val mockedMessageProcessor = mock[MessageProcessor]
 
       val handlers = Seq(
-        ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
+        ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
       )
 
       val f = new MessageProcessingFramework("input-queue",
         "output-exchg",
-        "some.routing.key",
         "retry-exchg",
         "failed-exchg",
         "failed-q",
@@ -62,12 +61,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val mockedMessageProcessor = mock[MessageProcessor]
 
       val handlers = Seq(
-        ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
+        ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
       )
 
       val f = new MessageProcessingFramework("input-queue",
         "output-exchg",
-        "some.routing.key",
         "retry-exchg",
         "failed-exchg",
         "failed-q",
@@ -103,12 +101,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val mockedMessageProcessor = mock[MessageProcessor]
 
       val handlers = Seq(
-        ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
+        ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
       )
 
       val f = new MessageProcessingFramework("input-queue",
         "output-exchg",
-        "some.routing.key",
         "retry-exchg",
         "failed-exchg",
         "failed-q",
@@ -162,12 +159,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val responseMsg = Map("status"->"ok").asJson
       mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
       val handlers = Seq(
-        ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
+        ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
       )
 
       val f = new MessageProcessingFramework("input-queue",
         "output-exchg",
-        "some.routing.key",
         "retry-exchg",
         "failed-exchg",
         "failed-q",
@@ -194,7 +190,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       there was no(mockRmqChannel).basicNack(any,any,any)
       there was one(mockRmqChannel).basicPublish(
         org.mockito.ArgumentMatchers.eq("output-exchg"),
-        org.mockito.ArgumentMatchers.eq("some.routing.key.success"),
+        org.mockito.ArgumentMatchers.eq("output.routing.key.success"),
         org.mockito.ArgumentMatchers.eq(expectedProperties),
         org.mockito.ArgumentMatchers.eq(responseMsg.noSpaces.getBytes)
       )
@@ -228,12 +224,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
     mockedMessageProcessor.handleMessage(any, any) returns Future(Left("test error"))
 
     val handlers = Seq(
-      ProcessorConfiguration("some-exchange","input.routing.key", mockedMessageProcessor)
+      ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
     )
 
     val f = new MessageProcessingFramework("input-queue",
       "output-exchg",
-      "some.routing.key",
       "retry-exchg",
       "failed-exchg",
       "failed-q",

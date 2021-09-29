@@ -55,11 +55,13 @@ object Main {
       ProcessorConfiguration(
         "assetsweeper",
         "assetsweeper.asset_folder_importer.file.#",
+        "storagetier.onlinearchive.newfile",
         new AssetSweeperMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
         "storagetier.onlinearchive.newfile.success",
+        "storagetier.onlinearchive.mediaingest",
         new OwnMessageProcessor()
       )
     )
