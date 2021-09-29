@@ -63,7 +63,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-      fileUploader.copyFileToS3(file) must beASuccessfulTry(Some("filePath"))
+      fileUploader.copyFileToS3(file) must beASuccessfulTry("filePath")
     }
   }
 
@@ -91,7 +91,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    fileUploader.copyFileToS3(file) must beASuccessfulTry(Some("filePath-1"))
+    fileUploader.copyFileToS3(file) must beASuccessfulTry("filePath-1")
   }
 
   "File not uploaded when an already existing file with same file size exists i bucket" in {
@@ -118,6 +118,6 @@ class FileUploaderSpec extends Specification with Mockito {
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    fileUploader.copyFileToS3(file) must beASuccessfulTry(Some("filePath"))
+    fileUploader.copyFileToS3(file) must beASuccessfulTry("filePath")
   }
 }

@@ -43,15 +43,25 @@ object Main {
     implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
     implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
 
+    implicit lazy val uploader = FileUploader.createFromEnvVars match {
+      case Left(err)=>
+        logger.error(s"Could not initialise FileUploader: $err")
+        Await.ready(actorSystem.terminate(), 30.seconds)
+        sys.exit(1)
+      case Right(u)=>u
+    }
+
     val config = Seq(
       ProcessorConfiguration(
         "assetsweeper",
         "assetsweeper.asset_folder_importer.file.#",
+        "storagetier.onlinearchive.newfile",
         new AssetSweeperMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
         "storagetier.onlinearchive.newfile.success",
+        "storagetier.onlinearchive.mediaingest",
         new OwnMessageProcessor()
       )
     )

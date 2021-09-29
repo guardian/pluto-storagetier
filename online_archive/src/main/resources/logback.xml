@@ -9,9 +9,9 @@
     <logger name="com.gu.multimedia" level="DEBUG"/>
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
     <logger name="FakeMessageProcessor" level="DEBUG"/>
-    <logger name="plutocore" level="DEBUG"/>
+    <logger name="plutocore" level="INFO"/>
     <logger name="AssetSweeperMessageProcessor" level="DEBUG"/>
-    <logger name="archivehunter" level="DEBUG"/>
+    <logger name="archivehunter" level="INFO"/>
     <logger name="Main$" level="DEBUG"/>
 
     <root level="ERROR">

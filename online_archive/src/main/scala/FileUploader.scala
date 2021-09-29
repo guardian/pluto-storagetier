@@ -1,12 +1,12 @@
-import com.amazonaws.services.s3.AmazonS3
+import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.amazonaws.services.s3.model.AmazonS3Exception
-import com.amazonaws.services.s3.transfer.{TransferManager}
+import com.amazonaws.services.s3.transfer.{TransferManager, TransferManagerBuilder}
 import org.slf4j.LoggerFactory
 
 import java.io.File
 import scala.util.{Failure, Success, Try}
 
-class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketName: String) {
+class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
@@ -18,14 +18,14 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
    * If there is an error, then Failure is returned
    * @param file a java.io.File instance representing the file to upload
    * @param maybeUploadPath Optional destination path to upload it to. If not set, then the absolute path of `file` is used.
-   * @return a Try, containing an Option with a String containing the uploaded file name.
+   * @return a Try, containing a String containing the uploaded file name.
    */
-  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Try[Option[String]] = {
+  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Try[String] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Failure(new Exception(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
-      tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath))
+      tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
 
@@ -36,9 +36,9 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
    * @param increment iteration number
    * @return
    */
-  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[Option[String]] = {
+  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[String] = {
     val newFilePath = if (increment <= 0) filePath else {
-      // check if fle has an extension and insert the increment before it if this is the case
+      // check if file has an extension and insert the increment before it if this is the case
       val pos = filePath.lastIndexOf(".")
       if (pos > 0) filePath.patch(pos, s"-$increment", 0) else s"$filePath-$increment"
     }
@@ -50,7 +50,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
         val objectSize = metadata.getContentLength
         if (file.length == objectSize) {
           logger.info(s"Object $newFilePath already exists on S3")
-          Success(Some(newFilePath))
+          Success(newFilePath)
         } else {
           logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
           tryUploadFile(file, filePath, increment + 1)
@@ -81,7 +81,27 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, bucketNam
    * @param keyName S3 key name to upload to
    * @return
    */
-  private def uploadFile(file: File, keyName: String): Try[Option[String]] = {
-    Try { transferManager.upload(bucketName, keyName, file).waitForCompletion }.map(_=>Some(keyName))
+  private def uploadFile(file: File, keyName: String): Try[String] = {
+    Try { transferManager.upload(bucketName, keyName, file).waitForCompletion }.map(_=>keyName)
   }
 }
+
+object FileUploader {
+  private def initTransferManager = wrapJavaMethod[TransferManager](()=>TransferManagerBuilder.defaultTransferManager())
+  private def initS3Client = wrapJavaMethod(()=>AmazonS3ClientBuilder.defaultClient())
+
+  private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
+
+  def createFromEnvVars:Either[String, FileUploader] = {
+    sys.env.get("ARCHIVE_MEDIA_BUCKET") match {
+      case Some(mediaBucket)=>
+        for {
+          transferManager <- initTransferManager
+          s3Client <- initS3Client
+          result <- Right(new FileUploader(transferManager, s3Client, mediaBucket))
+        } yield result
+      case None=>
+        Left("You must specify ARCHIVE_MEDIA_BUCKET so we know where to upload to!")
+      }
+    }
+  }

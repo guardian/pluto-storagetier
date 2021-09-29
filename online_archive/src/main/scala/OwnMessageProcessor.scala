@@ -2,15 +2,17 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
 import com.gu.multimedia.storagetier.framework.MessageProcessor
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, RetryStates}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
 
+import java.nio.file.Paths
 import scala.concurrent.{ExecutionContext, Future}
 
 class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
+                          failureRecordDAO: FailureRecordDAO,
                           archiveHunterCommunicator: ArchiveHunterCommunicator,
                           ec:ExecutionContext,
                           mat:Materializer,
@@ -76,7 +78,20 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
                 logger.info(s"Archive hunter ID does not exist, will retry")
                 Future(Left("Archivehunter ID does not exist yet, will retry"))
             })
-        }
+        }.recoverWith({
+          case err:Throwable=>
+            val failure = FailureRecord(
+              None,
+              rec.originalFilePath,
+              1,
+              s"Uncaught exception: ${err.getMessage}",
+              ErrorComponents.Internal,
+              RetryStates.RanOutOfRetries
+            )
+            failureRecordDAO
+              .writeRecord(failure)
+              .flatMap(_=>Future.failed(err))
+        })
     }
   }
 
@@ -93,7 +108,8 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
     routingKey match {
       case "storagetier.onlinearchive.newfile.success"=>
-        handleArchivehunterValidation(msg).map(_.map(_.asJson))
+        handleArchivehunterValidation(msg)
+          .map(_.map(_.asJson))
       case _=>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
         Future.failed(new RuntimeException("Not meant to receive this"))

@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import io.circe.generic.auto._
@@ -18,6 +18,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
 
       archiveHunterCommunicator.lookupArchivehunterId(any,any,any) returns Future(true)
@@ -49,12 +50,14 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was one(archiveHunterCommunicator).lookupArchivehunterId("abcdefg","testbucket","path/to/some.file")
       there was one(archivedRecordDAO).updateIdValidationStatus(1234, true)
       there was one(archivedRecordDAO).getRecord(1234)
+      there was no(failureRecordDAO).writeRecord(any)
     }
 
     "return a Left and not update the record if the ID is not valid" in {
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
 
       archiveHunterCommunicator.lookupArchivehunterId(any,any,any) returns Future(false)
@@ -86,12 +89,14 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was one(archiveHunterCommunicator).lookupArchivehunterId("abcdefg","testbucket","path/to/some.file")
       there was no(archivedRecordDAO).updateIdValidationStatus(any,any)
       there was no(archivedRecordDAO).getRecord(any)
+      there was no(failureRecordDAO).writeRecord(any)
     }
 
     "pass on the failure if the lookup crashes for some reason" in {
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
 
       archiveHunterCommunicator.lookupArchivehunterId(any,any,any) returns Future.failed(new RuntimeException("kaboom"))
@@ -123,12 +128,14 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was one(archiveHunterCommunicator).lookupArchivehunterId("abcdefg","testbucket","path/to/some.file")
       there was no(archivedRecordDAO).updateIdValidationStatus(any,any)
       there was no(archivedRecordDAO).getRecord(any)
+      there was one(failureRecordDAO).writeRecord(any)
     }
 
     "return a failure if the given message is not in the right format" in {
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
 
       archiveHunterCommunicator.lookupArchivehunterId(any,any,any) returns Future.failed(new RuntimeException("kaboom"))
@@ -145,6 +152,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was no(archiveHunterCommunicator).lookupArchivehunterId(any,any,any)
       there was no(archivedRecordDAO).updateIdValidationStatus(any,any)
       there was no(archivedRecordDAO).getRecord(any)
+      there was no(failureRecordDAO).writeRecord(any)
     }
   }
 }

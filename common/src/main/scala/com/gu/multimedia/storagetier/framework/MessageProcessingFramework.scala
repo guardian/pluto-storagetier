@@ -33,7 +33,6 @@ import scala.collection.mutable
  */
 class MessageProcessingFramework (ingest_queue_name:String,
                                   output_exchange_name:String,
-                                  routingKeyForSend: String,
                                   retryExchangeName:String,
                                   failedExchangeName:String,
                                   failedQueueName:String,
@@ -90,7 +89,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }.left.map(_.getMessage())
 
     override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]): Unit = {
-      val matchingProcessors =
+      val matchingConfigurations =
         if(envelope.getExchange==retryInputExchangeName) {  //if the message came from the retry exchange, then look up the original exchange and use that
           val retryAttempt = Try {
             properties.getHeaders.asScala.getOrElse("retry-count",0).asInstanceOf[Int]
@@ -115,31 +114,35 @@ class MessageProcessingFramework (ingest_queue_name:String,
           handlers.filter(_.exchangeName==envelope.getExchange)
         }
 
-      logger.debug(s"${matchingProcessors.length} processors matched, will use the first")
+      logger.debug(s"${matchingConfigurations.length} processors matched, will use the first")
 
       convertToUTFString(body).flatMap(wrappedParse) match {
         case Left(err)=>
           permanentlyRejectMessage(envelope, properties, body, err)
         case Right(msg)=>
-          if(matchingProcessors.isEmpty) {
+          if(matchingConfigurations.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
             rejectMessage(envelope, Some(properties), msg)
           } else {
-            val targetProcessor = matchingProcessors.head.processor
-              targetProcessor.handleMessage(envelope.getRoutingKey, msg).map({
-                case Left(errDesc)=>
-                  logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
-                  rejectMessage(envelope, Option(properties), msg)
-                  logger.debug(s"MsgID ${properties.getMessageId} Successfully rejected message")
-                case Right(returnValue)=>
-                  confirmMessage(envelope.getDeliveryTag, Option(properties).flatMap(p=>Option(p.getMessageId)), returnValue)
-                  logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
-              }).recover({
-                case err:Throwable=>
-                  logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
-                  permanentlyRejectMessage(envelope, properties, body, err.getMessage)
-              })
-            }
+            val targetConfig = matchingConfigurations.head
+            targetConfig.processor.handleMessage(envelope.getRoutingKey, msg).map({
+              case Left(errDesc)=>
+                logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
+                rejectMessage(envelope, Option(properties), msg)
+                logger.debug(s"MsgID ${properties.getMessageId} Successfully rejected message")
+              case Right(returnValue)=>
+                confirmMessage(envelope.getDeliveryTag,
+                  targetConfig.outputRoutingKey,
+                  Option(properties).flatMap(p=>Option(p.getMessageId)),
+                  returnValue,
+                  targetConfig.testingForceReplyId)
+                logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
+            }).recover({
+              case err:Throwable=>
+                logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
+                permanentlyRejectMessage(envelope, properties, body, err.getMessage)
+            })
+          }
       }
     }
   }
@@ -168,13 +171,14 @@ class MessageProcessingFramework (ingest_queue_name:String,
    * @param confirmationData a circe Json body of content to send out onto our exchange
    * @return
    */
-  private def confirmMessage(deliveryTag: Long, previousMessageId:Option[String], confirmationData:Json) = Try {
+  private def confirmMessage(deliveryTag: Long, routingKeyForSend:String, previousMessageId:Option[String], confirmationData:Json, newMessageId:Option[UUID]=None) = Try {
     val stringContent = confirmationData.noSpaces
 
     channel.basicAck(deliveryTag, false)
     val msgProps = new AMQP.BasicProperties.Builder()
       .contentType("application/json")
       .contentEncoding("UTF-8")
+      .messageId(newMessageId.getOrElse(UUID.randomUUID()).toString)
       .headers(Map("x-in-response-to"->previousMessageId.orNull.asInstanceOf[AnyRef]).asJava)
       .build()
 
@@ -375,8 +379,12 @@ object MessageProcessingFramework {
           Left(err.getMessage)
         case Success((channel, conn)) =>
           Right(
-            new MessageProcessingFramework(ingest_queue_name, output_exchange_name,
-              routingKeyForSend, retryExchangeName, failedExchangeName, failedQueueName, handlers)(channel, conn)
+            new MessageProcessingFramework(ingest_queue_name,
+              output_exchange_name,
+              retryExchangeName,
+              failedExchangeName,
+              failedQueueName,
+              handlers)(channel, conn)
           )
       }
     }
