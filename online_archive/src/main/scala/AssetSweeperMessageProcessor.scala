@@ -131,7 +131,20 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
             projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
             result <- processFileAndProject(fullPath, projectRecord)
           } yield result
-        }
+        }.recoverWith({
+          case err:Throwable=>
+            val failure = FailureRecord(
+              None,
+              Paths.get(newFile.filepath, newFile.filename).toString,
+              1,
+              s"Uncaught exception: ${err.getMessage}",
+              ErrorComponents.Internal,
+              RetryStates.RanOutOfRetries
+            )
+            failureRecordDAO
+              .writeRecord(failure)
+              .flatMap(_=>Future.failed(err))
+        })
     }
   }
 }
