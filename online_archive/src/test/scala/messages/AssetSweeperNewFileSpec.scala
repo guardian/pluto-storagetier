@@ -37,8 +37,8 @@ class AssetSweeperNewFileSpec extends Specification {
         ZonedDateTime.of(2021,9,29,8,32,29,768000000, ZoneId.of("Etc/UTC")),
         501,
         423452,
-        "zoom_0.mp4",
-        "/media/assets/wg/comm/proj/interviews"
+        "/media/assets/wg/comm/proj/interviews",
+        "zoom_0.mp4"
       ))
     }
   }
