@@ -92,17 +92,15 @@ object FileUploader {
 
   private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
 
-  def createFromEnvVars:Either[String, FileUploader] = {
+  def createFromEnvVars:Either[String, FileUploader] =
     sys.env.get("ARCHIVE_MEDIA_BUCKET") match {
-      case Some(mediaBucket)=>
+      case Some(mediaBucket) =>
         for {
           transferManager <- initTransferManager
           s3Client <- initS3Client
           result <- Right(new FileUploader(transferManager, s3Client, mediaBucket))
         } yield result
-      case None=>
+      case None =>
         Left("You must specify ARCHIVE_MEDIA_BUCKET so we know where to upload to!")
-      }
     }
-  }
 }

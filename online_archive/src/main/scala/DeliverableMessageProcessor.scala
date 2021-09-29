@@ -34,7 +34,7 @@ class DeliverableMessageProcessor(config:PlutoDeliverablesConfig, uploader:FileU
   protected def findExistingRecord(forPath:Path) = archivedRecordDAO.findBySourceFilename(forPath.toAbsolutePath.toString)
 
   protected def ensureItsUploaded(pathName:Path, maybeExistingRecord:Option[ArchivedRecord]) = uploader.copyFileToS3(pathName.toFile, Some(makeUploadPath(pathName).toString)) match {
-    case Success(Some(uploadedFileName))=>
+    case Success(uploadedFileName)=>
       logger.info(s"Successfully ensured that ${pathName.toString} exists in archive at $uploadedFileName")
       val possibleArchiveHunterId = ArchiveHunter.makeDocId(uploadBucket, uploadedFileName)
       val recordToWrite = maybeExistingRecord match {
@@ -50,20 +50,6 @@ class DeliverableMessageProcessor(config:PlutoDeliverablesConfig, uploader:FileU
       archivedRecordDAO
         .writeRecord(recordToWrite)
         .map(recId=>Right(recordToWrite.copy(id=Some(recId)).asJson))
-    case Success(None)=>
-      logger.info(s"Nothing was performed by AWS")
-      ignoredRecordDAO
-        .findBySourceFilename(pathName.toString)
-        .flatMap({
-          case Some(existingRecord)=>
-            logger.info(s"Ignore of $existingRecord has already been logged")
-            Future(Right(existingRecord.asJson))
-          case None=>
-            val rec = IgnoredRecord(None, pathName.toString, "Nothing returned from AWS", None, None)
-            ignoredRecordDAO
-              .writeRecord(rec)
-              .map(recId=>Right(rec.copy(id=Some(recId)).asJson))
-        })
     case Failure(err)=>
       logger.error(s"Could not check for upload of ${pathName.toString}: ${err.getMessage}", err)
       //FIXME: we can't see the attempt number here! Needs to be passed through from the framework

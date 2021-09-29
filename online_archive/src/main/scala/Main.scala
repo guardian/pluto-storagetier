@@ -69,6 +69,7 @@ object Main {
       ),
       ProcessorConfiguration(
         "pluto-deliverables",
+        "storagetier.onlinearchive.newfile",  //this is also a new file ingest which should get validated
         "deliverables.deliverableasset.create",
         //don't mind the "getOrElse" here, if it's not set then the intialisation of `uploader` fails and is caught above.
         new DeliverableMessageProcessor(deliverablesConfig, uploader, sys.env.getOrElse("ARCHIVE_MEDIA_BUCKET","") )
