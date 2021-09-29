@@ -1,6 +1,6 @@
 import com.typesafe.sbt.packager.docker
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport.{dockerExposedPorts, dockerUsername}
-import com.typesafe.sbt.packager.docker.{Cmd, DockerPermissionStrategy}
+import com.typesafe.sbt.packager.docker.{Cmd, DockerChmodType, DockerPermissionStrategy}
 import sbt.Keys.scalacOptions
 
 name := "pluto-storagetier"
@@ -54,13 +54,17 @@ lazy val `online_archive` = (project in file("online_archive"))
   .dependsOn(common)
   .settings(commonSettings,
     version := sys.props.getOrElse("build.number","DEV"),
-    dockerPermissionStrategy := DockerPermissionStrategy.CopyChown,
+    dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
     Docker / daemonUserUid := None,
     Docker / daemonUser := "daemon",
     Docker / dockerUsername  := sys.props.get("docker.username"),
     Docker / dockerRepository := Some("guardianmultimedia"),
     Docker / packageName := "guardianmultimedia/storagetier-online-archive",
-    packageName := "mediacensus",
+    dockerChmodType := DockerChmodType.Custom("ugo=rx"),
+    dockerAdditionalPermissions += (DockerChmodType.Custom(
+      "ugo=rx"
+    ), "/opt/docker/bin/online_archive"),
+    packageName := "storagetier-online-archive",
     dockerBaseImage := "openjdk:11-jdk-slim",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-archive",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
