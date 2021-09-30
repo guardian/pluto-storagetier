@@ -28,7 +28,9 @@ class DeliverableMessageProcessor(config:PlutoDeliverablesConfig, uploader:FileU
   }
 
   protected def makeUploadPath(sourcePath:Path) = {
-    sourcePath.subpath(sourcePath.getNameCount-config.presevePathParts-1,sourcePath.getNameCount-1)
+    Paths.get(config.uploadBasePath).resolve(
+      sourcePath.subpath(sourcePath.getNameCount-config.presevePathParts,sourcePath.getNameCount)
+    )
   }
 
   protected def findExistingRecord(forPath:Path) = archivedRecordDAO.findBySourceFilename(forPath.toAbsolutePath.toString)

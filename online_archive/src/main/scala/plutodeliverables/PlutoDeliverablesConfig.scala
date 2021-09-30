@@ -13,5 +13,5 @@ object PlutoDeliverablesConfig extends ((String, Int)=>PlutoDeliverablesConfig) 
    * and defaults to `Masters` if that is not found. Keeps the immediate parent directory only.
    * @return
    */
-  def apply() = new PlutoDeliverablesConfig(sys.env.getOrElse("DELIVERABLES_UPLOAD_BASEPATH","Masters"), 2)
+  def apply() = new PlutoDeliverablesConfig(sys.env.getOrElse("DELIVERABLES_UPLOAD_BASEPATH","Deliverables"), 2)
 }
