@@ -5,6 +5,7 @@ import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import org.slf4j.LoggerFactory
 import plutocore.PlutoCoreEnvironmentConfigProvider
+import plutodeliverables.PlutoDeliverablesConfig
 import sun.misc.{Signal, SignalHandler}
 
 import scala.concurrent.{Await, Future}
@@ -51,6 +52,8 @@ object Main {
       case Right(u)=>u
     }
 
+    val deliverablesConfig = PlutoDeliverablesConfig()
+
     val config = Seq(
       ProcessorConfiguration(
         "assetsweeper",
@@ -63,6 +66,13 @@ object Main {
         "storagetier.onlinearchive.newfile.success",
         "storagetier.onlinearchive.mediaingest",
         new OwnMessageProcessor()
+      ),
+      ProcessorConfiguration(
+        "pluto-deliverables",
+        "deliverables.deliverableasset.create",
+        "storagetier.onlinearchive.newfile",  //this is also a new file ingest which should get validated
+        //don't mind the "getOrElse" here, if it's not set then the intialisation of `uploader` fails and is caught above.
+        new DeliverableMessageProcessor(deliverablesConfig, uploader, sys.env.getOrElse("ARCHIVE_MEDIA_BUCKET","") )
       )
     )
 

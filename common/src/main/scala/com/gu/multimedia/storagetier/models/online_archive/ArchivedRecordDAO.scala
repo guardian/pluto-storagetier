@@ -72,4 +72,8 @@ class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[A
   override def getRecord(pk: Int): Future[Option[ArchivedRecord]] = db.run(
     TableQuery[ArchivedRecordRow].filter(_.id===pk).result
   ).map(_.headOption)
+
+  def findBySourceFilename(filename:String) = db.run(
+    TableQuery[ArchivedRecordRow].filter(_.originalFilePath===filename).result
+  ).map(_.headOption)
 }
