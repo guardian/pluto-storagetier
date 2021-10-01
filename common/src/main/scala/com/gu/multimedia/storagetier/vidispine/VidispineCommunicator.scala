@@ -87,7 +87,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
    * @return a Future containing the InputStream
    */
   def streamFileContent(vsFileId:String, readTimeout:FiniteDuration=5.seconds) = {
-    val req = HttpRequest(uri = s"${config.baseUri}/api/storage/file/$vsFileId/data")
+    val req = HttpRequest(uri = s"${config.baseUri}/API/storage/file/$vsFileId/data")
     streamingVS(req, readTimeout, s"Vidispine file $vsFileId")
   }
 
@@ -99,10 +99,15 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
    */
   def streamXMLMetadataDocument(itemId:String, readTimeout:FiniteDuration=5.seconds) = {
     val headers = Seq(Accept(MediaRange(MediaTypes.`application/xml`)))
-    val req = HttpRequest(uri = s"${config.baseUri}/api/item/$itemId/metadata", headers = headers)
+    val req = HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/metadata", headers = headers)
     streamingVS(req, readTimeout, s"Vidispine item $itemId")
   }
 
+  def akkaStreamXMLMetadataDocument(itemId:String, readTimeout:FiniteDuration=5.seconds) = {
+    val headers = Seq(Accept(MediaRange(MediaTypes.`application/xml`)))
+    val req = HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/metadata", headers = headers)
+    callToVidispineRaw(req)
+  }
 
   def getResourceUriList(itemId:String, itemVersion:Option[Int], resourceType: VidispineCommunicator.ResourceType.Value) = {
     val baseUriString = resourceType match {

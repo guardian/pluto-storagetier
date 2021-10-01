@@ -5,7 +5,7 @@ import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, Vidispine
 import org.slf4j.LoggerFactory
 
 import java.nio.file.Paths
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object Main {
@@ -23,6 +23,39 @@ object Main {
       new VidispineCommunicator(vsConfig)
   }
 
+  def testGetThumbnail(vsComm:VidispineCommunicator, itemId:String) = vsComm.akkaStreamFirstThumbnail(itemId, None).flatMap({
+    case None=>
+      logger.error(s"No thumbnail present on $itemId")
+      Future( () )
+    case Some(source)=>
+      source
+        .toMat(FileIO.toPath(Paths.get("test.jpg")))(Keep.right)
+        .run()
+        .map(ioResult=>ioResult.status match {
+          case Success(_)=>
+            logger.info(s"Written ${ioResult.count} bytes to test.jpg.")
+          case Failure(err)=>
+            logger.error(s"Could not write to test.jpg: ${err.getMessage}")
+        })
+  })
+
+  def testGetMeta(vsComm:VidispineCommunicator, itemId:String) = vsComm.akkaStreamXMLMetadataDocument(itemId).flatMap({
+    case None=>
+      logger.error(s"No metadata present on $itemId")
+      Future( () )
+    case Some(source)=>
+      val path = Paths.get(s"$itemId.xml")
+      source
+        .toMat(FileIO.toPath(path))(Keep.right)
+        .run()
+        .map(ioResult=>ioResult.status match {
+          case Success(_)=>
+            logger.info(s"Written ${ioResult.count} bytes to $path.")
+          case Failure(err)=>
+            logger.error(s"Could not write to $path: ${err.getMessage}")
+        })
+  })
+
   def main(args:Array[String]) = {
     val vsComm = getVidispineCommunicator
 
@@ -32,26 +65,19 @@ object Main {
         actorSystem.terminate()
       case Some(itemId)=>
         logger.info(s"Getting first thumbnail for $itemId...")
-        vsComm.akkaStreamFirstThumbnail(itemId, None).flatMap({
-          case None=>
-            logger.error(s"No thumbnail present on $itemId")
-            actorSystem.terminate
-          case Some(source)=>
-            source
-              .toMat(FileIO.toPath(Paths.get("test.jpg")))(Keep.right)
-              .run()
-              .map(ioResult=>ioResult.status match {
-                case Success(_)=>
-                  logger.info(s"Written ${ioResult.count} bytes to test.jpg.")
-                case Failure(err)=>
-                  logger.error(s"Could not write to test.jpg: ${err.getMessage}")
-              })
-              .andThen(_=>actorSystem.terminate())
-        }).recoverWith({
-          case err:Throwable=>
-            logger.error("vidispine communicator failed: ", err)
+        Future.sequence(Seq(
+          testGetThumbnail(vsComm, itemId),
+          testGetMeta(vsComm, itemId)
+        ))
+          .map(_=>{
+            logger.info("all done, terminating actor system")
             actorSystem.terminate()
-        })
+          })
+          .recoverWith({
+            case err:Throwable=>
+              logger.error("vidispine communicator failed: ", err)
+              actorSystem.terminate()
+          })
     }
     ()
   }
