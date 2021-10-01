@@ -1,4 +1,4 @@
-package vidispine
+package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -8,9 +8,10 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
 import akka.util.ByteString
 import org.slf4j.LoggerFactory
-import utils.AkkaHttpHelpers
-import utils.AkkaHttpHelpers._
 import io.circe.generic.auto._
+import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
+import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
+
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}

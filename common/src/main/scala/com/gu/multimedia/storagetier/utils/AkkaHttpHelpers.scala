@@ -1,4 +1,4 @@
-package utils
+package com.gu.multimedia.storagetier.utils
 
 import akka.http.scaladsl.model.{HttpResponse, ResponseEntity, Uri}
 import akka.stream.Materializer
@@ -88,10 +88,6 @@ object AkkaHttpHelpers {
       logger.warn(s"Received unexpected redirect from $description to ${response.getHeader("Location")}")
       val h = response.getHeader("Location")
       if (h.isPresent) {
-//        val newUri = h.get()
-//        logger.info(s"Redirecting to ${newUri.value()}")
-//        val updatedReq = req.withUri(Uri(newUri.value()))
-//        callToArchiveHunter(updatedReq, attempt + 1)
         Future(Left(RedirectRequired(h.get().value())))
       } else {
         Future.failed(new RuntimeException(s"$description returned an Unexpected redirect without location"))
@@ -101,10 +97,5 @@ object AkkaHttpHelpers {
         logger.error(s"$description returned a server error ${response.status}: \"$body\". Retrying...")
         Left(RetryRequired)
       })
-//      contentBody.flatMap(body => {
-//        logger.error(s"ArchiveHunter returned a server error ${response.status}: \"$body\". Retrying...")
-//        Thread.sleep(500 * attempt)
-//        callToArchiveHunter(req, attempt + 1)
-//      })
   }
 }

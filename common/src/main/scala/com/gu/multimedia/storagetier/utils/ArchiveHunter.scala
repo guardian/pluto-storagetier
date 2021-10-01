@@ -1,4 +1,4 @@
-package utils
+package com.gu.multimedia.storagetier.utils
 
 import io.circe.{Decoder, Encoder}
 

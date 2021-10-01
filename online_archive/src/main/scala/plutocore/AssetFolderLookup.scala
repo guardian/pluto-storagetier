@@ -20,13 +20,12 @@ import java.nio.file._
 import scala.util.{Failure, Success, Try}
 import io.circe.generic.auto._
 import cats.implicits._
-import utils.AkkaHttpHelpers
+import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
+import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers._
 
 class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, actorSystem:ActorSystem) {
   private implicit val dispatcher = actorSystem.dispatcher
   private val logger = LoggerFactory.getLogger(getClass)
-
-  import utils.AkkaHttpHelpers._
 
   /* extract call to static object to make testing easier */
   def callHttp = Http()

@@ -32,6 +32,10 @@ lazy val `common` = (project in file("common"))
     Docker / aggregate := false,
     Docker / publish := {},
     libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
       "com.rabbitmq" % "amqp-client" % "5.13.1",
       "commons-codec" % "commons-codec" % "1.15",
       "io.circe" %% "circe-core" % circeVersion,

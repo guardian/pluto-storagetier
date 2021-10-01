@@ -1,14 +1,14 @@
-package utils
+package com.gu.multimedia.storagetier.utils
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import io.circe.generic.auto._
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.{AssetFolderLookup, AssetFolderRecord, PlutoCoreConfig}
+import plutocore.AssetFolderRecord
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import io.circe.generic.auto._
-import java.nio.file.Paths
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 

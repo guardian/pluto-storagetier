@@ -2,9 +2,10 @@ package archivehunter
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.{GenericHttpCredentials, OAuth2BearerToken}
-import akka.http.scaladsl.model.{HttpEntity, HttpHeader, HttpMethods, HttpRequest, Uri}
+import akka.http.scaladsl.model.headers.GenericHttpCredentials
+import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, Uri}
 import akka.stream.Materializer
+import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
 import org.slf4j.LoggerFactory
 
 import java.nio.charset.StandardCharsets
@@ -16,13 +17,13 @@ import javax.crypto.spec.SecretKeySpec
 import scala.concurrent.{ExecutionContext, Future}
 import io.circe.generic.auto._
 import io.circe.syntax._
-import utils.{AkkaHttpHelpers, ArchiveHunter}
+import com.gu.multimedia.storagetier.utils.{AkkaHttpHelpers, ArchiveHunter}
 
 import java.security.MessageDigest
 
 class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
-  import utils.AkkaHttpHelpers._
+
   import ArchiveHunterResponses._
 
   final val httpDateFormatter = DateTimeFormatter.RFC_1123_DATE_TIME
@@ -124,7 +125,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
   }
 
   def importProxy(docId:String, proxyPath:String, proxyBucket:String, proxyType:ArchiveHunter.ProxyType) = {
-    import ArchiveHunter.ProxyTypeEncoder._
+    import com.gu.multimedia.storagetier.utils.ArchiveHunter.ProxyTypeEncoder._
     import akka.http.scaladsl.model.headers._
     import akka.http.scaladsl.model.ContentTypes
     val requestBody = HttpEntity(ArchiveHunter.ImportProxyRequest(docId, proxyPath, Some(proxyBucket), proxyType).asJson.noSpaces)
