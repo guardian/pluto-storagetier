@@ -1,10 +1,24 @@
 package utils
 
+import io.circe.{Decoder, Encoder}
+
 import java.nio.charset.StandardCharsets
 
 object ArchiveHunter {
   val maxIdLength=512
   private final val encoder = java.util.Base64.getEncoder
+
+  object ProxyType extends Enumeration {
+    val VIDEO, AUDIO, THUMBNAIL, METADATA, UNKNOWN = Value
+  }
+  type ProxyType = ProxyType.Value
+
+  object ProxyTypeEncoder {
+    implicit val proxyTypeEncoder = Encoder.encodeEnumeration(ProxyType)
+    implicit val proxyTypeDecoder = Decoder.decodeEnumeration(ProxyType)
+  }
+
+  case class ImportProxyRequest(itemId: String, proxyPath: String, proxyBucket:Option[String], proxyType: ProxyType)
 
   private def truncateId(initialString:String, chunkLength:Int):String = {
     /* I figure that the best way to get something that should be unique for a long path is to chop out the middle */
