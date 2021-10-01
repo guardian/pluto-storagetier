@@ -15,6 +15,7 @@ import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, Re
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import cats.implicits._
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
@@ -102,14 +103,54 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     streamingVS(req, readTimeout, s"Vidispine item $itemId")
   }
 
-  def getPosterResourceUriList(itemId:String, itemVersion:Option[Int]) = {
-    val baseUriString = s"${config.baseUri}/api/item/$itemId/posterresource"
+
+  def getResourceUriList(itemId:String, itemVersion:Option[Int], resourceType: VidispineCommunicator.ResourceType.Value) = {
+    val baseUriString = resourceType match {
+      case VidispineCommunicator.ResourceType.Poster => s"${config.baseUri}/API/item/$itemId/posterresource"
+      case VidispineCommunicator.ResourceType.Thumbnail => s"${config.baseUri}/API/item/$itemId/thumbnailresource"
+    }
     val req = itemVersion match {
       case None=>HttpRequest(uri = baseUriString)
       case Some(version)=>HttpRequest(uri = baseUriString + s"?version=$version")
     }
     callToVidispine[UriListDocument](req)
   }
+
+  protected def getThumbnailsList(maybeResourceUri:Option[String]) = maybeResourceUri.map(thumbnailResourceUri=>
+      callToVidispine[UriListDocument](HttpRequest(uri = thumbnailResourceUri))
+  ).sequence.map(_.flatten)
+
+  protected def findFirstThumbnail(maybeResourceUri:Option[String], maybeThumbnailsList:Option[UriListDocument]) = {
+    (maybeResourceUri, maybeThumbnailsList.flatMap(_.uri.headOption)) match {
+      case (Some(resourceUri), Some(firstEntry))=>
+        logger.debug(s"resource uri $resourceUri, first entry is $firstEntry")
+        val targetUri = s"$resourceUri/$firstEntry"
+        callToVidispineRaw(HttpRequest(uri=targetUri))
+      case (_, _)=>Future(None)
+    }
+  }
+
+  def akkaStreamFirstThumbnail(itemId:String, itemVersion:Option[Int]) = {
+    for {
+      maybeResourceUri <- getResourceUriList(itemId, itemVersion, VidispineCommunicator.ResourceType.Thumbnail).map(_.flatMap(_.uri.headOption))
+      maybeThumbnailsList <- getThumbnailsList(maybeResourceUri)
+      maybeStream <- findFirstThumbnail(maybeResourceUri, maybeThumbnailsList)
+    } yield maybeStream
+  }
+
+  /**
+   * tries to get an InputStream to obtain the data for the first thumbnail for the given item
+   * If there is no data None is returned, otherwise an InputStream is returned
+   * @param itemId
+   * @param itemVersion
+   * @return
+   */
+  def streamFirstThumbnail(itemId:String, itemVersion:Option[Int], readTimeout:FiniteDuration=5.seconds) = akkaStreamFirstThumbnail(itemId, itemVersion)
+    .map(
+      _.map(
+        _.toMat(StreamConverters.asInputStream(readTimeout))(Keep.right).run()
+      )
+    )
 
   /**
    * tries to get an InputStream to obtain the data for the poster image for the given item.
@@ -120,15 +161,17 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
    * @return a Future, which contains either a connected InputStream or None.
    */
   def streamPosterForItem(itemId:String, itemVersion:Option[Int], readTimeout:FiniteDuration=5.seconds) = {
-    getPosterResourceUriList(itemId, itemVersion).flatMap({
+    getResourceUriList(itemId, itemVersion, VidispineCommunicator.ResourceType.Poster).flatMap({
       case None=>Future(None)
       case Some(uriList)=>
-        if(uriList.hits==0) {
-          Future(None)
-        } else {
-          val req = HttpRequest(uri = uriList.uri.head)
-          streamingVS(req, readTimeout, s"Poster for vidispine item $itemId").map(Some.apply)
-        }
+        val req = HttpRequest(uri = uriList.uri.head)
+        streamingVS(req, readTimeout, s"Poster for vidispine item $itemId").map(Some.apply)
     })
+  }
+}
+
+object VidispineCommunicator {
+  object ResourceType extends Enumeration {
+    val Poster, Thumbnail = Value
   }
 }
