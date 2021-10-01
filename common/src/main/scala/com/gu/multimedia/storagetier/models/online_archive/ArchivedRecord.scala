@@ -16,6 +16,7 @@ case class ArchivedRecord(id:Option[Int],
                           archiveHunterID:String,
                           archiveHunterIDValidated:Boolean,
                           originalFilePath:String,
+                          originalFileSize:Long,
                           uploadedBucket:String,
                           uploadedPath:String,
                           uploadedVersion:Option[Int],
@@ -28,9 +29,12 @@ case class ArchivedRecord(id:Option[Int],
                           metadataVersion:Option[Int]
                          )
 
-object ArchivedRecord extends ((Option[Int], String, Boolean, String, String, String, Option[Int], Option[String], Option[Int], Option[String], Option[String], Option[Int], Option[String], Option[Int]) => ArchivedRecord ){
-  def apply(archiveHunterID:String, originalFilePath:String, uploadedBucket:String, uploadedPath:String, uploadedVersion:Option[Int]) = {
-    new ArchivedRecord(None, archiveHunterID, false, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, None,None,None,None,None,None,None)
+object ArchivedRecord extends ((Option[Int], String, Boolean, String, Long, String, String, Option[Int], Option[String], Option[Int],
+  Option[String], Option[String], Option[Int], Option[String], Option[Int]) => ArchivedRecord ){
+  def apply(archiveHunterID:String, originalFilePath:String, originalFileSize: Long, uploadedBucket:String, uploadedPath:String,
+            uploadedVersion:Option[Int]) = {
+    new ArchivedRecord(None, archiveHunterID, false, originalFilePath, originalFileSize, uploadedBucket, uploadedPath,
+      uploadedVersion, None,None,None,None,None,None,None)
   }
 }
 
@@ -39,6 +43,7 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearch
   def archiveHunterID = column[String]("s_archivehunter_id")
   def archiveHunterIDValidated = column[Boolean]("b_archivehunter_id_validated")
   def originalFilePath = column[String]("s_original_filepath")
+  def originalFileSize = column[Long]("s_original_file_size")
   def uploadedBucket = column[String]("s_uploaded_bucket")
   def uploadedPath = column[String]("s_uploaded_path")
   def uploadedVersion = column[Option[Int]]("i_uploaded_version")
@@ -54,5 +59,6 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearch
   def archiveHunterIdIds = index("archivehunter_id_idx", archiveHunterID, unique = true)
   def vidispineIdIdx = index("vidispine_item_idx", vidispineItemId)
 
-  def * = (id.?, archiveHunterID, archiveHunterIDValidated, originalFilePath, uploadedBucket, uploadedPath, uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
+  def * = (id.?, archiveHunterID, archiveHunterIDValidated, originalFilePath, originalFileSize, uploadedBucket, uploadedPath,
+    uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
 }

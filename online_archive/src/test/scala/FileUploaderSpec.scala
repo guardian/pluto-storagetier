@@ -1,7 +1,7 @@
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.internal.AmazonS3ExceptionBuilder
 import com.amazonaws.services.s3.model.ObjectMetadata
-import com.amazonaws.services.s3.transfer.{TransferManager, Upload}
+import com.amazonaws.services.s3.transfer.{TransferManager, TransferProgress, Upload}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
@@ -47,10 +47,14 @@ class FileUploaderSpec extends Specification with Mockito {
       file.getAbsolutePath returns "filePath"
       file.exists returns true
       file.isFile returns true
+      file.length returns 100
 
       val mockedS3 = mock[AmazonS3]
       val mockUpload = mock[Upload]
+      val mockProgress = mock[TransferProgress]
+      mockProgress.getBytesTransferred returns 100
       mockUpload.waitForCompletion()
+      mockUpload.getProgress returns mockProgress
       val mockTransferManager = mock[TransferManager]
       mockTransferManager.upload(any[String], any[String], any[File]) returns mockUpload
 
@@ -63,7 +67,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-      fileUploader.copyFileToS3(file) must beASuccessfulTry("filePath")
+      fileUploader.copyFileToS3(file) must beASuccessfulTry(("filePath", 100))
     }
   }
 
@@ -76,7 +80,10 @@ class FileUploaderSpec extends Specification with Mockito {
 
     val mockedS3 = mock[AmazonS3]
     val mockUpload = mock[Upload]
+    val mockProgress = mock[TransferProgress]
+    mockProgress.getBytesTransferred returns 20
     mockUpload.waitForCompletion()
+    mockUpload.getProgress returns mockProgress
     val mockTransferManager = mock[TransferManager]
     mockTransferManager.upload(any[String], any[String], any[File]) returns mockUpload
 
@@ -91,7 +98,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    fileUploader.copyFileToS3(file) must beASuccessfulTry("filePath-1")
+    fileUploader.copyFileToS3(file) must beASuccessfulTry(("filePath-1", 20))
   }
 
   "File not uploaded when an already existing file with same file size exists i bucket" in {
@@ -103,7 +110,10 @@ class FileUploaderSpec extends Specification with Mockito {
 
     val mockedS3 = mock[AmazonS3]
     val mockUpload = mock[Upload]
+    val mockProgress = mock[TransferProgress]
+    mockProgress.getBytesTransferred returns 10
     mockUpload.waitForCompletion()
+    mockUpload.getProgress returns mockProgress
     val mockTransferManager = mock[TransferManager]
     mockTransferManager.upload(any[String], any[String], any[File]) returns mockUpload
 
@@ -118,6 +128,6 @@ class FileUploaderSpec extends Specification with Mockito {
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    fileUploader.copyFileToS3(file) must beASuccessfulTry("filePath")
+    fileUploader.copyFileToS3(file) must beASuccessfulTry(("filePath", 10))
   }
 }

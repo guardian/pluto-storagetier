@@ -62,6 +62,11 @@ object Main {
         new AssetSweeperMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(
+        "vidispine",
+        "vidispine.raw_ingest.#",
+        new VidispineMessageProcessor(plutoConfig)
+      ),
+      ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
         "storagetier.onlinearchive.newfile.success",
         "storagetier.onlinearchive.mediaingest",
