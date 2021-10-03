@@ -23,18 +23,35 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
-   * assembles a java.nio.Path pointing to the Sweeper file, catching exceptions and converting to a Future
-   * to make it easier to compose
+   * assembles a java.nio.Path pointing to the Sweeper file, catching exceptions and converting to an Either
    * @param filePath
    * @return
    */
-  private def compositingGetPath(filePath: String) = Future.fromTry(
+  private def compositingGetPath(filePath: String) =
     Try {
       Paths.get(filePath)
-    }
-  )
+    }.toEither.left.map(_.getMessage)
 
   def handleIngestedMedia(filePath: String, mediaIngested: VidispineMediaIngested): Future[String] = {
+    //I would probably phrase this part more like this, in order to combine the two cases of file size mismatch and
+    //no file existing
+//    archivedRecordDAO.findBySourceFilename(filePath)
+//      .map(maybeRecord=>{
+//        (maybeRecord.map(_.originalFileSize), mediaIngested.fileSize) match {
+//          case (Some(originalFilesize), Some(ingestedFileSize))=>
+//            originalFilesize==ingestedFileSize
+//          case _=>
+//            false
+//        }
+//      })
+//      .flatMap({
+//        case true=>Future("File already exist")
+//        case false=>
+//          // 2. Download full item metadata and upload to s3
+//          // 3. Push message to own exchange explaining what has happened
+//          Future("Not implemented yet!")
+//      })
+
     // 1. Check file already exists
     archivedRecordDAO.findBySourceFilename(filePath).flatMap {
       case Some(record) =>
@@ -50,8 +67,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
     }
   }
 
-  def getRelativePath(filePath: String): Future[Either[String, Path]] = {
-    compositingGetPath(filePath).map(path => asLookup.relativizeFilePath(path))
+  def getRelativePath(filePath: String): Either[String, Path] = {
+    compositingGetPath(filePath).flatMap(path => asLookup.relativizeFilePath(path))
   }
 
   def handleRawImportStop(msg: Json): Future[Either[String, Json]] = {
@@ -62,14 +79,12 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
         val status = mediaIngested.status
         val itemId = mediaIngested.itemId
 
-        if (status == "FAILED" || itemId.isEmpty)
+        if (status.contains("FAILED") || itemId.isEmpty)
           Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
         else {
-          val maybePath = mediaIngested.originalPath
-
-          maybePath match {
+          mediaIngested.originalPath match {
             case Some(filePath)=>
-              getRelativePath(filePath).flatMap {
+              getRelativePath(filePath) match {
                 case Left(err) =>
                   logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
                   handleIngestedMedia(filePath, mediaIngested).map(Left(_))

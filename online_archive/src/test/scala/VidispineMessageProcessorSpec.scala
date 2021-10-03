@@ -43,7 +43,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       result mustEqual "File already exist"
     }
 
-    "use the full path for upload if it can't relativize" in {
-    }
+//    "use the full path for upload if it can't relativize" in {
+//    }
   }
 }
