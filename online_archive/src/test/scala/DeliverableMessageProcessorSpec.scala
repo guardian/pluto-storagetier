@@ -28,7 +28,7 @@ class DeliverableMessageProcessorSpec extends Specification with AfterAll with M
   "DeliverableMessageProcessor" should {
     "request an upload of the incoming file" in {
       val mockedUploader = mock[FileUploader]
-      mockedUploader.copyFileToS3(any,any) returns Success("path/to/uploaded-file")
+      mockedUploader.copyFileToS3(any,any) returns Success(("path/to/uploaded-file", 100))
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.findBySourceFilename(any) returns Future(None)
       archivedRecordDAO.writeRecord(any) returns Future(123)
@@ -61,7 +61,8 @@ class DeliverableMessageProcessorSpec extends Specification with AfterAll with M
       )
 
       val result = Await.result(toTest.handleMessage("deliverables.deliverableasset.create", msg.asJson), 3.seconds)
-      val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDpwYXRoL3RvL3VwbG9hZGVkLWZpbGU=","archiveHunterIDValidated":false,"originalFilePath":"/path/to/deliverables/Project Name/somefile.mxf","uploadedBucket":"somebucket","uploadedPath":"path/to/uploaded-file","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
+      val expectedJson =
+        """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDpwYXRoL3RvL3VwbG9hZGVkLWZpbGU=","archiveHunterIDValidated":false,"originalFilePath":"/path/to/deliverables/Project Name/somefile.mxf","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"path/to/uploaded-file","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}""".stripMargin
       result.map(_.noSpaces) must beRight(expectedJson)
       there was one(mockedUploader).copyFileToS3(new File("/path/to/deliverables/Project Name/somefile.mxf"), Some("BasePath/Project Name/somefile.mxf"))
       there was one(archivedRecordDAO).writeRecord(any)
@@ -75,6 +76,7 @@ class DeliverableMessageProcessorSpec extends Specification with AfterAll with M
         "c29tZWJ1Y2tldDpwYXRoL3RvL3VwbG9hZGVkLWZpbGU=",
         true,
         "/path/to/deliverables/Project Name/somefile.mxf",
+        100,
         "somebucket",
         "Deliverables/Project Name/somefile.mxf",
         None,
@@ -87,7 +89,7 @@ class DeliverableMessageProcessorSpec extends Specification with AfterAll with M
         None
       )
       val mockedUploader = mock[FileUploader]
-      mockedUploader.copyFileToS3(any,any) returns Success("path/to/uploaded-file")
+      mockedUploader.copyFileToS3(any,any) returns Success(("path/to/uploaded-file", 100))
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.findBySourceFilename(any) returns Future(Some(archivedRecord))
       archivedRecordDAO.writeRecord(any) returns Future(123)
@@ -120,7 +122,8 @@ class DeliverableMessageProcessorSpec extends Specification with AfterAll with M
       )
 
       val result = Await.result(toTest.handleMessage("deliverables.deliverableasset.create", msg.asJson), 3.seconds)
-      val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDpwYXRoL3RvL3VwbG9hZGVkLWZpbGU=","archiveHunterIDValidated":true,"originalFilePath":"/path/to/deliverables/Project Name/somefile.mxf","uploadedBucket":"somebucket","uploadedPath":"path/to/uploaded-file","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
+      val expectedJson =
+        """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDpwYXRoL3RvL3VwbG9hZGVkLWZpbGU=","archiveHunterIDValidated":true,"originalFilePath":"/path/to/deliverables/Project Name/somefile.mxf","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"path/to/uploaded-file","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}""".stripMargin
       result.map(_.noSpaces) must beRight(expectedJson)
       there was one(mockedUploader).copyFileToS3(new File("/path/to/deliverables/Project Name/somefile.mxf"), Some("BasePath/Project Name/somefile.mxf"))
       there was one(archivedRecordDAO).writeRecord(any)

@@ -32,38 +32,44 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       Paths.get(filePath)
     }.toEither.left.map(_.getMessage)
 
-  def handleIngestedMedia(filePath: String, mediaIngested: VidispineMediaIngested): Future[String] = {
-    //I would probably phrase this part more like this, in order to combine the two cases of file size mismatch and
-    //no file existing
-//    archivedRecordDAO.findBySourceFilename(filePath)
-//      .map(maybeRecord=>{
-//        (maybeRecord.map(_.originalFileSize), mediaIngested.fileSize) match {
-//          case (Some(originalFilesize), Some(ingestedFileSize))=>
-//            originalFilesize==ingestedFileSize
-//          case _=>
-//            false
-//        }
-//      })
-//      .flatMap({
-//        case true=>Future("File already exist")
-//        case false=>
-//          // 2. Download full item metadata and upload to s3
-//          // 3. Push message to own exchange explaining what has happened
-//          Future("Not implemented yet!")
-//      })
-
+  def handleIngestedMediaInArchive(filePath: String, mediaIngested: VidispineMediaIngested): Future[String] = {
     // 1. Check file already exists
-    archivedRecordDAO.findBySourceFilename(filePath).flatMap {
-      case Some(record) =>
-        // already exist check file size
-        if (record.originalFileSize == mediaIngested.fileSize.getOrElse(-1))
-          Future("File already exist")
-        else
+    archivedRecordDAO.findBySourceFilename(filePath)
+      .map(maybeRecord=>{
+        (maybeRecord.map(_.originalFileSize), mediaIngested.fileSize) match {
+          case (Some(originalFileSize), Some(ingestedFileSize))=>
+            originalFileSize == ingestedFileSize
+          case _=>
+            false
+        }
+      }).flatMap({
+        case true => Future("File already exist")
+        case false =>
+          // 2. Download full item metadata and upload to s3
+          // 3. Push message to own exchange explaining what has happened
           Future("Not implemented yet!")
-      case None =>
-        // 2. Download full item metadata and upload to s3
-        // 3. Push message to own exchange explaining what has happened
-        Future("Not implemented yet!")
+      })
+  }
+
+  def handleIngestedMedia(mediaIngested: VidispineMediaIngested) = {
+    val status = mediaIngested.status
+    val itemId = mediaIngested.itemId
+
+    if (status.contains("FAILED") || itemId.isEmpty)
+      Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
+    else {
+      mediaIngested.filePath match {
+        case Some(filePath)=>
+          getRelativePath(filePath) match {
+            case Left(err) =>
+              logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
+              handleIngestedMediaInArchive(filePath, mediaIngested).map(Left(_))
+            case Right(relativePath) =>
+              handleIngestedMediaInArchive(relativePath.toString, mediaIngested).map(Left(_))
+          }
+        case None=>
+          Future(Left(s"File path for ingested media is missing $status itemId=${itemId}"))
+      }
     }
   }
 
@@ -76,25 +82,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       case Left(err) =>
         Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a VidispineMediaIngested: $err"))
       case Right(mediaIngested)=>
-        val status = mediaIngested.status
-        val itemId = mediaIngested.itemId
-
-        if (status.contains("FAILED") || itemId.isEmpty)
-          Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
-        else {
-          mediaIngested.originalPath match {
-            case Some(filePath)=>
-              getRelativePath(filePath) match {
-                case Left(err) =>
-                  logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
-                  handleIngestedMedia(filePath, mediaIngested).map(Left(_))
-                case Right(relativePath) =>
-                  handleIngestedMedia(relativePath.toString, mediaIngested).map(Left(_))
-              }
-            case None=>
-              Future(Left(s"File path for ingested media is missing $status itemId=${itemId}"))
-          }
-        }
+        handleIngestedMedia(mediaIngested)
     }
   }
 
