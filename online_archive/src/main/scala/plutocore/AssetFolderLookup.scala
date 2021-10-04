@@ -9,6 +9,7 @@ import akka.stream.scaladsl.{Keep, Sink}
 import akka.util.ByteString
 import com.gu.multimedia.storagetier.auth.HMAC
 import org.slf4j.LoggerFactory
+
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
@@ -19,6 +20,7 @@ import java.nio.file._
 import scala.util.{Failure, Success, Try}
 import io.circe.generic.auto._
 import cats.implicits._
+import utils.AkkaHttpHelpers
 
 class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, actorSystem:ActorSystem) {
   private implicit val dispatcher = actorSystem.dispatcher
@@ -47,7 +49,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
   protected def callToPluto[T: io.circe.Decoder](req: HttpRequest, attempt: Int = 1): Future[Option[T]] = if (attempt > 10) {
     Future.failed(new RuntimeException("Too many retries, see logs for details"))
   } else {
-    logger.debug(s"Request URL is ${req.uri.toString()}")
+    logger.debug(s"PlutoCore request URL is ${req.uri.toString()}")
     val checksumBytes = MessageDigest.getInstance("SHA-384").digest("".getBytes)
     val checksumString = checksumBytes.map("%02x".format(_)).mkString
     val queryPart = req.uri.rawQueryString.map(query => "?" + query).getOrElse("")
@@ -77,38 +79,20 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
       val date = RawHeader("Date", DateTimeFormatter.RFC_1123_DATE_TIME.format(messageTime))
       val updatedReq = req.withHeaders(scala.collection.immutable.Seq(auth, date, checksum)) //add in the authorization header
 
-      callHttp.singleRequest(updatedReq).flatMap(response => {
-        val contentBody = consumeResponseEntity(response.entity)
+      callHttp
+        .singleRequest(updatedReq)
+        .flatMap(response => AkkaHttpHelpers.handleResponse(response, "PlutoCore"))
+        .flatMap({
+          case Right(Some(stream))=>contentBodyToJson(consumeStream(stream))
+          case Right(None)=>Future(None)
+          case Left(RedirectRequired(newUri))=>
+            logger.info(s"Redirecting to $newUri")
+            callToPluto(req.withUri(newUri), attempt + 1)
+          case Left(RetryRequired)=>
+            Thread.sleep(500 * attempt)
+            callToPluto(req, attempt + 1)
+        })
 
-        response.status.intValue() match {
-          case 200 =>
-            contentBodyToJson(contentBody)
-          case 404 =>
-            Future(None)
-          case 403 =>
-            throw new RuntimeException(s"Pluto said permission denied.") //throwing an exception here will fail the future,
-          //which is picked up in onComplete in the call
-          case 400 =>
-            contentBody.map(body => throw new RuntimeException(s"Pluto returned bad data error: $body"))
-          case 301 =>
-            logger.warn(s"Received unexpected redirect from pluto to ${response.getHeader("Location")}")
-            val h = response.getHeader("Location")
-            if (h.isPresent) {
-              val newUri = h.get()
-              logger.info(s"Redirecting to ${newUri.value()}")
-              val updatedReq = req.withUri(Uri(newUri.value()))
-              callToPluto(updatedReq, attempt + 1)
-            } else {
-              throw new RuntimeException("Unexpected redirect without location")
-            }
-          case 500 | 502 | 503 | 504 =>
-            contentBody.flatMap(body => {
-              logger.error(s"Pluto returned a server error: $body. Retrying...")
-              Thread.sleep(500 * attempt)
-              callToPluto(req, attempt + 1)
-            })
-        }
-      })
     }
   }
 

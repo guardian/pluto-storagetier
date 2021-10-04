@@ -3,7 +3,7 @@ package archivehunter
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{GenericHttpCredentials, OAuth2BearerToken}
-import akka.http.scaladsl.model.{HttpRequest, Uri}
+import akka.http.scaladsl.model.{HttpEntity, HttpHeader, HttpMethods, HttpRequest, Uri}
 import akka.stream.Materializer
 import org.slf4j.LoggerFactory
 
@@ -15,6 +15,8 @@ import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.concurrent.{ExecutionContext, Future}
 import io.circe.generic.auto._
+import io.circe.syntax._
+import utils.{AkkaHttpHelpers, ArchiveHunter}
 
 import java.security.MessageDigest
 
@@ -79,35 +81,18 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     callHttp
       .singleRequest(updatedRequest)
       .flatMap(response=>{
-        val contentBody = consumeResponseEntity(response.entity)
-
-        response.status.intValue() match {
-          case 200 =>
-            contentBodyToJson(contentBody)
-          case 404 =>
+        AkkaHttpHelpers.handleResponse(response, "Archive Hunter").flatMap({
+          case Right(Some(stream))=>
+            contentBodyToJson(consumeStream(stream))
+          case Right(None)=>
             Future(None)
-          case 403|401 =>
-            Future.failed(new RuntimeException(s"Archive Hunter said permission denied."))
-          case 400 =>
-            contentBody.flatMap(body => Future.failed(new RuntimeException(s"Archive Hunter returned bad data error: $body")))
-          case 301 =>
-            logger.warn(s"Received unexpected redirect from pluto to ${response.getHeader("Location")}")
-            val h = response.getHeader("Location")
-            if (h.isPresent) {
-              val newUri = h.get()
-              logger.info(s"Redirecting to ${newUri.value()}")
-              val updatedReq = req.withUri(Uri(newUri.value()))
-              callToArchiveHunter(updatedReq, attempt + 1)
-            } else {
-              Future.failed(new RuntimeException("Unexpected redirect without location"))
-            }
-          case 500 | 502 | 503 | 504 =>
-            contentBody.flatMap(body => {
-              logger.error(s"ArchiveHunter returned a server error ${response.status}: \"$body\". Retrying...")
+          case Left(RedirectRequired(newUri))=>
+              logger.info(s"Redirecting to $newUri")
+              callToArchiveHunter(req.withUri(newUri), attempt + 1)
+          case Left(RetryRequired)=>
               Thread.sleep(500 * attempt)
               callToArchiveHunter(req, attempt + 1)
-            })
-        }
+        })
       })
   }
 
@@ -135,6 +120,22 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
           logger.info(s"Found s3://${response.entry.bucket}/${response.entry.path} with storage class ${response.entry.storageClass} and last-modified time ${response.entry.last_modified}")
           Future(true)
         }
+    })
+  }
+
+  def importProxy(docId:String, proxyPath:String, proxyBucket:String, proxyType:ArchiveHunter.ProxyType) = {
+    import ArchiveHunter.ProxyTypeEncoder._
+    import akka.http.scaladsl.model.headers._
+    import akka.http.scaladsl.model.ContentTypes
+    val requestBody = HttpEntity(ArchiveHunter.ImportProxyRequest(docId, proxyPath, Some(proxyBucket), proxyType).asJson.noSpaces)
+    val headers = Seq(`Content-Type`(ContentTypes.`application/json`))
+    val req = HttpRequest(uri=s"${config.baseUri}/api/importProxy",method = HttpMethods.POST, headers = headers, entity=requestBody)
+
+    callToArchiveHunter[Map[String,String]](req).flatMap({
+      case None=>
+        Future.failed(new RuntimeException("The item ID was not found"))
+      case Some(_)=>
+        Future( () )
     })
   }
 }
