@@ -5,11 +5,11 @@ import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, Arch
 import io.circe.Json
 import messages.AssetSweeperNewFile
 import AssetSweeperNewFile.Decoder._
-import com.gu.multimedia.storagetier.utils.ArchiveHunter
 import io.circe.generic.auto._
 import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
+import utils.ArchiveHunter
 
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}

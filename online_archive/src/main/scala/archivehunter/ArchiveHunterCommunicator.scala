@@ -17,7 +17,8 @@ import javax.crypto.spec.SecretKeySpec
 import scala.concurrent.{ExecutionContext, Future}
 import io.circe.generic.auto._
 import io.circe.syntax._
-import com.gu.multimedia.storagetier.utils.{AkkaHttpHelpers, ArchiveHunter}
+import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
+import utils.ArchiveHunter
 
 import java.security.MessageDigest
 
@@ -125,7 +126,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
   }
 
   def importProxy(docId:String, proxyPath:String, proxyBucket:String, proxyType:ArchiveHunter.ProxyType) = {
-    import com.gu.multimedia.storagetier.utils.ArchiveHunter.ProxyTypeEncoder._
+    import utils.ArchiveHunter.ProxyTypeEncoder._
     import akka.http.scaladsl.model.headers._
     import akka.http.scaladsl.model.ContentTypes
     val requestBody = HttpEntity(ArchiveHunter.ImportProxyRequest(docId, proxyPath, Some(proxyBucket), proxyType).asJson.noSpaces)
