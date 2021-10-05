@@ -60,4 +60,8 @@ class FailureRecordDAO(override protected val db:Database) extends GenericDAO[Fa
   override def getRecord(pk: Int): Future[Option[FailureRecord]] = db.run(
     TableQuery[FailureRecordRow].filter(_.id===pk).result
   ).map(_.headOption)
+
+  def findBySourceFilename(filename:String) = db.run(
+    TableQuery[FailureRecordRow].filter(_.originalFilePath===filename).result
+  ).map(_.headOption)
 }

@@ -14,13 +14,15 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * If a file with the same name AND the same file size exists, then returns a Success with the found file name
    * If no file with the name exists, will upload it and return a Success with the file name as uploaded.
    * If a file with the same name but a DIFFERENT file size exists, will suffix the name "-1", "-2" etc. until a 'free'
-   * filename is found. The file is then uploaded and a Success returned with the uploaded file name.
+   * filename is found. The file is then uploaded and a Success returned with a Tuple containing the the uploaded file name and file
+   * size.
    * If there is an error, then Failure is returned
    * @param file a java.io.File instance representing the file to upload
    * @param maybeUploadPath Optional destination path to upload it to. If not set, then the absolute path of `file` is used.
-   * @return a Try, containing a String containing the uploaded file name.
+   * @return a Try, containing a Tuple where the first value is a String containing the uploaded file name and the second value is a
+   *         Long containing the file size.
    */
-  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Try[String] = {
+  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Try[(String, Long)] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Failure(new Exception(s"File ${file.getAbsolutePath} doesn't exist"))
@@ -36,7 +38,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param increment iteration number
    * @return
    */
-  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[String] = {
+  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[(String, Long)] = {
     val newFilePath = if (increment <= 0) filePath else {
       // check if file has an extension and insert the increment before it if this is the case
       val pos = filePath.lastIndexOf(".")
@@ -50,7 +52,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
         val objectSize = metadata.getContentLength
         if (file.length == objectSize) {
           logger.info(s"Object $newFilePath already exists on S3")
-          Success(newFilePath)
+          Success((newFilePath, objectSize))
         } else {
           logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
           tryUploadFile(file, filePath, increment + 1)
@@ -81,8 +83,14 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param keyName S3 key name to upload to
    * @return
    */
-  private def uploadFile(file: File, keyName: String): Try[String] = {
-    Try { transferManager.upload(bucketName, keyName, file).waitForCompletion }.map(_=>keyName)
+  private def uploadFile(file: File, keyName: String): Try[(String, Long)] = {
+    Try {
+      val upload = transferManager.upload(bucketName, keyName, file)
+      upload.waitForCompletion
+      val bytes = upload.getProgress.getBytesTransferred
+
+      (keyName, bytes)
+    }
   }
 }
 

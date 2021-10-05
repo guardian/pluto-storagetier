@@ -36,16 +36,17 @@ class DeliverableMessageProcessor(config:PlutoDeliverablesConfig, uploader:FileU
   protected def findExistingRecord(forPath:Path) = archivedRecordDAO.findBySourceFilename(forPath.toAbsolutePath.toString)
 
   protected def ensureItsUploaded(pathName:Path, maybeExistingRecord:Option[ArchivedRecord]) = uploader.copyFileToS3(pathName.toFile, Some(makeUploadPath(pathName).toString)) match {
-    case Success(uploadedFileName)=>
-      logger.info(s"Successfully ensured that ${pathName.toString} exists in archive at $uploadedFileName")
-      val possibleArchiveHunterId = ArchiveHunter.makeDocId(uploadBucket, uploadedFileName)
+    case Success(uploadedFile)=>
+      val (fileName, fileSize) = uploadedFile
+      logger.info(s"Successfully ensured that ${pathName.toString} exists in archive at ${fileName}")
+      val possibleArchiveHunterId = ArchiveHunter.makeDocId(uploadBucket, fileName)
       val recordToWrite = maybeExistingRecord match {
         case None=>
-          ArchivedRecord(possibleArchiveHunterId, pathName.toString, uploadBucket, uploadedFileName, None)
+          ArchivedRecord(possibleArchiveHunterId, pathName.toString, fileSize, uploadBucket, fileName, None)
         case Some(rec)=>
           rec.copy(
             uploadedBucket = uploadBucket,
-            uploadedPath = uploadedFileName,
+            uploadedPath = fileName,
             //FIXME: should put a version in here
           )
       }

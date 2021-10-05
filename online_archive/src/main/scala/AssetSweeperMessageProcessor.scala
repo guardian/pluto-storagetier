@@ -39,12 +39,14 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     logger.info(s"Archiving file '$fullPath' to s3://${uploader.bucketName}/$relativePath")
     Future.fromTry(
       uploader.copyFileToS3(fullPath.toFile, Some(relativePath.toString))
-    ).flatMap(fileName=>{
+    ).flatMap((fileInfo)=>{
+      val (fileName, fileSize) = fileInfo
       logger.debug(s"$fullPath: Upload completed")
       val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
       logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
       val rec = ArchivedRecord(archiveHunterID,
         originalFilePath=fullPath.toString,
+        originalFileSize=fileSize,
         uploadedBucket = uploader.bucketName,
         uploadedPath = fileName,
         uploadedVersion = None)
