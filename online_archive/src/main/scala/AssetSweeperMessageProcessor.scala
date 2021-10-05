@@ -4,11 +4,13 @@ import com.gu.multimedia.storagetier.framework.MessageProcessor
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO, RetryStates}
 import io.circe.Json
 import messages.AssetSweeperNewFile
-import AssetSweeperNewFile.Decoder._ //need a custom decoder for this message due to the timestamp formats
+import AssetSweeperNewFile.Decoder._
 import io.circe.generic.auto._
 import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
 import org.slf4j.LoggerFactory
+import utils.ArchiveHunter
+
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -42,7 +44,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     ).flatMap((fileInfo)=>{
       val (fileName, fileSize) = fileInfo
       logger.debug(s"$fullPath: Upload completed")
-      val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
+      val archiveHunterID = ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
       logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
       val rec = ArchivedRecord(archiveHunterID,
         originalFilePath=fullPath.toString,

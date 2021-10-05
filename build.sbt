@@ -32,6 +32,10 @@ lazy val `common` = (project in file("common"))
     Docker / aggregate := false,
     Docker / publish := {},
     libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
       "com.rabbitmq" % "amqp-client" % "5.13.1",
       "commons-codec" % "commons-codec" % "1.15",
       "io.circe" %% "circe-core" % circeVersion,
@@ -49,8 +53,33 @@ lazy val `common` = (project in file("common"))
     )
   )
 
+lazy val `vidispine_test` = (project in file("vidispine_test"))
+  .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
+  .dependsOn(common)
+  .settings(commonSettings,
+    Docker / aggregate := false,
+    Docker / publish := {},
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "com.typesafe.slick" %% "slick" % slickVersion,
+      "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
+      "org.slf4j" % "slf4j-api" % slf4jVersion,
+      "ch.qos.logback" % "logback-core" % "1.2.6",
+      "ch.qos.logback" % "logback-classic" % "1.2.6",
+      "org.specs2" %% "specs2-core" % "4.12.12" % Test,
+      "org.specs2" %% "specs2-mock" % "4.12.12" % Test,
+      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test
+    )
+  )
+
 lazy val `online_archive` = (project in file("online_archive"))
-  .enablePlugins(DockerPlugin, AshScriptPlugin)
+  .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
   .dependsOn(common)
   .settings(commonSettings,
     version := sys.props.getOrElse("build.number","DEV"),
