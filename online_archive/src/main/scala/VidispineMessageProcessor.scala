@@ -23,7 +23,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
-   * assembles a java.nio.Path pointing to the Sweeper file, catching exceptions and converting to an Either
+   * assembles a java.nio.Path pointing to a file, catching exceptions and converting to an Either
    * @param filePath
    * @return
    */
@@ -32,7 +32,15 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       Paths.get(filePath)
     }.toEither.left.map(_.getMessage)
 
-  def handleIngestedMediaInArchive(filePath: String, mediaIngested: VidispineMediaIngested): Future[String] = {
+  /**
+   * Upload ingested file if not already exist.
+   *
+   * @param filePath       path to the file that has been ingested
+   * @param mediaIngested  the media object ingested by Vidispine
+   *
+   * @return String explaining which action took place
+   */
+  def uploadIfRequiredAndNotExists(filePath: String, mediaIngested: VidispineMediaIngested): Future[String] = {
     // 1. Check file already exists
     archivedRecordDAO.findBySourceFilename(filePath)
       .map(maybeRecord=>{
@@ -51,6 +59,14 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       })
   }
 
+  /**
+   * Verify status of the ingested media and return an Exception if status is failed
+   * and continue to potentially upload the ingested media.
+   *
+   * @param mediaIngested  the media object ingested by Vidispine
+   *
+   * @return String explaining which action took place
+   */
   def handleIngestedMedia(mediaIngested: VidispineMediaIngested) = {
     val status = mediaIngested.status
     val itemId = mediaIngested.itemId
@@ -63,9 +79,9 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
           getRelativePath(filePath) match {
             case Left(err) =>
               logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
-              handleIngestedMediaInArchive(filePath, mediaIngested).map(Left(_))
+              uploadIfRequiredAndNotExists(filePath, mediaIngested).map(Left(_))
             case Right(relativePath) =>
-              handleIngestedMediaInArchive(relativePath.toString, mediaIngested).map(Left(_))
+              uploadIfRequiredAndNotExists(relativePath.toString, mediaIngested).map(Left(_))
           }
         case None=>
           Future(Left(s"File path for ingested media is missing $status itemId=${itemId}"))
@@ -77,6 +93,16 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
     compositingGetPath(filePath).flatMap(path => asLookup.relativizeFilePath(path))
   }
 
+  /**
+   * Override this method in your subclass to handle an incoming message
+   *
+   * @param routingKey the routing key of the message as received from the broker.
+   * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
+   *                   using msg.as[CaseClassFormat]
+   * @return You need to return Left() with a descriptive error string if the message could not be processed, or Right
+   *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
+   *         to our exchange with details of the completed operation
+   */
   def handleRawImportStop(msg: Json): Future[Either[String, Json]] = {
     msg.as[VidispineMediaIngested] match {
       case Left(err) =>

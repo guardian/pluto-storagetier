@@ -4,7 +4,7 @@ import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, Arch
 import messages.{VidispineField, VidispineMediaIngested}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
+import plutocore.{PlutoCoreConfig}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
@@ -39,7 +39,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       )
       archivedRecordDAO.findBySourceFilename(any) returns Future(Some(record))
 
-      val result = Await.result(toTest.handleIngestedMediaInArchive("/media/file.mp4", ingested), 2.seconds)
+      val result = Await.result(toTest.uploadIfRequiredAndNotExists("/media/file.mp4", ingested), 2.seconds)
 
       result mustEqual "File already exist"
     }

@@ -63,8 +63,8 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine",
-        "vidispine.raw_ingest.#", // FIXME What is correct value
-        "vidispine.raw_ingest.#", // FIXME What is correct value
+        "vidispine.raw_ingest.#",
+        "storagetier.onlinearchive.vidispineupdate",
         new VidispineMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(

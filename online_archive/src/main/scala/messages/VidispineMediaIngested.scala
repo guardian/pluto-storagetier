@@ -1,6 +1,7 @@
 package messages
 
 import java.time.ZonedDateTime
+import scala.util.Try
 /*
 {
     "field": [
@@ -41,7 +42,7 @@ case class VidispineField(key: String, value: String)
 case class VidispineMediaIngested(field: List[VidispineField]) {
   def filePath: Option[String] = getFilePath
   def itemId: Option[String] = getValue("itemId")
-  def fileSize: Option[Long] = getValue("bytesWritten").getOrElse("-1").toLongOption
+  def fileSize: Option[Long] = getValue("bytesWritten").flatMap(value=>Try { value.toLong }.toOption)
   def status: Option[String] = getValue("status")
 
   private def getValue(fieldKey: String) = field.find(field=>field.key == fieldKey).map(field=>field.value)
