@@ -19,7 +19,13 @@ object ArchiveHunter {
     implicit val proxyTypeDecoder = Decoder.decodeEnumeration(ProxyType)
   }
 
-  case class ImportProxyRequest(itemId: String, proxyPath: String, proxyBucket: Option[String], proxyType: ProxyType)
+  val shapeTagToProxyTypeMap = Map(
+    "lowres"->ProxyType.VIDEO,
+    "lowaudio"->ProxyType.AUDIO,
+    "lowimage"->ProxyType.THUMBNAIL
+  )
+
+  case class ImportProxyRequest(itemId: String, proxyPath: String, proxyBucket:Option[String], proxyType: ProxyType)
 
   private def truncateId(initialString: String, chunkLength: Int): String = {
     /* I figure that the best way to get something that should be unique for a long path is to chop out the middle */

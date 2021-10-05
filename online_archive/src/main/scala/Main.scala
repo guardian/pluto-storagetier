@@ -53,9 +53,17 @@ object Main {
     implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
 
-    implicit lazy val uploader = FileUploader.createFromEnvVars match {
+    implicit lazy val uploader = FileUploader.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
       case Left(err)=>
         logger.error(s"Could not initialise FileUploader: $err")
+        Await.ready(actorSystem.terminate(), 30.seconds)
+        sys.exit(1)
+      case Right(u)=>u
+    }
+
+    lazy val proxyUploader = FileUploader.createFromEnvVars("ARCHIVE_PROXY_BUCKET") match {
+      case Left(err)=>
+        logger.error(s"Could not initialise ProxyFileUploader: $err")
         Await.ready(actorSystem.terminate(), 30.seconds)
         sys.exit(1)
       case Right(u)=>u
@@ -74,7 +82,7 @@ object Main {
         "vidispine-events",
         "vidispine.job.raw_import.stop",
         "storagetier.onlinearchive.vidispineupdate",
-        new VidispineMessageProcessor(plutoConfig)
+        new VidispineMessageProcessor(plutoConfig, uploader, proxyUploader)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,

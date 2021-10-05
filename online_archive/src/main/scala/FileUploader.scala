@@ -1,9 +1,11 @@
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
-import com.amazonaws.services.s3.model.AmazonS3Exception
+import com.amazonaws.services.s3.model.{AmazonS3Exception, ObjectMetadata}
 import com.amazonaws.services.s3.transfer.{TransferManager, TransferManagerBuilder}
+import org.apache.commons.codec.binary.Hex
 import org.slf4j.LoggerFactory
 
-import java.io.File
+import java.io.{File, InputStream}
+import java.util.Base64
 import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
@@ -105,14 +107,48 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param keyName S3 key name to upload to
    * @return
    */
-  private def uploadFile(file: File, keyName: String): Try[(String, Long)] = {
-    Try {
+  private def uploadFile(file: File, keyName: String): Try[(String, Long)] = Try {
       val upload = transferManager.upload(bucketName, keyName, file)
       upload.waitForCompletion
       val bytes = upload.getProgress.getBytesTransferred
 
       (keyName, bytes)
     }
+
+  /**
+   * converts a Vidispine md5 checksum (hex bytes string) to an S3 compatible one (base64-encoded bytes in a string)
+   * @param vsMD5 incoming hex-string checksum
+   * @return Base64 encoded string wrapped in a Try
+   */
+  def vsMD5toS3MD5(vsMD5:String) = Try {
+    Base64.getEncoder.encodeToString(Hex.decodeHex(vsMD5))
+  }
+
+  /**
+   * uploads the given stream. Prior existing file is over-written (or reversioned, depending on bucket settings)
+   * @param stream InputStream to write
+   * @param keyName key to write within the bucket
+   * @param mimeType MIME type
+   * @param size
+   * @param vsMD5
+   * @return
+   */
+  def uploadStreamNoChecks(stream:InputStream, keyName:String, mimeType:String, size:Option[Long], vsMD5:Option[String]): Try[(String, Long)] = Try {
+    val meta = new ObjectMetadata()
+    meta.setContentType(mimeType)
+    size.map(meta.setContentLength)
+
+    vsMD5.map(vsMD5toS3MD5) match {
+      case None=>
+      case Some(Failure(err))=>
+        logger.error(s"Could not convert vidispine MD5 value $vsMD5 to base64: $err")
+      case Some(Success(b64))=>
+        meta.setContentMD5(b64)
+    }
+
+    val upload = transferManager.upload(bucketName, keyName, stream, meta)
+    upload.waitForCompletion()
+    (keyName, upload.getProgress.getBytesTransferred)
   }
 }
 
@@ -122,8 +158,8 @@ object FileUploader {
 
   private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
 
-  def createFromEnvVars:Either[String, FileUploader] =
-    sys.env.get("ARCHIVE_MEDIA_BUCKET") match {
+  def createFromEnvVars(varName:String):Either[String, FileUploader] =
+    sys.env.get(varName) match {
       case Some(mediaBucket) =>
         for {
           transferManager <- initTransferManager

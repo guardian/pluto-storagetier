@@ -91,6 +91,10 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     streamingVS(req, readTimeout, s"Vidispine file $vsFileId")
   }
 
+  def akkaStreamFileContent(fileId:String) = {
+    callToVidispineRaw(HttpRequest(uri = s"${config.baseUri}/API/storage/file/$fileId/data"))
+  }
+
   /**
    * try to stream the XML metadata of the given item.
    * @param itemId
@@ -176,6 +180,16 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
 
   def getFileInformation(fileId:String) = {
     callToVidispine[FileDocument](HttpRequest(uri=s"${config.baseUri}/API/storage/file/$fileId"))
+  }
+
+  /**
+   * Looks up the given shape ID on the given item ID and returns a ShapeDocument
+   * @param itemId item ID to look up
+   * @param shapeId shape ID to look up, on the given item
+   * @return a failed future on error, a Future(None) if nothing was found or a Future with a ShapeDocument if it was found
+   */
+  def findItemShape(itemId:String, shapeId:String) = {
+    callToVidispine[ShapeDocument](HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/shape/$shapeId"))
   }
 }
 

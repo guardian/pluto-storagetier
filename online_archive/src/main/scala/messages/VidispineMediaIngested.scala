@@ -49,7 +49,12 @@ case class VidispineMediaIngested(field: List[VidispineField]) {
   def sourceFileIds:Array[String] = getValue("sourceFileIds")
     .map(_.split(",")).getOrElse[Array[String]](Array()) //FIXME: I assume that the separator is a , ?
 
+  def shapeId: Option[String] = getValue("shapeId")
+  def shapeTag: Option[String] = getValue("shapeTag")
+
   private def getValue(fieldKey: String) = field.find(field=>field.key == fieldKey).map(field=>field.value)
+  private def getAllValues(fieldKey:String) = field.filter(_.key==fieldKey).map(_.value)
+
   private def getFilePath() = {
     val sourceFileId = getValue("sourceFileId")
 

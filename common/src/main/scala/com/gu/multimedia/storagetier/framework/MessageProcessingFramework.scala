@@ -323,7 +323,9 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
       //now we also bind it to all of the exchanges that are listed in our configuration
       handlers.foreach(conf => {
-        channel.queueBind(ingest_queue_name, conf.exchangeName, conf.routingKey)
+        conf.routingKey.foreach(routingKey=> {
+          channel.queueBind(ingest_queue_name, conf.exchangeName, routingKey)
+        })
       })
 
       channel.basicConsume(ingest_queue_name, false, MsgConsumer)
