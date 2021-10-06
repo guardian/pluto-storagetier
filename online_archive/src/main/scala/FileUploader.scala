@@ -10,6 +10,7 @@ import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
   private val logger = LoggerFactory.getLogger(getClass)
+  import FileUploader._
 
   /**
    * Attempt to copy the given file to S3 under a distinct name.
@@ -116,15 +117,6 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     }
 
   /**
-   * converts a Vidispine md5 checksum (hex bytes string) to an S3 compatible one (base64-encoded bytes in a string)
-   * @param vsMD5 incoming hex-string checksum
-   * @return Base64 encoded string wrapped in a Try
-   */
-  def vsMD5toS3MD5(vsMD5:String) = Try {
-    Base64.getEncoder.encodeToString(Hex.decodeHex(vsMD5))
-  }
-
-  /**
    * uploads the given stream. Prior existing file is over-written (or reversioned, depending on bucket settings)
    * @param stream InputStream to write
    * @param keyName key to write within the bucket
@@ -146,9 +138,13 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
         meta.setContentMD5(b64)
     }
 
-    val upload = transferManager.upload(bucketName, keyName, stream, meta)
-    upload.waitForCompletion()
-    (keyName, upload.getProgress.getBytesTransferred)
+    try {
+      val upload = transferManager.upload(bucketName, keyName, stream, meta)
+      upload.waitForCompletion()
+      (keyName, upload.getProgress.getBytesTransferred)
+    } finally {
+      stream.close()
+    }
   }
 }
 
@@ -169,4 +165,13 @@ object FileUploader {
       case None =>
         Left("You must specify ARCHIVE_MEDIA_BUCKET so we know where to upload to!")
     }
+
+  /**
+   * converts a Vidispine md5 checksum (hex bytes string) to an S3 compatible one (base64-encoded bytes in a string)
+   * @param vsMD5 incoming hex-string checksum
+   * @return Base64 encoded string wrapped in a Try
+   */
+  def vsMD5toS3MD5(vsMD5:String) = Try {
+    Base64.getEncoder.encodeToString(Hex.decodeHex(vsMD5))
+  }
 }

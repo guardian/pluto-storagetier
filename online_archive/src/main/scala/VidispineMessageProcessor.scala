@@ -1,13 +1,10 @@
-import VidispineMessageProcessor.{compositingGetPath, logger}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.MessageProcessor
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
-import io.circe.Json
-import io.circe.generic.auto._
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
@@ -233,7 +230,6 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   }
 
   /**
-   * Override this method in your subclass to handle an incoming message
    *
    * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
    *                   using msg.as[CaseClassFormat]
@@ -276,7 +272,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
     ArchiveHunter.shapeTagToProxyTypeMap.get(shapeTag) match {
       case None=>
-        Future(Right(Map("status"->"ignored_no_error","reason"->s"Shape tag $shapeTag is not known to archivehunter").asJson))
+        val ignoreRecord = IgnoredRecord(None,"",s"Shape tag $shapeTag is not known to ArchiveHunter", Some(itemId), None)
+        Future(Right(ignoreRecord.asJson))
       case Some(destinationProxyType)=>
         vidispineCommunicator.findItemShape(itemId, shapeId).flatMap({
           case None=>

@@ -173,4 +173,14 @@ class FileUploaderSpec extends Specification with Mockito {
       fileUploader.objectExists("my-object-key") must beAFailedTry
     }
   }
+
+  "FileUploader.vsMD5ToS3" should {
+    "convert hex string to base64 string" in {
+      FileUploader.vsMD5toS3MD5("deadbeef") must beASuccessfulTry("3q2+7w==")
+    }
+
+    "fail on bad data" in {
+      FileUploader.vsMD5toS3MD5("world") must beAFailedTry
+    }
+  }
 }
