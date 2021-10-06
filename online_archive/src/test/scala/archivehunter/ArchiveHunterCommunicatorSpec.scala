@@ -2,15 +2,16 @@ package archivehunter
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.HttpExt
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpRequest, HttpResponse, ResponseEntity, StatusCodes, Uri}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, ResponseEntity, StatusCodes, Uri}
 import akka.stream.Materializer
 import akka.util.ByteString
-import io.circe.Decoder
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.specification.AfterAll
 import io.circe.syntax._
 import io.circe.generic.auto._
+import org.mockito.ArgumentMatcher
+import utils.ArchiveHunter
 
 import java.time.{ZoneId, ZonedDateTime}
 import scala.concurrent.duration._
@@ -178,6 +179,56 @@ class ArchiveHunterCommunicatorSpec extends Specification with AfterAll with Moc
       val result = Try { Await.result(toTest.lookupArchivehunterId("abcdefg","somebucket","path/to/another.file"), 5.seconds) }
       result must beAFailedTry
       result.failed.get.getMessage must contain("Archive Hunter said permission denied")
+    }
+  }
+
+  "ArchiveHunterCommunicator.importProxy" should {
+    "call out to importProxy via POST" in {
+      val mockHttp = mock[HttpExt]
+      val responseRawJson = """{"status":"success"}"""
+      mockHttp.singleRequest(any,any,any,any) returns Future(HttpResponse(StatusCodes.OK, entity=HttpEntity(responseRawJson)))
+      val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://test-url","notasecret")) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Try { Await.result(toTest.importProxy("abcdefg", "path/to/some/file.upload", "proxy-bucket", ArchiveHunter.ProxyType.VIDEO), 10.seconds) }
+      result must beASuccessfulTry
+
+      case class ExpectedRequest() extends ArgumentMatcher[HttpRequest] {
+        override def matches(argument: HttpRequest): Boolean = {
+          import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.consumeResponseEntity
+          val expectedRequestContent = """{"itemId":"abcdefg","proxyPath":"path/to/some/file.upload","proxyBucket":"proxy-bucket","proxyType":"VIDEO"}"""
+          val entityContent = Await.result(consumeResponseEntity(argument.entity), 2.seconds)
+          argument.uri==Uri("https://test-url/api/importProxy") && argument.method==HttpMethods.POST && entityContent==expectedRequestContent
+        }
+      }
+
+      there was one(mockHttp).singleRequest(
+        org.mockito.ArgumentMatchers.argThat(ExpectedRequest()),
+        any,
+        any,
+        any
+      )
+    }
+
+    "fail the future if a NotFound is returned" in {
+      val mockHttp = mock[HttpExt]
+      val responseRawJson = """{"status":"not_found"}"""
+      mockHttp.singleRequest(any,any,any,any) returns Future(HttpResponse(StatusCodes.NotFound, entity=HttpEntity(responseRawJson)))
+      val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://test-url","notasecret")) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Try { Await.result(toTest.importProxy("abcdefg", "path/to/some/file.upload", "proxy-bucket", ArchiveHunter.ProxyType.VIDEO), 10.seconds) }
+      result must beAFailedTry
+      result.failed.get.getMessage mustEqual "The item ID was not found"
+
+      there was one(mockHttp).singleRequest(
+        any,
+        any,
+        any,
+        any
+      )
     }
   }
 }
