@@ -1,16 +1,18 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.framework.MessageProcessor
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ArchivedRecordRow, ErrorComponents, FailureRecord, FailureRecordDAO, FailureRecordRow, IgnoredRecord, IgnoredRecordDAO, IgnoredRecordRow, RetryStates}
 import io.circe.Json
 import io.circe.generic.auto._
+import io.circe.syntax.EncoderOps
 import messages.VidispineMediaIngested
 import org.slf4j.LoggerFactory
 import plutocore.{AssetFolderLookup, PlutoCoreConfig}
 
+import java.io.File
 import java.nio.file.{Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Try}
 
 class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
                                (implicit archivedRecordDAO: ArchivedRecordDAO,
@@ -18,7 +20,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
                                 ignoredRecordDAO: IgnoredRecordDAO,
                                 ec: ExecutionContext,
                                 mat: Materializer,
-                                system: ActorSystem) extends MessageProcessor {
+                                system: ActorSystem,
+                                uploader: FileUploader) extends MessageProcessor {
   private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -32,6 +35,46 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       Paths.get(filePath)
     }.toEither.left.map(_.getMessage)
 
+  private def uploadCreateOrUpdateRecord(filePath:String, relativePath:String, archivedRecord: Option[ArchivedRecordRow#TableElementType]) = {
+    logger.info(s"Archiving file '$filePath' to s3://${uploader.bucketName}/$relativePath")
+    Future.fromTry(
+      uploader.copyFileToS3(new File(filePath), Some(relativePath))
+    ).flatMap(fileInfo => {
+      val (fileName, fileSize) = fileInfo
+      logger.debug(s"$filePath: Upload completed")
+      val record = archivedRecord match {
+        case Some(rec) =>
+          logger.debug(s"archivehunter ID for $relativePath is ${rec.archiveHunterID}")
+          rec.copy(
+            originalFileSize = fileSize,
+            uploadedPath = fileName,
+            //FIXME: Unsure if anything else needs to be updated here. Vidispine ID perhaps?
+          )
+        case None =>
+          val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
+          logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
+          ArchivedRecord(archiveHunterID,
+            originalFilePath=filePath,
+            originalFileSize=fileSize,
+            uploadedBucket = uploader.bucketName,
+            uploadedPath = fileName,
+            uploadedVersion = None)
+      }
+
+      archivedRecordDAO
+        .writeRecord(record)
+        .map(recId=>Right(record.copy(id=Some(recId)).asJson))
+    }).recoverWith(err=>{
+      val rec = FailureRecord(id = None,
+        originalFilePath = filePath, // FIXME: Should this be archivedRecord.originalPath or the filePath?
+        attempt = 1,  //FIXME: need to be passed the retry number by the Framework
+        errorMessage = err.getMessage,
+        errorComponent = ErrorComponents.Internal,
+        retryState = RetryStates.WillRetry)
+      failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
+    })
+  }
+
   /**
    * Upload ingested file if not already exist.
    *
@@ -40,23 +83,38 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
    *
    * @return String explaining which action took place
    */
-  def uploadIfRequiredAndNotExists(filePath: String, mediaIngested: VidispineMediaIngested): Future[String] = {
-    // 1. Check file already exists
-    archivedRecordDAO.findBySourceFilename(filePath)
-      .map(maybeRecord=>{
-        (maybeRecord.map(_.originalFileSize), mediaIngested.fileSize) match {
-          case (Some(originalFileSize), Some(ingestedFileSize))=>
-            originalFileSize == ingestedFileSize
-          case _=>
-            false
-        }
-      }).flatMap({
-        case true => Future("File already exist")
-        case false =>
-          // 2. Download full item metadata and upload to s3
-          // 3. Push message to own exchange explaining what has happened
-          Future("Not implemented yet!")
-      })
+  def uploadIfRequiredAndNotExists(filePath: String,
+                                   relativePath: String,
+                                   mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
+    for {
+      maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePath)
+      maybeIgnoredRecord <- ignoredRecordDAO.findBySourceFilename(filePath)
+      maybeFailureRecord <- failureRecordDAO.findBySourceFilename(filePath)
+      result <- (maybeIgnoredRecord, maybeArchivedRecord) match {
+        case (Some(_), _) => Future(Left("Record should be ignored"))
+        case (None, Some(archivedRecord)) =>
+          if(maybeFailureRecord.isDefined) logger.warn("This job failed previously")
+          if(archivedRecord.archiveHunterID.isEmpty || !archivedRecord.archiveHunterIDValidated) {
+            logger.info(s"Archive hunter ID does not exist, will retry")
+            Future(Left("Archive hunter ID does not exist yet, will retry"))
+          } else Future.fromTry(uploader.objectExists(archivedRecord.uploadedPath))
+            .flatMap(exist => {
+              if (exist) {
+                logger.info("Filepath in record already exists in S3 bucket")
+                Future(Right(archivedRecord.asJson))
+              } else {
+                logger.warn("Does not exist in S3, re-uploading")
+                uploadCreateOrUpdateRecord(filePath, relativePath, Some(archivedRecord))
+              }
+            })
+        case (None, None) =>
+          if(maybeFailureRecord.isDefined) {
+            logger.warn("This job failed previously")
+          }
+
+          uploadCreateOrUpdateRecord(filePath, relativePath, None)
+      }
+    } yield result
   }
 
   /**
@@ -67,7 +125,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
    *
    * @return String explaining which action took place
    */
-  def handleIngestedMedia(mediaIngested: VidispineMediaIngested) = {
+  def handleIngestedMedia(mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
     val status = mediaIngested.status
     val itemId = mediaIngested.itemId
 
@@ -79,9 +137,9 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
           getRelativePath(filePath) match {
             case Left(err) =>
               logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
-              uploadIfRequiredAndNotExists(filePath, mediaIngested).map(Left(_))
+              uploadIfRequiredAndNotExists(filePath, filePath, mediaIngested)
             case Right(relativePath) =>
-              uploadIfRequiredAndNotExists(relativePath.toString, mediaIngested).map(Left(_))
+              uploadIfRequiredAndNotExists(filePath, relativePath.toString, mediaIngested)
           }
         case None=>
           Future(Left(s"File path for ingested media is missing $status itemId=${itemId}"))
