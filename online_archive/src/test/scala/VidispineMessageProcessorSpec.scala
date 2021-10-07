@@ -13,7 +13,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import java.nio.file.Paths
 import scala.concurrent.duration.DurationInt
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   "VidispineMessageProcessor.handleIngestedMediaInArchive" should {
@@ -75,14 +75,14 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       failureRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
       ignoredRecordDAO.writeRecord(any) returns Future(345)
-      val record = IgnoredRecord(Some(1), "/original/file/path/video.mp4", "supersecret", None, None)
+      val record = IgnoredRecord(Some(1), "/original/file/path/video.mp4", "TopSecret", None, None)
       ignoredRecordDAO.findBySourceFilename(any) returns Future(Some(record))
 
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       val basePath = Paths.get("/media/assets")
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.objectExists(any) returns Try(true)
+      uploader.objectExists(any) returns Success(true)
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
       val fields: List[VidispineField] = List(
         VidispineField("itemId", "VX-123"),
@@ -95,7 +95,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.uploadIfRequiredAndNotExists("/original/file/path/video.mp4", "/original", ingested), 2.seconds)
 
-      result mustEqual Left("Record should be ignored")
+      result mustEqual Left("/original/file/path/video.mp4 should be ignored due to reason TopSecret")
     }
 
     "retry if there is no Archive hunter ID yet" in {
@@ -112,7 +112,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       val basePath = Paths.get("/media/assets")
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.objectExists(any) returns Try(true)
+      uploader.objectExists(any) returns Success(true)
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
       val fields: List[VidispineField] = List(
         VidispineField("itemId", "VX-123"),
@@ -144,7 +144,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.uploadIfRequiredAndNotExists("/original/file/path/video.mp4", "/original", ingested), 2.seconds)
 
-      result mustEqual Left("Archive hunter ID does not exist yet, will retry")
+      result mustEqual Left("Archive hunter ID does not exist yet for filePath /original/file/path/video.mp4, will retry")
     }
 
     "return archiveRecord if file already exists in s3" in {
@@ -161,10 +161,11 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       val basePath = Paths.get("/media/assets")
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.objectExists(any) returns Try(true)
+      uploader.objectExists(any) returns Success(true)
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
       val fields: List[VidispineField] = List(
         VidispineField("itemId", "VX-123"),
+        VidispineField("essenceVersion", "2"),
         VidispineField("bytesWritten", "100"),
         VidispineField("status", "FINISHED"),
         VidispineField("sourceFileId", "VX-456"),
@@ -173,7 +174,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val ingested = VidispineMediaIngested(fields)
 
       val record = ArchivedRecord(
-        id=Some(1),
+        id=Some(123),
         archiveHunterID="archiveId",
         archiveHunterIDValidated=true,
         originalFilePath="/original/file/path/video.mp4",
@@ -181,8 +182,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         uploadedBucket="bucket",
         uploadedPath="/file/path/video.mp4",
         uploadedVersion=None,
-        vidispineItemId=None,
-        vidispineVersionId=None,
+        vidispineItemId=Some("VX-123"),
+        vidispineVersionId=Some(2),
         proxyBucket=None,
         proxyPath=None,
         proxyVersion=None,
@@ -210,12 +211,13 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       val basePath = Paths.get("/media/assets")
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.objectExists(any) returns Try(false)
-      uploader.copyFileToS3(any, any) returns Try(("/file/path/video.mp4", 100))
+      uploader.objectExists(any) returns Success(false)
+      uploader.copyFileToS3(any, any) returns Success(("/file/path/video.mp4", 100))
       uploader.bucketName returns "bucket"
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
       val fields: List[VidispineField] = List(
         VidispineField("itemId", "VX-123"),
+        VidispineField("essenceVersion", "2"),
         VidispineField("bytesWritten", "100"),
         VidispineField("status", "FINISHED"),
         VidispineField("sourceFileId", "VX-456"),
@@ -232,8 +234,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         uploadedBucket="bucket",
         uploadedPath="OLD/file/path/video.mp4",
         uploadedVersion=None,
-        vidispineItemId=None,
-        vidispineVersionId=None,
+        vidispineItemId=Some("VX-123"),
+        vidispineVersionId=Some(2),
         proxyBucket=None,
         proxyPath=None,
         proxyVersion=None,
@@ -267,8 +269,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       val basePath = Paths.get("/media/assets")
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.objectExists(any) returns Try(false)
-      uploader.copyFileToS3(any, any) returns Try(("/file/path/video.mp4", 100))
+      uploader.objectExists(any) returns Success(false)
+      uploader.copyFileToS3(any, any) returns Success(("/file/path/video.mp4", 100))
       uploader.bucketName returns "bucket"
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
       val fields: List[VidispineField] = List(
@@ -276,6 +278,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         VidispineField("bytesWritten", "100"),
         VidispineField("status", "FINISHED"),
         VidispineField("sourceFileId", "VX-456"),
+        VidispineField("essenceVersion", "2"),
         VidispineField("filePathMap", "VX-456=/original/file/path/video.mp4")
       )
       val ingested = VidispineMediaIngested(fields)
@@ -289,8 +292,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         uploadedBucket="bucket",
         uploadedPath="/file/path/video.mp4",
         uploadedVersion=None,
-        vidispineItemId=None,
-        vidispineVersionId=None,
+        vidispineItemId=Some("VX-123"),
+        vidispineVersionId=Some(2),
         proxyBucket=None,
         proxyPath=None,
         proxyVersion=None,

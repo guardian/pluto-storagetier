@@ -12,6 +12,7 @@ class VidispineMediaIngestedSpec extends Specification {
         VidispineField("bytesWritten", "100"),
         VidispineField("status", "FINISHED"),
         VidispineField("sourceFileId", "VX-456"),
+        VidispineField("essenceVersion", "2"),
         VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
       ))
 
@@ -19,6 +20,7 @@ class VidispineMediaIngestedSpec extends Specification {
       mediaIngested.fileSize mustEqual(Some(100))
       mediaIngested.filePath mustEqual(Some("the/correct/filepath/video.mp4"))
       mediaIngested.status mustEqual(Some("FINISHED"))
+      mediaIngested.essenceVersion mustEqual(Some(2))
     }
 
     "filePath should return None when matching filePathMap is missing" in {
