@@ -62,7 +62,7 @@ object Main {
         new AssetSweeperMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(
-        "vidispine",
+        "vidispine-events",
         "vidispine.raw_ingest.#",
         "storagetier.onlinearchive.vidispineupdate",
         new VidispineMessageProcessor(plutoConfig)
