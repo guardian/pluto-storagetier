@@ -63,7 +63,7 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        "vidispine.raw_ingest.#",
+        "vidispine.job.raw_import.stop",
         "storagetier.onlinearchive.vidispineupdate",
         new VidispineMessageProcessor(plutoConfig)
       ),
