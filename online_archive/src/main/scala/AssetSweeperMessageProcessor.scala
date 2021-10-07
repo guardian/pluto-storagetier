@@ -122,6 +122,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+    if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future(Right(Map[String,String]().asJson))
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))

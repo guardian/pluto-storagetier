@@ -99,6 +99,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   def uploadIfRequiredAndNotExists(filePath: String,
                                    relativePath: String,
                                    mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
+    logger.debug(s"uploadIfRequiredAndNotExists: $filePath to $relativePath")
     for {
       maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePath)
       maybeIgnoredRecord <- ignoredRecordDAO.findBySourceFilename(filePath)
@@ -155,11 +156,14 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
     val status = mediaIngested.status
     val itemId = mediaIngested.itemId
 
-    if (status.contains("FAILED") || itemId.isEmpty)
+    logger.debug(s"Received message content $mediaIngested")
+    if (status.contains("FAILED") || itemId.isEmpty) {
+      logger.error(s"Import status not in correct state for archive $status itemId=${itemId}")
       Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
-    else {
+    } else {
       mediaIngested.filePath match {
         case Some(filePath)=>
+          logger.debug(s"Got ingested file path of $filePath from the message")
           getRelativePath(filePath) match {
             case Left(err) =>
               logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
@@ -168,6 +172,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
               uploadIfRequiredAndNotExists(filePath, relativePath.toString, mediaIngested)
           }
         case None=>
+          logger.error(s"No filepath could be found in the message")
           Future(Left(s"File path for ingested media is missing $status itemId=${itemId}"))
       }
     }
@@ -190,6 +195,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   def handleRawImportStop(msg: Json): Future[Either[String, Json]] = {
     msg.as[VidispineMediaIngested] match {
       case Left(err) =>
+        logger.error(s"Could not unmarshal vidispine.job.raw_import.stop message: $err")
         Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a VidispineMediaIngested: $err"))
       case Right(mediaIngested)=>
         handleIngestedMedia(mediaIngested)
@@ -207,6 +213,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+    logger.info(s"Received message from vidispine with routing key $routingKey")
     routingKey match {
       case "vidispine.job.raw_import.stop"=>
         handleRawImportStop(msg)
