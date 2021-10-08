@@ -173,6 +173,10 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
         streamingVS(req, readTimeout, s"Poster for vidispine item $itemId").map(Some.apply)
     })
   }
+
+  def getFileInformation(fileId:String) = {
+    callToVidispine[FileDocument](HttpRequest(uri=s"${config.baseUri}/API/storage/file/$fileId"))
+  }
 }
 
 object VidispineCommunicator {

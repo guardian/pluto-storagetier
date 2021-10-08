@@ -3,6 +3,7 @@ import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import org.slf4j.LoggerFactory
 import plutocore.PlutoCoreEnvironmentConfigProvider
 import plutodeliverables.PlutoDeliverablesConfig
@@ -20,10 +21,10 @@ object Main {
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
   private lazy val db = DatabaseProvider.get()
-  private implicit val rmqConnectionFactoryProvider =  ConnectionFactoryProviderReal
+  private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider =  ConnectionFactoryProviderReal
 
-  private implicit lazy val actorSystem = ActorSystem()
-  private implicit lazy val mat = Materializer(actorSystem)
+  private implicit lazy val actorSystem:ActorSystem = ActorSystem()
+  private implicit lazy val mat:Materializer = Materializer(actorSystem)
   private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
     case Left(err)=>
       logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
@@ -38,11 +39,19 @@ object Main {
     case Right(config)=>config
   }
 
+  private lazy val vidispineConfig = VidispineConfig.fromEnvironment match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect Vidispine config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
+
   def main(args:Array[String]):Unit = {
     implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
     implicit lazy val ignoredRecordDAO = new IgnoredRecordDAO(db)
     implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
+    implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
 
     implicit lazy val uploader = FileUploader.createFromEnvVars match {
       case Left(err)=>

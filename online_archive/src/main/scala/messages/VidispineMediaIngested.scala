@@ -45,6 +45,9 @@ case class VidispineMediaIngested(field: List[VidispineField]) {
   def fileSize: Option[Long] = getValue("bytesWritten").flatMap(value=>Try { value.toLong }.toOption)
   def status: Option[String] = getValue("status")
   def essenceVersion: Option[Int] = getValue("essenceVersion").flatMap(value => Try { value.toInt }.toOption)
+  def sourceFileId:Option[String] = getValue("sourceFileId")
+  def sourceFileIds:Array[String] = getValue("sourceFileIds")
+    .map(_.split(",")).getOrElse[Array[String]](Array()) //FIXME: I assume that the separator is a , ?
 
   private def getValue(fieldKey: String) = field.find(field=>field.key == fieldKey).map(field=>field.value)
   private def getFilePath() = {

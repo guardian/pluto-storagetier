@@ -1,8 +1,8 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.framework.MessageProcessor
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord,
-  FailureRecordDAO, IgnoredRecordDAO, RetryStates}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
@@ -13,12 +13,13 @@ import plutocore.{AssetFolderLookup, PlutoCoreConfig}
 import java.io.File
 import java.nio.file.{Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Try}
+import scala.util.Try
 
 class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
                                (implicit archivedRecordDAO: ArchivedRecordDAO,
                                 failureRecordDAO: FailureRecordDAO,
                                 ignoredRecordDAO: IgnoredRecordDAO,
+                                vidispineCommunicator: VidispineCommunicator,
                                 ec: ExecutionContext,
                                 mat: Materializer,
                                 system: ActorSystem,
@@ -28,8 +29,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
 
   /**
    * assembles a java.nio.Path pointing to a file, catching exceptions and converting to an Either
-   * @param filePath
-   * @return
+   * @param filePath string representing the file path
+   * @return either the Path, or a Left containing an error string.
    */
   private def compositingGetPath(filePath: String) =
     Try {
@@ -161,19 +162,28 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       logger.error(s"Import status not in correct state for archive $status itemId=${itemId}")
       Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
     } else {
-      mediaIngested.filePath match {
-        case Some(filePath)=>
-          logger.debug(s"Got ingested file path of $filePath from the message")
-          getRelativePath(filePath) match {
-            case Left(err) =>
-              logger.error(s"Could not relativize file path $filePath: $err. Uploading to $filePath")
-              uploadIfRequiredAndNotExists(filePath, filePath, mediaIngested)
-            case Right(relativePath) =>
-              uploadIfRequiredAndNotExists(filePath, relativePath.toString, mediaIngested)
-          }
+      mediaIngested.sourceFileId match {
+        case Some(fileId)=>
+          logger.debug(s"Got ingested file ID $fileId from the message")
+          for {
+            absPath <- vidispineCommunicator.getFileInformation(fileId).map(_.flatMap(_.getAbsolutePath))
+            result <- absPath match {
+              case None=>
+                logger.error(s"Could not get absolute filepath for file $fileId")
+                Future.failed(new RuntimeException(s"Could not get absolute filepath for file $fileId"))
+              case Some(absPath)=>
+                getRelativePath(absPath) match {
+                  case Left(err) =>
+                    logger.error(s"Could not relativize file path $absPath: $err. Uploading to $absPath")
+                    uploadIfRequiredAndNotExists(absPath, absPath, mediaIngested)
+                  case Right(relativePath) =>
+                    uploadIfRequiredAndNotExists(absPath, relativePath.toString, mediaIngested)
+                }
+            }
+          } yield result
         case None=>
-          logger.error(s"No filepath could be found in the message")
-          Future(Left(s"File path for ingested media is missing $status itemId=${itemId}"))
+          logger.error(s"The incoming message had no source file ID parameter, can't continue")
+          Future.failed(new RuntimeException(s"No source file ID parameter"))
       }
     }
   }
@@ -185,7 +195,6 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   /**
    * Override this method in your subclass to handle an incoming message
    *
-   * @param routingKey the routing key of the message as received from the broker.
    * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
    *                   using msg.as[CaseClassFormat]
    * @return You need to return Left() with a descriptive error string if the message could not be processed, or Right

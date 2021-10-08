@@ -1,6 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.syntax.EncoderOps
 import io.circe.Json
 import io.circe.generic.auto._
@@ -18,6 +19,7 @@ import scala.util.{Success, Try}
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   "VidispineMessageProcessor.handleIngestedMediaInArchive" should {
     "use the full path for upload if it can't relativize" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO: ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
@@ -37,6 +39,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
   "VidispineMessageProcessor.handleIngestedMedia" should {
     "fail request when job status includes FAIL" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO: ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
@@ -67,6 +70,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
   "VidispineMessageProcessor.uploadIfRequiredAndNotExists" should {
     "ignore message if ignoreRecord exists" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       archivedRecordDAO.findBySourceFilename(any) returns Future(None)
@@ -99,6 +103,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "retry if there is no Archive hunter ID yet" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
@@ -148,6 +153,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "return archiveRecord if file already exists in s3" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
@@ -198,6 +204,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "upload and update archive record if record exist and file doesn't already exist in s3" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
@@ -255,6 +262,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "upload file and create new archive record if archive doesn't already exit" in {
+      implicit val mockedVidispineCommunicator = mock[VidispineCommunicator]
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
       archivedRecordDAO.findBySourceFilename(any) returns Future(None)
