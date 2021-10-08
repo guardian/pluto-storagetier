@@ -84,7 +84,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
         originalFilePath = archivedRecord.map(_.originalFilePath).getOrElse(filePath),
         attempt = 1,  //FIXME: need to be passed the retry number by the Framework
         errorMessage = err.getMessage,
-        errorComponent = ErrorComponents.Internal,
+        errorComponent = ErrorComponents.AWS,
         retryState = RetryStates.WillRetry)
       failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
     })
