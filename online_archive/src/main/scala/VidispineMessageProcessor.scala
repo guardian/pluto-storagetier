@@ -47,7 +47,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       logger.debug(s"$filePath: Upload completed")
       val record = archivedRecord match {
         case Some(rec) =>
-          logger.debug(s"archivehunter ID for $relativePath is ${rec.archiveHunterID}")
+          logger.debug(s"actual archivehunter ID for $relativePath is ${rec.archiveHunterID}")
           rec.copy(
             originalFileSize = fileSize,
             uploadedPath = fileName,
@@ -56,7 +56,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
           )
         case None =>
           val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
-          logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
+          logger.debug(s"Provisional archivehunter ID for $relativePath is $archiveHunterID")
           ArchivedRecord(None,
             archiveHunterID,
             archiveHunterIDValidated=false,
@@ -75,18 +75,26 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
           )
       }
 
+      logger.info(s"Updating record for ${record.originalFilePath} with vidispine ID ${mediaIngested.itemId}, vidispine version ${mediaIngested.essenceVersion}. ${if(!record.archiveHunterIDValidated) "ArchiveHunter ID validation is required."}")
       archivedRecordDAO
         .writeRecord(record)
         .map(recId=>Right(record.copy(id=Some(recId)).asJson))
     }).recoverWith(err=>{
       val rec = FailureRecord(id = None,
-        originalFilePath = filePath, // FIXME: Should this be archivedRecord.originalPath or the filePath?
+        originalFilePath = archivedRecord.map(_.originalFilePath).getOrElse(filePath),
         attempt = 1,  //FIXME: need to be passed the retry number by the Framework
         errorMessage = err.getMessage,
         errorComponent = ErrorComponents.Internal,
         retryState = RetryStates.WillRetry)
       failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
     })
+  }
+
+  private def showPreviousFailure(maybeFailureRecord:Option[FailureRecord], filePath: String) = {
+    if(maybeFailureRecord.isDefined) {
+      val reason = maybeFailureRecord.map(rec => rec.errorMessage)
+      logger.warn(s"This job with filepath $filePath failed previously with reason $reason")
+    }
   }
 
   /**
@@ -100,7 +108,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   def uploadIfRequiredAndNotExists(filePath: String,
                                    relativePath: String,
                                    mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
-    logger.debug(s"uploadIfRequiredAndNotExists: $filePath to $relativePath")
+    logger.debug(s"uploadIfRequiredAndNotExists: Original file is $filePath, target path is $relativePath")
     for {
       maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePath)
       maybeIgnoredRecord <- ignoredRecordDAO.findBySourceFilename(filePath)
@@ -109,37 +117,31 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
         case (Some(ignoreRecord), _) =>
           Future(Left(s"${filePath} should be ignored due to reason ${ignoreRecord.ignoreReason}"))
         case (None, Some(archivedRecord)) =>
-          if(maybeFailureRecord.isDefined) {
-            val reason = maybeFailureRecord.map(rec => rec.errorMessage)
-            logger.warn(s"This job with filepath ${filePath} failed previously with reason ${reason}")
-          }
+          showPreviousFailure(maybeFailureRecord, filePath)
 
           if(archivedRecord.archiveHunterID.isEmpty || !archivedRecord.archiveHunterIDValidated) {
-            logger.info(s"Archive hunter ID does not exist yet for filePath ${filePath}, will retry")
-            Future(Left(s"Archive hunter ID does not exist yet for filePath ${filePath}, will retry"))
+            logger.info(s"Archive hunter ID does not exist yet for filePath $filePath, will retry")
+            Future(Left(s"Archive hunter ID does not exist yet for filePath $filePath, will retry"))
           } else Future.fromTry(uploader.objectExists(archivedRecord.uploadedPath))
             .flatMap(exist => {
               if (exist) {
-                logger.info(s"Filepath ${filePath} in record already exists in S3 bucket")
+                logger.info(s"Filepath $filePath already exists in S3 bucket")
                 val record = archivedRecord.copy(
                   vidispineItemId = mediaIngested.itemId,
                   vidispineVersionId = mediaIngested.essenceVersion
                 )
 
+                logger.info(s"Updating record for ${record.originalFilePath} with vidispine ID ${mediaIngested.itemId} and version ${mediaIngested.essenceVersion}")
                 archivedRecordDAO
                   .writeRecord(record)
                   .map(recId=>Right(record.copy(id=Some(recId)).asJson))
               } else {
-                logger.warn(s"Filepath ${filePath} does not exist in S3, re-uploading")
+                logger.warn(s"Filepath $filePath does not exist in S3, re-uploading")
                 uploadCreateOrUpdateRecord(filePath, relativePath, mediaIngested, Some(archivedRecord))
               }
             })
         case (None, None) =>
-          if(maybeFailureRecord.isDefined) {
-            val reason = maybeFailureRecord.map(rec => rec.errorMessage)
-            logger.warn(s"This job with filepath ${filePath} failed previously with reason ${reason}")
-          }
-
+          showPreviousFailure(maybeFailureRecord, filePath)
           uploadCreateOrUpdateRecord(filePath, relativePath, mediaIngested, None)
       }
     } yield result
