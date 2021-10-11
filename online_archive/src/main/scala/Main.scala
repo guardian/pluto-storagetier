@@ -1,4 +1,5 @@
 import akka.actor.ActorSystem
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.framework._
@@ -8,6 +9,7 @@ import org.slf4j.LoggerFactory
 import plutocore.PlutoCoreEnvironmentConfigProvider
 import plutodeliverables.PlutoDeliverablesConfig
 import sun.misc.{Signal, SignalHandler}
+import utils.TrustStoreHelper
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -44,6 +46,20 @@ object Main {
       logger.error(s"Could not initialise due to incorrect Vidispine config: $err")
       sys.exit(1)
     case Right(config)=>config
+  }
+
+  sys.env.get("LOCAL_TRUST_STORE") match {
+    case Some(localTrustStore)=>
+      logger.info(s"Adding local trust store at $localTrustStore")
+      TrustStoreHelper.setupTS(Seq(localTrustStore)) match {
+        case Success(context)=>
+          Http().setDefaultClientHttpsContext(ConnectionContext.https(context))
+        case Failure(err)=>
+          logger.error("Could not set up local trust store: ", err)
+          sys.exit(1)
+      }
+    case None=>
+      logger.info(s"No separate local trust store is set up.")
   }
 
   def main(args:Array[String]):Unit = {
