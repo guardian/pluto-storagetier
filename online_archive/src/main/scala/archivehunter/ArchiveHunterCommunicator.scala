@@ -76,7 +76,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     }
     val signatureTime = overrideTime.getOrElse(ZonedDateTime.now()).withZoneSameInstant(ZoneId.of("UTC"))
     val httpDate = httpDateFormatter.format(signatureTime)
-    val token = getToken(req.uri, httpDate, req.entity.contentLengthOption.getOrElse(0L).toInt, req.method.toString(), contentChecksum)
+    val token = getToken(req.uri, httpDate, req.entity.contentLengthOption.getOrElse(0L).toInt, req.method.value, contentChecksum)
 
     val updatedRequest = req.withHeaders(req.headers ++ Seq(
       akka.http.scaladsl.model.headers.RawHeader("Date", httpDate),
