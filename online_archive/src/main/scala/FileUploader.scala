@@ -121,7 +121,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param stream InputStream to write
    * @param keyName key to write within the bucket
    * @param mimeType MIME type
-   * @param size
+   * @param size size of the data that will be streamed.  While this is optional, it's highly recommended as the S3 Transfer library will buffer the whole contents into memory in this case
    * @param vsMD5
    * @return
    */
@@ -163,7 +163,7 @@ object FileUploader {
           result <- Right(new FileUploader(transferManager, s3Client, mediaBucket))
         } yield result
       case None =>
-        Left("You must specify ARCHIVE_MEDIA_BUCKET so we know where to upload to!")
+        Left(s"You must specify $varName so we know where to upload to!")
     }
 
   /**

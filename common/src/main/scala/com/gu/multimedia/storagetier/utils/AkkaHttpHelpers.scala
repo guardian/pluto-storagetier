@@ -83,7 +83,7 @@ object AkkaHttpHelpers {
     case 400 =>
       consumeResponseEntity(response.entity)
         .flatMap(body => Future.failed(new RuntimeException(s"$description returned bad data error: $body")))
-    case 301 |302|308|309=>
+    case 301 |302|303|308|309=>
       response.entity.discardBytes()
       logger.info(s"Received unexpected redirect from $description to ${response.getHeader("Location")}")
       val h = response.getHeader("Location")
