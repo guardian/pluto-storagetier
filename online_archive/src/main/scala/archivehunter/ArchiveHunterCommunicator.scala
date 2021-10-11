@@ -76,7 +76,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     }
     val signatureTime = overrideTime.getOrElse(ZonedDateTime.now()).withZoneSameInstant(ZoneId.of("UTC"))
     val httpDate = httpDateFormatter.format(signatureTime)
-    val token = getToken(req.uri, httpDate, 0, "GET", contentChecksum)
+    val token = getToken(req.uri, httpDate, req.entity.contentLengthOption.getOrElse(0L).toInt, req.method.toString(), contentChecksum)
 
     val updatedRequest = req.withHeaders(req.headers ++ Seq(
       akka.http.scaladsl.model.headers.RawHeader("Date", httpDate),
@@ -134,11 +134,10 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     import akka.http.scaladsl.model.headers._
     import akka.http.scaladsl.model.ContentTypes
     val requestContent = ArchiveHunter.ImportProxyRequest(docId, proxyPath, Some(proxyBucket), proxyType).asJson.noSpaces
-    val requestBody = HttpEntity(requestContent)
-    val headers = Seq(`Content-Type`(ContentTypes.`application/json`))
+    val requestBody = HttpEntity(requestContent).withContentType(ContentTypes.`application/json`)
 
     logger.debug(s"URI is ${config.baseUri}/api/importProxy, content is $requestContent")
-    val req = HttpRequest(uri=s"${config.baseUri}/api/importProxy",method = HttpMethods.POST, headers = headers, entity=requestBody)
+    val req = HttpRequest(uri=s"${config.baseUri}/api/importProxy",method = HttpMethods.POST, entity=requestBody)
 
     val checksumBytes = MessageDigest.getInstance("SHA-384").digest("".getBytes)
     val contentChecksum = Base64.getEncoder.encodeToString(checksumBytes)
