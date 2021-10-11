@@ -10,9 +10,10 @@
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
     <logger name="FakeMessageProcessor" level="DEBUG"/>
     <logger name="plutocore" level="INFO"/>
-    <logger name="AssetSweeperMessageProcessor" level="DEBUG"/>
+    <logger name="AssetSweeperMessageProcessor" level="INFO"/>
+    <logger name="VidispineMessageProcessor" level="DEBUG"/>
     <logger name="archivehunter" level="INFO"/>
-    <logger name="Main$" level="DEBUG"/>
+    <logger name="Main$" level="INFO"/>
 
     <root level="ERROR">
         <appender-ref ref="STDOUT" />

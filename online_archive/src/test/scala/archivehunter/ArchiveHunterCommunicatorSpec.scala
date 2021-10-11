@@ -46,7 +46,7 @@ class ArchiveHunterCommunicatorSpec extends Specification with AfterAll with Moc
       mockHttp.singleRequest(any,any,any,any) returns Future(HttpResponse(StatusCodes.NotFound))
 
       val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://fake-uri","nosecret")) {
-        override def callHttp() = mockHttp
+        override def callHttp = mockHttp
       }
 
       val result = Await.result(toTest.lookupArchivehunterId("abcdefg","somebucket","path/to/some.file"), 5.seconds)
@@ -82,7 +82,7 @@ class ArchiveHunterCommunicatorSpec extends Specification with AfterAll with Moc
       )
 
       val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://fake-uri","nosecret")) {
-        override def callHttp() = mockHttp
+        override def callHttp = mockHttp
       }
 
       val result = Await.result(toTest.lookupArchivehunterId("abcdefg","somebucket","path/to/some.file"), 5.seconds)
@@ -118,7 +118,7 @@ class ArchiveHunterCommunicatorSpec extends Specification with AfterAll with Moc
       )
 
       val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://fake-uri","nosecret")) {
-        override def callHttp() = mockHttp
+        override def callHttp = mockHttp
       }
 
       val result = Try { Await.result(toTest.lookupArchivehunterId("abcdefg","somebucket","path/to/another.file"), 5.seconds) }
@@ -155,7 +155,7 @@ class ArchiveHunterCommunicatorSpec extends Specification with AfterAll with Moc
       )
 
       val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://fake-uri","nosecret")) {
-        override def callHttp() = mockHttp
+        override def callHttp = mockHttp
       }
 
       val result = Try { Await.result(toTest.lookupArchivehunterId("abcdefg","somebucket","path/to/another.file"), 5.seconds) }
@@ -172,7 +172,7 @@ class ArchiveHunterCommunicatorSpec extends Specification with AfterAll with Moc
       )
 
       val toTest = new ArchiveHunterCommunicator(ArchiveHunterConfig("https://fake-uri","nosecret")) {
-        override def callHttp() = mockHttp
+        override def callHttp = mockHttp
       }
 
       val result = Try { Await.result(toTest.lookupArchivehunterId("abcdefg","somebucket","path/to/another.file"), 5.seconds) }

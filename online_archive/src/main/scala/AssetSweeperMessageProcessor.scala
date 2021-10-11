@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.storagetier.framework.MessageProcessor
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO, RetryStates}
 import io.circe.Json
 import messages.AssetSweeperNewFile
@@ -122,6 +122,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+    if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))

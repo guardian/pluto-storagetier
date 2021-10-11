@@ -138,6 +138,9 @@ class MessageProcessingFramework (ingest_queue_name:String,
                   targetConfig.testingForceReplyId)
                 logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
             }).recover({
+              case err:SilentDropMessage=>
+                logger.info(s"Dropping message with id ${properties.getMessageId}: ${err.getMessage}")
+                channel.basicAck(envelope.getDeliveryTag, false)
               case err:Throwable=>
                 logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
                 permanentlyRejectMessage(envelope, properties, body, err.getMessage)

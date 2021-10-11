@@ -32,6 +32,28 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
   }
 
   /**
+   * Check if an object key exists in the FileUploader bucket.
+   * @param objectKey key to the s3 object
+   * @return a Try containing a Success with boolean indicating if the object exist or not or a Failure if the call failed for some
+   *         unknown reason.
+   */
+  def objectExists(objectKey: String): Try[Boolean] = {
+    Try {
+      client.getObjectMetadata(bucketName, objectKey)
+    } match {
+      case Success(_) => Success(true)
+      case Failure(s3e: AmazonS3Exception) =>
+        if (fileNotFound(s3e)) {
+          Success(false)
+        } else {
+          Failure(s3e)
+        }
+      case Failure(e) =>
+        Failure(e)
+    }
+  }
+
+  /**
    * internal method. Recursively checks for an existing file and starts the upload when it finds a 'free' filename
    * @param file java.nio.File to upload
    * @param filePath path to upload it to

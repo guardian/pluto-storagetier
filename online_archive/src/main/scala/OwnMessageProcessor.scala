@@ -75,7 +75,7 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
                 logger.info(s"Successfully validated s3://${rec.uploadedBucket}/${rec.uploadedPath}")
                 recordSuccessfulValidation(rec)
               case false=> //the ID does not exist
-                logger.info(s"Archive hunter ID does not exist, will retry")
+                logger.info(s"Archive hunter ID for ${rec.originalFilePath} does not exist, will retry")
                 Future(Left("Archivehunter ID does not exist yet, will retry"))
             })
         }.recoverWith({
