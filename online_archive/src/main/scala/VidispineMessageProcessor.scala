@@ -249,6 +249,13 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   }
 
   /**
+   * check if a file exists. It's put into its own method so it can be over-ridden in tests
+   * @param filePath path to check
+   * @return boolean indicating if it exists
+   */
+  protected def internalCheckFile(filePath:Path) = Files.exists(filePath)
+
+  /**
    * uploads the proxy shape for the given item to S3 using the provided proxyFileUploader
    * @param fileInfo VSShapeFile representing the proxy file
    * @param archivedRecord ArchivedRecord representing the item that needs to get
@@ -261,7 +268,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     fileInfo.uri.headOption.flatMap(u=>Try { URI.create(u)}.toOption) match {
       case Some(uri)=>
         val filePath = Paths.get(uri)
-        if(Files.exists(filePath)) {
+        if(internalCheckFile(filePath)) {
           logger.info(s"Starting upload of ${fileInfo.uri.headOption} to s3://${proxyFileUploader.bucketName}/$uploadKey")
           Future.fromTry(proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey)))
         } else {

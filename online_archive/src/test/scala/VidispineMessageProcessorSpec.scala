@@ -18,7 +18,7 @@ import utils.ArchiveHunter
 import java.io.File
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import java.time.ZonedDateTime
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
@@ -394,8 +394,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockProxyUploader = mock[FileUploader]
       mockProxyUploader.bucketName returns "proxy-bucket"
       mockProxyUploader.uploadStreamNoChecks(any,any,any,any,any) returns Success("path/to/uploaded/file_prox.mp4",1234L)
-
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader)
+      mockProxyUploader.copyFileToS3(any,any) returns Success("path/to/uploaded/file_prox.mp4", 1234L)
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader) {
+        override protected def internalCheckFile(filePath: Path): Boolean = true
+      }
 
       val result = Await.result(
         toTest.uploadShapeIfRequired("VX-123","VX-456","lowres", mockArchivedRecord),
@@ -404,8 +406,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val outputRecord = mockArchivedRecord.copy(proxyPath = Some("path/to/uploaded/file_prox.mp4"), proxyBucket = Some("proxy-bucket"))
       result must beRight(outputRecord.asJson)
-      there was one(vidispineCommunicator).streamFileContent("VX-789")
-      there was one(mockProxyUploader).uploadStreamNoChecks(mockedInputStream, "path/to/uploaded/file_prox.mp4", "video/mp4", Some(1234L), Some("deadbeef"))
+      there was no(vidispineCommunicator).streamFileContent(any,any)
+      there was one(mockProxyUploader).copyFileToS3(any, org.mockito.ArgumentMatchers.eq(Some("path/to/uploaded/file_prox.mp4")))
+      there was no(mockProxyUploader).uploadStreamNoChecks(any,any,any,any,any)
       there was no(mockMediaUploader).uploadStreamNoChecks(any,any,any,any,any)
       there was one(archiveHunterCommunicator).importProxy("abcdefg", "path/to/uploaded/file_prox.mp4", "proxy-bucket", ArchiveHunter.ProxyType.VIDEO)
       there was one(mockArchivedRecordDAO).writeRecord(outputRecord)
@@ -611,8 +614,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       )
 
       result must beLeft("Could not upload List(file:///path/to/Vidispine/Proxies/VX-789.mp4) to S3")
-      there was one(vidispineCommunicator).streamFileContent("VX-789")
-      there was one(mockProxyUploader).uploadStreamNoChecks(mockedInputStream, "path/to/uploaded/file_prox.mp4", "video/mp4", Some(1234L), Some("deadbeef"))
+//      there was one(vidispineCommunicator).streamFileContent("VX-789")
+//      there was one(mockProxyUploader).uploadStreamNoChecks(mockedInputStream, "path/to/uploaded/file_prox.mp4", "video/mp4", Some(1234L), Some("deadbeef"))
+      there was no(mockProxyUploader).copyFileToS3(any,any)
       there was no(mockMediaUploader).uploadStreamNoChecks(any,any,any,any,any)
       there was no(archiveHunterCommunicator).importProxy(any,any,any,any)
       there was no(mockArchivedRecordDAO).writeRecord(any)
