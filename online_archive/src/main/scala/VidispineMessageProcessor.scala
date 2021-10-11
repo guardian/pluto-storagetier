@@ -16,7 +16,8 @@ import plutocore.{AssetFolderLookup, PlutoCoreConfig}
 import utils.ArchiveHunter
 
 import java.io.File
-import java.nio.file.{Path, Paths}
+import java.net.URI
+import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Success, Try}
 
@@ -256,17 +257,31 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
    */
   private def doUploadShape(fileInfo:VSShapeFile, archivedRecord: ArchivedRecord, shapeDoc:ShapeDocument) = {
     val uploadKey = uploadKeyForProxy(archivedRecord, fileInfo)
-    logger.info(s"Starting upload of ${fileInfo.uri.headOption} to s3://${proxyFileUploader.bucketName}/$uploadKey")
-    for {
-      inputStream <- vidispineCommunicator.streamFileContent(fileInfo.id)
-      result <- Future.fromTry(proxyFileUploader.uploadStreamNoChecks(
-        inputStream,
-        uploadKey,
-        shapeDoc.mimeType.headOption.getOrElse("application/octet-stream"),
-        fileInfo.sizeOption,
-        fileInfo.hash
-      ))
-    } yield result
+
+    fileInfo.uri.headOption.flatMap(u=>Try { URI.create(u)}.toOption) match {
+      case Some(uri)=>
+        val filePath = Paths.get(uri)
+        if(Files.exists(filePath)) {
+          logger.info(s"Starting upload of ${fileInfo.uri.headOption} to s3://${proxyFileUploader.bucketName}/$uploadKey")
+          Future.fromTry(proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey)))
+        } else {
+          logger.error(s"Could not find path for URI $uri ($filePath) on-disk")
+          Future.failed(new RuntimeException(s"File $filePath could not be found"))
+        }
+      case None=>
+        logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
+        Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
+    }
+//    for {
+//      inputStream <- vidispineCommunicator.streamFileContent(fileInfo.id)
+//      result <- Future.fromTry(proxyFileUploader.uploadStreamNoChecks(
+//        inputStream,
+//        uploadKey,
+//        shapeDoc.mimeType.headOption.getOrElse("application/octet-stream"),
+//        fileInfo.sizeOption,
+//        fileInfo.hash
+//      ))
+//    } yield result
   }
 
   def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
