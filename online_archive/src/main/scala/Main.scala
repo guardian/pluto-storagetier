@@ -80,7 +80,7 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        "vidispine.job.raw_import.stop",
+        Seq("vidispine.job.raw_import.stop", "vidispine.item.shape.modify"),
         "storagetier.onlinearchive.vidispineupdate",
         new VidispineMessageProcessor(plutoConfig, uploader, proxyUploader)
       ),

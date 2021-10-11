@@ -2,6 +2,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import io.circe.syntax.EncoderOps
 import archivehunter.ArchiveHunterCommunicator
+import com.gu.multimedia.storagetier.framework.SilentDropMessage
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.{FileDocument, ShapeDocument, SimplifiedComponent, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
@@ -543,14 +544,14 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader)
 
-      val result = Await.result(
-        toTest.uploadShapeIfRequired("VX-123","VX-456","original", mockArchivedRecord),
-        10.seconds
-      )
+      val result = Try {
+        Await.result(
+          toTest.uploadShapeIfRequired("VX-123", "VX-456", "original", mockArchivedRecord),
+          10.seconds
+        )
+      }
 
-      val outputRecord = IgnoredRecord(None,"", "Shape tag original is not known to ArchiveHunter", Some("VX-123"), None)
-
-      result must beRight(outputRecord.asJson)
+      result must beAFailedTry(SilentDropMessage())
       there was no(vidispineCommunicator).streamFileContent(any,any)
       there was no(mockProxyUploader).uploadStreamNoChecks(any,any,any,any,any)
       there was no(mockMediaUploader).uploadStreamNoChecks(any,any,any,any,any)

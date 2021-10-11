@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
-import com.gu.multimedia.storagetier.framework.MessageProcessor
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
@@ -272,12 +272,12 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
     ArchiveHunter.shapeTagToProxyTypeMap.get(shapeTag) match {
       case None=>
-        val ignoreRecord = IgnoredRecord(None,"",s"Shape tag $shapeTag is not known to ArchiveHunter", Some(itemId), None)
-        Future(Right(ignoreRecord.asJson))
+        logger.info(s"Shape $shapeTag for item $itemId is not known to ArchiveHunter, dropping the message")
+        Future.failed(SilentDropMessage())
       case Some(destinationProxyType)=>
         vidispineCommunicator.findItemShape(itemId, shapeId).flatMap({
           case None=>
-            logger.error(s"Shape $shapeId does not exist on item $itemId despite a notification informing us of this.")
+            logger.error(s"Shape $shapeId does not exist on item $itemId despite a notification informing us that it does.")
             Future.failed(new RuntimeException(s"Shape $shapeId does not exist"))
           case Some(shapeDoc)=>
             shapeDoc.getLikelyFile match {
