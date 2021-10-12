@@ -89,7 +89,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
       .flatMap(response=>{
         AkkaHttpHelpers.handleResponse(response, "Archive Hunter").flatMap({
           case Right(Some(stream))=>
-            contentBodyToJson(consumeStream(stream))
+            contentBodyToJson(consumeStream(stream.dataBytes))
           case Right(None)=>
             Future(None)
           case Left(RedirectRequired(newUri))=>

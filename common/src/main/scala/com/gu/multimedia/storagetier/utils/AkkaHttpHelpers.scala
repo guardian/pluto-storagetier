@@ -1,6 +1,6 @@
 package com.gu.multimedia.storagetier.utils
 
-import akka.http.scaladsl.model.{HttpResponse, ResponseEntity, Uri}
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse, ResponseEntity, Uri}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.util.ByteString
@@ -68,9 +68,9 @@ object AkkaHttpHelpers {
    * @param ec implicitly provided ExecutionContext
    * @return a Future indicating the action to take.
    */
-  def handleResponse(response:HttpResponse, description:String) (implicit mat:Materializer, ec:ExecutionContext):Future[Either[HttpUnsuccessActions, Option[Source[ByteString, Any]]]] = response.status.intValue() match {
+  def handleResponse(response:HttpResponse, description:String) (implicit mat:Materializer, ec:ExecutionContext):Future[Either[HttpUnsuccessActions, Option[HttpEntity]]] = response.status.intValue() match {
     case 200 =>
-      Future(Right(Some(response.entity.dataBytes)))
+      Future(Right(Some(response.entity)))
     case 404 =>
       response.entity.discardBytes()
       Future(Right(None))

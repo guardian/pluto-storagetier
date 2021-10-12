@@ -323,7 +323,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
         val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
         val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
         mediaFileUploader
-          .uploadAkkaStream(streamSource,thumbnailPath,ContentType(MediaTypes.`image/jpeg`),Some(1048576L))
+          .uploadAkkaStream(streamSource.dataBytes,thumbnailPath,streamSource.contentType,streamSource.contentLengthOption)
           .map(uploadResult=>{
             logger.info(s"Thumbnail upload for $itemId at version $essenceVersion to ${uploadResult.location} completed.")
             Right( () )

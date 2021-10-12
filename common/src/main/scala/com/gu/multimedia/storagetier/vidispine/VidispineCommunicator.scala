@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, MediaRange, MediaRanges, MediaTypes}
+import akka.http.scaladsl.model.{HttpEntity, HttpRequest, MediaRange, MediaRanges, MediaTypes}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
@@ -29,7 +29,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
    * @param retryLimit maximum number of retries
    * @return
    */
-  protected def callToVidispineRaw(req: HttpRequest, attempt: Int = 1, retryLimit:Int=10):Future[Option[Source[ByteString, Any]]] = if (attempt > retryLimit) {
+  protected def callToVidispineRaw(req: HttpRequest, attempt: Int = 1, retryLimit:Int=10):Future[Option[HttpEntity]] = if (attempt > retryLimit) {
     Future.failed(new RuntimeException("Too many retries, see logs for details"))
   } else {
     logger.debug(s"Vidispine request URL is ${req.uri.toString()}")
@@ -40,7 +40,8 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       .singleRequest(updatedReq)
       .flatMap(response=>AkkaHttpHelpers.handleResponse(response,"Vidispine"))
       .flatMap({
-        case Right(Some(stream))=>Future(Some(stream))
+        case Right(Some(entity))=>
+          Future(Some(entity))
         case Right(None)=>Future(None)
         case Left(RedirectRequired(newUri))=>
           logger.info(s"vidispine redirected to $newUri")
@@ -65,13 +66,13 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       retryLimit = retryLimit
     ).flatMap({
       case None => Future(None)
-      case Some(stream) =>
-        contentBodyToJson(consumeStream(stream))
+      case Some(entity) =>
+        contentBodyToJson(consumeStream(entity.dataBytes))
     })
 
   private def streamingVS(req:HttpRequest, readTimeout:FiniteDuration, thing:String) = callToVidispineRaw(req).map({
-    case Some(stream)=>
-      stream
+    case Some(entity)=>
+      entity.dataBytes
         .toMat(StreamConverters.asInputStream(readTimeout))(Keep.right)
         .run()
     case None=>
@@ -157,7 +158,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   def streamFirstThumbnail(itemId:String, itemVersion:Option[Int], readTimeout:FiniteDuration=5.seconds) = akkaStreamFirstThumbnail(itemId, itemVersion)
     .map(
       _.map(
-        _.toMat(StreamConverters.asInputStream(readTimeout))(Keep.right).run()
+        _.dataBytes.toMat(StreamConverters.asInputStream(readTimeout))(Keep.right).run()
       )
     )
 
