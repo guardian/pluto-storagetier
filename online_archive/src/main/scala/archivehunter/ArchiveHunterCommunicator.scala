@@ -147,6 +147,13 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
         Future.failed(new RuntimeException("The item ID was not found"))
       case Some(_)=>
         Future( () )
+    }).recoverWith({
+      case err:RuntimeException=>
+        if(err.getMessage.contains("conflict error")) { //ignore conflict errors, if we get one then we have a proxy.
+          Future( () )
+        } else {
+          Future.failed(err)
+        }
     })
   }
 }

@@ -283,7 +283,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
     ArchiveHunter.shapeTagToProxyTypeMap.get(shapeTag) match {
       case None=>
-        logger.info(s"Shape $shapeTag for item $itemId is not known to ArchiveHunter, dropping the message")
+        logger.info(s"Shape $shapeTag for item $itemId is not required for ArchiveHunter, dropping the message")
         Future.failed(SilentDropMessage())
       case Some(destinationProxyType)=>
         vidispineCommunicator.findItemShape(itemId, shapeId).flatMap({
@@ -319,7 +319,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
         logger.error(s"No thumbnail is available for item $itemId ${if(essenceVersion.isDefined) " with essence version "+essenceVersion.get}")
         Future(Right( () ))
       case Some(streamSource)=>
-        logger.info(s"Can't upload thumbnail for $itemId, not implemented yet")
+        logger.info(s"Uploading thumbnail for $itemId at version $essenceVersion")
         val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
         val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
         mediaFileUploader
