@@ -236,6 +236,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockIgnoredRecordDAO.findByVidispineId(any) returns Future(None)
       implicit val failureRecordDAO = mock[FailureRecordDAO]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      vidispineCommunicator.akkaStreamFirstThumbnail(any,any) returns Future(None)
+
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
       archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
       implicit val actorSystem = mock[ActorSystem]

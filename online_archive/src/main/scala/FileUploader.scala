@@ -1,3 +1,9 @@
+import akka.http.scaladsl.model.{ContentType, Uri}
+import akka.stream.Materializer
+import akka.stream.alpakka.s3.{MultipartUploadResult, S3Headers}
+import akka.stream.alpakka.s3.scaladsl.S3
+import akka.stream.scaladsl.{Sink, Source}
+import akka.util.ByteString
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.amazonaws.services.s3.model.{AmazonS3Exception, ObjectMetadata}
 import com.amazonaws.services.s3.transfer.{TransferManager, TransferManagerBuilder}
@@ -6,6 +12,7 @@ import org.slf4j.LoggerFactory
 
 import java.io.{File, InputStream}
 import java.util.Base64
+import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
@@ -125,6 +132,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param vsMD5
    * @return
    */
+  @deprecated("Use uploadAkkaStream instead of an InputStream")
   def uploadStreamNoChecks(stream:InputStream, keyName:String, mimeType:String, size:Option[Long], vsMD5:Option[String]): Try[(String, Long)] = Try {
     val meta = new ObjectMetadata()
     meta.setContentType(mimeType)
@@ -145,6 +153,36 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     } finally {
       stream.close()
     }
+  }
+
+  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map())(implicit mat:Materializer, ec:ExecutionContext) = {
+    val baseHeaders = S3Headers.empty
+    val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
+
+    sizeHint match {
+      case Some(sizeHint)=>
+        if(sizeHint>5242880) {
+          val chunkSize = calculateChunkSize(sizeHint).toInt
+          logger.info(s"SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize/1048576}Mb")
+          src
+            .runWith(S3.multipartUploadWithHeaders(bucketName, keyName, contentType, chunkSize=chunkSize, s3Headers=applyHeaders))
+        } else {
+          logger.info(s"SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
+          S3
+            .putObject(bucketName, keyName, src, sizeHint, contentType, s3Headers=applyHeaders)
+            .runWith(Sink.head)
+            .map(objectMetadata=>MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyName)),
+              bucketName,
+              keyName,
+              objectMetadata.eTag.getOrElse(""),
+              objectMetadata.versionId)
+            )
+        }
+      case None=>
+        logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyName. Trying default multipart upload, this may fail!")
+        src.runWith(S3.multipartUploadWithHeaders(bucketName, keyName, contentType, s3Headers=applyHeaders))
+    }
+
   }
 }
 
@@ -173,5 +211,24 @@ object FileUploader {
    */
   def vsMD5toS3MD5(vsMD5:String) = Try {
     Base64.getEncoder.encodeToString(Hex.decodeHex(vsMD5))
+  }
+
+  /**
+   * AWS documentation states that there must be <10,000 parts in a multipart upload and each part must be
+   * between 5Mb and 5Gb. The last part can be shorter. This method tries to find a "good" value to use as the chunk
+   * size
+   * @param sizeHint actual size of the file to upload
+   */
+  def calculateChunkSize(sizeHint:Long, startingChunkSize:Long=50*1024*1024):Long = {
+    val proposedChunkCount:Double = sizeHint / startingChunkSize
+    if(proposedChunkCount>1000) { //if we end up with a LOT of chunks then we should increase the chunk size. AWS recommends larger chunks rather than more of them.
+      calculateChunkSize(sizeHint, startingChunkSize*2)
+    } else if(proposedChunkCount<1) { //if we end up with less than one chunk we should reduce the chunk size
+      calculateChunkSize(sizeHint, sizeHint/2)
+    } else if(startingChunkSize<5242880L) {  //if we end up with < 5Mb then just use that
+      5242880L
+    } else {
+      startingChunkSize
+    }
   }
 }

@@ -183,4 +183,26 @@ class FileUploaderSpec extends Specification with Mockito {
       FileUploader.vsMD5toS3MD5("world") must beAFailedTry
     }
   }
+
+  "FileUploader.calculateChunkSize" should {
+    "return a larger chunk size for a larger file" in {
+      //100Gb file
+      FileUploader.calculateChunkSize(107374182400L) must beGreaterThan(52428800L)
+    }
+
+    "return a smaller chunk size for a smaller file" in {
+      //15Mb file
+      FileUploader.calculateChunkSize(15728640L) must beLessThan(52428800L)
+    }
+
+    "return the default chunk size for a medium size file" in {
+      //200Mb file
+      FileUploader.calculateChunkSize(209715200L) mustEqual 52428800L
+    }
+
+    "return no less than 5Mb chunk size" in {
+      //1Mb file (shouldn't get this but ensure it does not crash
+      FileUploader.calculateChunkSize(1048576L) mustEqual(5242880L)
+    }
+  }
 }

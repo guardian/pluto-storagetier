@@ -1,10 +1,9 @@
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.{ContentType, ContentTypes, MediaTypes}
 import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
@@ -279,16 +278,6 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
         logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
         Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
     }
-//    for {
-//      inputStream <- vidispineCommunicator.streamFileContent(fileInfo.id)
-//      result <- Future.fromTry(proxyFileUploader.uploadStreamNoChecks(
-//        inputStream,
-//        uploadKey,
-//        shapeDoc.mimeType.headOption.getOrElse("application/octet-stream"),
-//        fileInfo.sizeOption,
-//        fileInfo.hash
-//      ))
-//    } yield result
   }
 
   def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
@@ -324,6 +313,24 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     }
   }
 
+  def uploadThumbnailsIfRequired(itemId:String, essenceVersion:Option[Int], archivedRecord: ArchivedRecord):Future[Either[String, Unit]] = {
+    vidispineCommunicator.akkaStreamFirstThumbnail(itemId, essenceVersion).flatMap({
+      case None=>
+        logger.error(s"No thumbnail is available for item $itemId ${if(essenceVersion.isDefined) " with essence version "+essenceVersion.get}")
+        Future(Right( () ))
+      case Some(streamSource)=>
+        logger.info(s"Can't upload thumbnail for $itemId, not implemented yet")
+        val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
+        val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
+        mediaFileUploader
+          .uploadAkkaStream(streamSource,thumbnailPath,ContentType(MediaTypes.`image/jpeg`),Some(1048576L))
+          .map(uploadResult=>{
+            logger.info(s"Thumbnail upload for $itemId at version $essenceVersion to ${uploadResult.location} completed.")
+            Right( () )
+          })
+    })
+  }
+
   def handleShapeUpdate(shapeId:String, shapeTag:String, itemId:String): Future[Either[String, Json]] = {
     for {
       maybeArchivedItem <- archivedRecordDAO.findByVidispineId(itemId)
@@ -334,7 +341,10 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
           Future(Right(ignoredItem.asJson))
         case (Some(archivedItem), None)=>
           if(archivedItem.archiveHunterIDValidated) {
-            uploadShapeIfRequired(itemId, shapeId, shapeTag, archivedItem)
+            for {
+              proxyUploadResult <- uploadShapeIfRequired(itemId, shapeId, shapeTag, archivedItem)
+              _ <- uploadThumbnailsIfRequired(itemId, None, archivedItem)
+            } yield proxyUploadResult
           } else {
             logger.info(s"ArchiveHunter ID for ${archivedItem.originalFilePath} has not been validated yet")
             Future(Left(s"ArchiveHunter ID for ${archivedItem.originalFilePath} has not been validated yet"))
