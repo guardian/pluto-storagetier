@@ -33,6 +33,7 @@ lazy val `common` = (project in file("common"))
     Docker / publish := {},
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-http-xml" % "10.2.6",
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
