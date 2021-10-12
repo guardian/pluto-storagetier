@@ -328,6 +328,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
         })
       })
 
+      channel.basicQos(1, true)
       channel.basicConsume(ingest_queue_name, false, MsgConsumer)
     } catch {
       case err:Throwable=>completionPromise.failure(err)
