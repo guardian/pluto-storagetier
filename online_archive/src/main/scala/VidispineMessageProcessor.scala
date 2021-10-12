@@ -319,15 +319,14 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
         logger.error(s"No thumbnail is available for item $itemId ${if(essenceVersion.isDefined) " with essence version "+essenceVersion.get}")
         Future(Right( () ))
       case Some(streamSource)=>
-        logger.info(s"Uploading thumbnail for $itemId at version $essenceVersion")
+        logger.info(s"Uploading thumbnail for $itemId at version $essenceVersion - content type is ${streamSource.contentType}, content length is ${streamSource.contentLengthOption.map(_.toString).getOrElse("not set")}")
         val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
         val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
-        mediaFileUploader
-          .uploadAkkaStream(streamSource.dataBytes,thumbnailPath,streamSource.contentType,streamSource.contentLengthOption)
-          .map(uploadResult=>{
-            logger.info(s"Thumbnail upload for $itemId at version $essenceVersion to ${uploadResult.location} completed.")
-            Right( () )
-          })
+        val result = for {
+          uploadResult <- proxyFileUploader.uploadAkkaStream(streamSource.dataBytes, thumbnailPath, streamSource.contentType, streamSource.contentLengthOption)
+          _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, uploadResult.key, uploadResult.bucket, ArchiveHunter.ProxyType.THUMBNAIL)
+        } yield uploadResult.location
+        result.map(_=>Right( () ) ) //throw away the final result, we just need to know it worked.
     })
   }
 
