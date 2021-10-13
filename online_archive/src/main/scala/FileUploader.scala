@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
 
 import java.io.{File, InputStream}
 import java.util.Base64
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
@@ -71,6 +71,25 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @return
    */
   private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[(String, Long)] = {
+    findFreeFilename(file.length(), filePath, increment).flatMap(result=>{
+      if(result._3) { //should copy==true
+        val uploadName = result._1
+        uploadFile(file, uploadName)
+      } else {
+        Success((result._1, result._2))
+      }
+    })
+    }
+
+  /**
+   * Internal method, that recursively finds a free filename to upload to, or will return a successful upload
+   * if a file matching the given length and size exists remotely
+   * @param contentLength length of the file in question
+   * @param filePath file path to try
+   * @param increment counter, set to 0 by default. Don't specify this when calling.
+   * @return a Try with a 3-tuple consisting of (found_filename, found_filesize, should_copy).
+   */
+  private def findFreeFilename(contentLength:Long, filePath:String, increment: Int = 0): Try[(String, Long, Boolean)] = {
     val newFilePath = if (increment <= 0) filePath else {
       // check if file has an extension and insert the increment before it if this is the case
       val pos = filePath.lastIndexOf(".")
@@ -82,16 +101,16 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     } match {
       case Success(metadata) =>
         val objectSize = metadata.getContentLength
-        if (file.length == objectSize) {
+        if (contentLength == objectSize) {
           logger.info(s"Object $newFilePath already exists on S3")
-          Success((newFilePath, objectSize))
+          Success((newFilePath, objectSize, false))
         } else {
           logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
-          tryUploadFile(file, filePath, increment + 1)
+          findFreeFilename(contentLength, filePath, increment + 1)
         }
       case Failure(s3e: AmazonS3Exception) =>
         if (fileNotFound(s3e)) {
-          uploadFile(file, newFilePath)
+          Success((newFilePath, 0, true))
         } else {
           Failure(s3e)
         }
@@ -157,34 +176,51 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     }
   }
 
-  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map())(implicit mat:Materializer, ec:ExecutionContext) = {
+  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map(), allowOverwrite:Boolean=false)(implicit mat:Materializer, ec:ExecutionContext) = {
     val baseHeaders = S3Headers.empty
     val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
 
-    sizeHint match {
-      case Some(sizeHint)=>
-        if(sizeHint>5242880) {
-          val chunkSize = calculateChunkSize(sizeHint).toInt
-          logger.info(s"SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize/1048576}Mb")
-          src
-            .runWith(S3.multipartUploadWithHeaders(bucketName, keyName, contentType, chunkSize=chunkSize, s3Headers=applyHeaders))
-        } else {
-          logger.info(s"SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
-          S3
-            .putObject(bucketName, keyName, src, sizeHint, contentType, s3Headers=applyHeaders)
-            .runWith(Sink.head)
-            .map(objectMetadata=>MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyName)),
-              bucketName,
-              keyName,
-              objectMetadata.eTag.getOrElse(""),
-              objectMetadata.versionId)
-            )
-        }
-      case None=>
-        logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyName. Trying default multipart upload, this may fail!")
-        src.runWith(S3.multipartUploadWithHeaders(bucketName, keyName, contentType, s3Headers=applyHeaders))
+    def performUpload(keyForUpload:String) = {
+      sizeHint match {
+        case Some(sizeHint) =>
+          if (sizeHint > 5242880) {
+            val chunkSize = calculateChunkSize(sizeHint).toInt
+            logger.info(s"SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize / 1048576}Mb")
+            src
+              .runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, chunkSize = chunkSize, s3Headers = applyHeaders))
+          } else {
+            logger.info(s"SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
+            S3
+              .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
+              .runWith(Sink.head)
+              .map(objectMetadata => MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)),
+                bucketName,
+                keyForUpload,
+                objectMetadata.eTag.getOrElse(""),
+                objectMetadata.versionId)
+              )
+          }
+        case None =>
+          logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyForUpload. Trying default multipart upload, this may fail!")
+          src.runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, s3Headers = applyHeaders))
+      }
     }
 
+    if(allowOverwrite) {
+      performUpload(keyName)
+    } else {
+      for {
+        (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
+        result <- if(shouldUpload) {
+          performUpload(keyToUpload)
+        } else {
+          Future(MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyToUpload)),
+            bucketName,
+            keyToUpload,
+            etag="", versionId = None))
+        }
+      } yield result
+    }
   }
 }
 

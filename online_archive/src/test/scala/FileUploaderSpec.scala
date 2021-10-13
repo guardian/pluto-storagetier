@@ -1,3 +1,4 @@
+import akka.stream.alpakka.s3.scaladsl.S3
 import com.amazonaws.services.s3.AmazonS3
 import com.amazonaws.services.s3.internal.AmazonS3ExceptionBuilder
 import com.amazonaws.services.s3.model.ObjectMetadata

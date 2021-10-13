@@ -157,7 +157,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           uploadedPath="uploaded/path",
           uploadedVersion=Some(4)
         )
-        //archivedRecordDAO.findBySourceFilename(any) returns Future(Some(record))
 
         val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,Json]]]
         val fakeResult = mock[Json]
@@ -616,8 +615,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       )
 
       result must beLeft("Could not upload List(file:///path/to/Vidispine/Proxies/VX-789.mp4) to S3")
-//      there was one(vidispineCommunicator).streamFileContent("VX-789")
-//      there was one(mockProxyUploader).uploadStreamNoChecks(mockedInputStream, "path/to/uploaded/file_prox.mp4", "video/mp4", Some(1234L), Some("deadbeef"))
       there was no(mockProxyUploader).copyFileToS3(any,any)
       there was no(mockMediaUploader).uploadStreamNoChecks(any,any,any,any,any)
       there was no(archiveHunterCommunicator).importProxy(any,any,any,any)

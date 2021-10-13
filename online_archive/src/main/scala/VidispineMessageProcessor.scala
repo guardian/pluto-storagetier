@@ -323,7 +323,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
         val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
         val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
         val result = for {
-          uploadResult <- proxyFileUploader.uploadAkkaStream(streamSource.dataBytes, thumbnailPath, streamSource.contentType, streamSource.contentLengthOption)
+          uploadResult <- proxyFileUploader.uploadAkkaStream(streamSource.dataBytes, thumbnailPath, streamSource.contentType, streamSource.contentLengthOption, allowOverwrite = true)
           _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, uploadResult.key, uploadResult.bucket, ArchiveHunter.ProxyType.THUMBNAIL)
         } yield uploadResult.location
         result.map(_=>Right( () ) ) //throw away the final result, we just need to know it worked.
