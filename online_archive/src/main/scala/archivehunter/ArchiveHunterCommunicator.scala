@@ -139,7 +139,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     logger.debug(s"URI is ${config.baseUri}/api/importProxy, content is $requestContent")
     val req = HttpRequest(uri=s"${config.baseUri}/api/importProxy",method = HttpMethods.POST, entity=requestBody)
 
-    val checksumBytes = MessageDigest.getInstance("SHA-384").digest("".getBytes)
+    val checksumBytes = MessageDigest.getInstance("SHA-384").digest(requestContent.getBytes)
     val contentChecksum = Base64.getEncoder.encodeToString(checksumBytes)
 
     callToArchiveHunter[Map[String,String]](req, Some(contentChecksum)).flatMap({

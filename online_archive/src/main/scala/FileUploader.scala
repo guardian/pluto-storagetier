@@ -124,13 +124,15 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     }
 
   /**
-   * uploads the given stream. Prior existing file is over-written (or reversioned, depending on bucket settings)
+   * Uploads the given stream, closing the InputStream once upload is complete.
+   * Any prior existing file is over-written (or reversioned, depending on bucket settings).
+   * DEPRECATED: You should be using the Akka stream directly, via the `uploadAkkaStream` method
    * @param stream InputStream to write
    * @param keyName key to write within the bucket
    * @param mimeType MIME type
    * @param size size of the data that will be streamed.  While this is optional, it's highly recommended as the S3 Transfer library will buffer the whole contents into memory in this case
-   * @param vsMD5
-   * @return
+   * @param vsMD5 MD5 checksum of the data that will be streamed. While this is optional, it's highly recommended so that the transfer library can verify data integrity
+   * @return a Try, containing a tuple of the uploaded file path and total number of bytes transferred. On error, the Try will fail.
    */
   @deprecated("Use uploadAkkaStream instead of an InputStream")
   def uploadStreamNoChecks(stream:InputStream, keyName:String, mimeType:String, size:Option[Long], vsMD5:Option[String]): Try[(String, Long)] = Try {
