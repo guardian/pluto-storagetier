@@ -5,10 +5,9 @@ import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider
 import com.rabbitmq.client.{AMQP, Channel, Connection, Consumer, Envelope, LongString, ShutdownSignalException}
 import io.circe.Json
 
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
-import scala.concurrent.ExecutionContext.Implicits._
 import org.slf4j.{LoggerFactory, MDC}
 
 import scala.concurrent.duration._
@@ -40,7 +39,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   handlers:Seq[ProcessorConfiguration],
                                   maximumDelayTime:Int=120000,
                                   maximumRetryLimit:Int=500)
-                                 (channel:Channel, conn:Connection){
+                                 (channel:Channel, conn:Connection)(implicit ec:ExecutionContext){
   private val logger = LoggerFactory.getLogger(getClass)
   private val cs = Charset.forName("UTF-8")
   private val completionPromise = Promise[Unit]
@@ -94,6 +93,12 @@ class MessageProcessingFramework (ingest_queue_name:String,
         properties.getHeaders.asScala.getOrElse("retry-count",0).asInstanceOf[Int]
       }.toOption.getOrElse(0)
 
+      MDC.put("msgId", Option(properties.getMessageId).getOrElse(""))
+      MDC.put("retryAttempt", retryAttempt.toString)
+      MDC.put("routingKey", Option(envelope.getRoutingKey).getOrElse(""))
+      MDC.put("exchange", Option(envelope.getExchange).getOrElse(""))
+      MDC.put("isRedeliver", Option(envelope.isRedeliver).getOrElse(false).toString)
+
       val matchingConfigurations =
         if(envelope.getExchange==retryInputExchangeName) {  //if the message came from the retry exchange, then look up the original exchange and use that
 
@@ -123,15 +128,9 @@ class MessageProcessingFramework (ingest_queue_name:String,
           permanentlyRejectMessage(envelope, properties, body, err)
           Future( () )
         case Right(msg)=>
-          MDC.put("msgId", Option(properties.getMessageId).getOrElse(""))
-          MDC.put("retryAttempt", retryAttempt.toString)
-          MDC.put("routingKey", Option(envelope.getRoutingKey).getOrElse(""))
-          MDC.put("exchange", Option(envelope.getExchange).getOrElse(""))
-          MDC.put("isRedeliver", Option(envelope.isRedeliver).getOrElse(false).toString)
           if(matchingConfigurations.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
             rejectMessage(envelope, Some(properties), msg)
-            MDC.clear()
             Future( () )
           } else {
             val targetConfig = matchingConfigurations.head
@@ -148,16 +147,13 @@ class MessageProcessingFramework (ingest_queue_name:String,
                   returnValue,
                   targetConfig.testingForceReplyId)
                 logger.info(s"MsgID ${properties.getMessageId} Successfully handled message")
-                MDC.clear()
             }).recover({
               case err:SilentDropMessage=>
                 logger.info(s"Dropping message with id ${properties.getMessageId}: ${err.getMessage}")
                 channel.basicAck(envelope.getDeliveryTag, false)
-                MDC.clear()
               case err:Throwable=>
                 logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
                 permanentlyRejectMessage(envelope, properties, body, err.getMessage)
-                MDC.clear()
             })
           }
       }
@@ -168,8 +164,10 @@ class MessageProcessingFramework (ingest_queue_name:String,
       //The Try here _should_ never fail as exceptions are handled in the block above.
       Try { Await.ready(completionFuture, 60.minutes) } match {
         case Success(_)=>
+          MDC.clear()
         case Failure(err)=>
           logger.error(s"HandleDeliver failed for message id ${properties.getMessageId}: ${err.getMessage}", err)
+          MDC.clear()
       }
     }
   }
@@ -396,7 +394,7 @@ object MessageProcessingFramework {
             failedExchangeName:String,
             failedQueueName:String,
             handlers:Seq[ProcessorConfiguration])
-           (implicit connectionFactoryProvider: ConnectionFactoryProvider) = {
+           (implicit connectionFactoryProvider: ConnectionFactoryProvider, ec:ExecutionContext) = {
     val exchangeNames = handlers.map(_.exchangeName)
     if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
       Left(s"You have ${exchangeNames.length-exchangeNames.distinct.length} duplicate exchange names in your configuration, that is not valid.")
