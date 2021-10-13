@@ -9,7 +9,8 @@ import scala.concurrent.{Await, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import scala.concurrent.ExecutionContext.Implicits._
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
+
 import scala.concurrent.duration._
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
@@ -89,11 +90,12 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }.left.map(_.getMessage())
 
     override def handleDelivery(consumerTag: String, envelope: Envelope, properties: AMQP.BasicProperties, body: Array[Byte]): Unit = {
+      val retryAttempt = Try {
+        properties.getHeaders.asScala.getOrElse("retry-count",0).asInstanceOf[Int]
+      }.toOption.getOrElse(0)
+
       val matchingConfigurations =
         if(envelope.getExchange==retryInputExchangeName) {  //if the message came from the retry exchange, then look up the original exchange and use that
-          val retryAttempt = Try {
-            properties.getHeaders.asScala.getOrElse("retry-count",0).asInstanceOf[Int]
-          }.toOption.getOrElse(0)
 
           logger.debug(s"Message ${properties.getMessageId} is a retry, on attempt ${retryAttempt}")
           logger.debug(s"Message headers: ${properties.getHeaders}")
@@ -121,9 +123,15 @@ class MessageProcessingFramework (ingest_queue_name:String,
           permanentlyRejectMessage(envelope, properties, body, err)
           Future( () )
         case Right(msg)=>
+          MDC.put("msgId", Option(properties.getMessageId).getOrElse(""))
+          MDC.put("retryAttempt", retryAttempt.toString)
+          MDC.put("routingKey", Option(envelope.getRoutingKey).getOrElse(""))
+          MDC.put("exchange", Option(envelope.getExchange).getOrElse(""))
+          MDC.put("isRedeliver", Option(envelope.isRedeliver).getOrElse(false).toString)
           if(matchingConfigurations.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
             rejectMessage(envelope, Some(properties), msg)
+            MDC.clear()
             Future( () )
           } else {
             val targetConfig = matchingConfigurations.head
@@ -132,6 +140,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
                 logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)
                 logger.info(s"MsgID ${properties.getMessageId} sent to retry queue due to a retryable failure")
+                MDC.clear()
               case Right(returnValue)=>
                 confirmMessage(envelope.getDeliveryTag,
                   targetConfig.outputRoutingKey,
@@ -139,13 +148,16 @@ class MessageProcessingFramework (ingest_queue_name:String,
                   returnValue,
                   targetConfig.testingForceReplyId)
                 logger.info(s"MsgID ${properties.getMessageId} Successfully handled message")
+                MDC.clear()
             }).recover({
               case err:SilentDropMessage=>
                 logger.info(s"Dropping message with id ${properties.getMessageId}: ${err.getMessage}")
                 channel.basicAck(envelope.getDeliveryTag, false)
+                MDC.clear()
               case err:Throwable=>
                 logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
                 permanentlyRejectMessage(envelope, properties, body, err.getMessage)
+                MDC.clear()
             })
           }
       }

@@ -2,7 +2,7 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZZ} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZZ} [%thread] [%X{msgId};%X{retryAttempt};%X{routingKey};%X{exchange};%X{isRedeliver}] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 

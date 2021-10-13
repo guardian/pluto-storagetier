@@ -8,10 +8,9 @@ import slick.lifted.TableQuery
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.meta.MTable
 
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContext, Future}
 
-class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecordRow] {
+class IgnoredRecordDAO(override protected val db:Database)(implicit ec:ExecutionContext) extends GenericDAO[IgnoredRecordRow] {
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**

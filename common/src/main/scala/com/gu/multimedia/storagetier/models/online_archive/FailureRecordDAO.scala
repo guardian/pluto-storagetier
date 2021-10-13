@@ -4,10 +4,10 @@ import com.gu.multimedia.storagetier.models.GenericDAO
 import slick.jdbc.JdbcBackend.Database
 import slick.lifted.TableQuery
 import slick.jdbc.PostgresProfile.api._
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
 
-class FailureRecordDAO(override protected val db:Database) extends GenericDAO[FailureRecordRow] {
+import scala.concurrent.{ExecutionContext, Future}
+
+class FailureRecordDAO(override protected val db:Database)(implicit ec:ExecutionContext) extends GenericDAO[FailureRecordRow] {
   /**
    * Write the given record to the database, returning a Future containing the written record primary key.
    * If the `id` field is set then it will attempt to update a record with that primary key, and fail if it can't find one.
