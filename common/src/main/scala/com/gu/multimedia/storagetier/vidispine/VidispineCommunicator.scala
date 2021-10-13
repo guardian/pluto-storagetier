@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, MediaRange, MediaRanges, MediaTypes}
+import akka.http.scaladsl.model.{HttpEntity, HttpRequest, MediaRange, MediaRanges, MediaTypes}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
@@ -29,7 +29,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
    * @param retryLimit maximum number of retries
    * @return
    */
-  protected def callToVidispineRaw(req: HttpRequest, attempt: Int = 1, retryLimit:Int=10):Future[Option[Source[ByteString, Any]]] = if (attempt > retryLimit) {
+  protected def callToVidispineRaw(req: HttpRequest, attempt: Int = 1, retryLimit:Int=10):Future[Option[HttpEntity]] = if (attempt > retryLimit) {
     Future.failed(new RuntimeException("Too many retries, see logs for details"))
   } else {
     logger.debug(s"Vidispine request URL is ${req.uri.toString()}")
@@ -40,7 +40,8 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       .singleRequest(updatedReq)
       .flatMap(response=>AkkaHttpHelpers.handleResponse(response,"Vidispine"))
       .flatMap({
-        case Right(Some(stream))=>Future(Some(stream))
+        case Right(Some(entity))=>
+          Future(Some(entity))
         case Right(None)=>Future(None)
         case Left(RedirectRequired(newUri))=>
           logger.info(s"vidispine redirected to $newUri")
@@ -65,13 +66,13 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       retryLimit = retryLimit
     ).flatMap({
       case None => Future(None)
-      case Some(stream) =>
-        contentBodyToJson(consumeStream(stream))
+      case Some(entity) =>
+        contentBodyToJson(consumeStream(entity.dataBytes))
     })
 
   private def streamingVS(req:HttpRequest, readTimeout:FiniteDuration, thing:String) = callToVidispineRaw(req).map({
-    case Some(stream)=>
-      stream
+    case Some(entity)=>
+      entity.dataBytes
         .toMat(StreamConverters.asInputStream(readTimeout))(Keep.right)
         .run()
     case None=>
@@ -89,6 +90,10 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   def streamFileContent(vsFileId:String, readTimeout:FiniteDuration=5.seconds) = {
     val req = HttpRequest(uri = s"${config.baseUri}/API/storage/file/$vsFileId/data")
     streamingVS(req, readTimeout, s"Vidispine file $vsFileId")
+  }
+
+  def akkaStreamFileContent(fileId:String) = {
+    callToVidispineRaw(HttpRequest(uri = s"${config.baseUri}/API/storage/file/$fileId/data"))
   }
 
   /**
@@ -153,7 +158,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   def streamFirstThumbnail(itemId:String, itemVersion:Option[Int], readTimeout:FiniteDuration=5.seconds) = akkaStreamFirstThumbnail(itemId, itemVersion)
     .map(
       _.map(
-        _.toMat(StreamConverters.asInputStream(readTimeout))(Keep.right).run()
+        _.dataBytes.toMat(StreamConverters.asInputStream(readTimeout))(Keep.right).run()
       )
     )
 
@@ -176,6 +181,16 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
 
   def getFileInformation(fileId:String) = {
     callToVidispine[FileDocument](HttpRequest(uri=s"${config.baseUri}/API/storage/file/$fileId"))
+  }
+
+  /**
+   * Looks up the given shape ID on the given item ID and returns a ShapeDocument
+   * @param itemId item ID to look up
+   * @param shapeId shape ID to look up, on the given item
+   * @return a failed future on error, a Future(None) if nothing was found or a Future with a ShapeDocument if it was found
+   */
+  def findItemShape(itemId:String, shapeId:String) = {
+    callToVidispine[ShapeDocument](HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/shape/$shapeId"))
   }
 }
 

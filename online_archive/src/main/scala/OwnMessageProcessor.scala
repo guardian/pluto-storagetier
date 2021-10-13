@@ -1,11 +1,12 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
-import com.gu.multimedia.storagetier.framework.MessageProcessor
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, RetryStates}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
+import messages.RevalidateArchiveHunterRequest
 import org.slf4j.LoggerFactory
 
 import java.nio.file.Paths
@@ -95,6 +96,39 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
     }
   }
 
+  def handleRevalidationList(msg:Json):Future[Either[String, Json]] = {
+    msg.as[RevalidateArchiveHunterRequest] match {
+      case Left(err)=>
+        Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a RevalidateArchiveHunterRequest: $err"))
+      case Right(rec)=>
+        logger.info(s"Received revalidation request for ${rec.id.length} records: ${rec.id.mkString(",")}")
+
+        val resultFut = for {
+          //look up each record by id, and drop the ones that fail
+          records <- Future.sequence(rec.id.map(requestedId=>archivedRecordDAO.getRecord(requestedId).recover(_=>None)))
+          results <- Future.sequence(
+            records
+              .collect({case Some(rec)=>rec})
+              .map(rec=>
+                handleArchivehunterValidation(rec.asJson)
+                  .recover({case err:Throwable=>Left(err.getMessage)})
+              )
+          )
+        } yield results
+
+        resultFut.flatMap(results=>{
+          val failures = results.collect({case Left(err)=>err})
+          if(failures.nonEmpty) {
+            logger.warn(s"${failures.length} revalidation requests failed: ")
+            failures.foreach(err=>logger.warn(s"\t$err"))
+          }
+          logger.info(s"Revalidation operation complete. Out of ${rec.id.length} requests, ${results.length - failures.length} succeeded")
+          //signal we don't need a return value
+          Future.failed(SilentDropMessage(Some("No return required")))
+        })
+    }
+  }
+
   /**
    * Override this method in your subclass to handle an incoming message
    *
@@ -110,6 +144,8 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
       case "storagetier.onlinearchive.newfile.success"=>
         handleArchivehunterValidation(msg)
           .map(_.map(_.asJson))
+      case "storagetier.onlinearchive.request.archivehunter-revalidation"=>
+        handleRevalidationList(msg)
       case _=>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
         Future.failed(new RuntimeException("Not meant to receive this"))

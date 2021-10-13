@@ -76,4 +76,9 @@ class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[A
   def findBySourceFilename(filename:String) = db.run(
     TableQuery[ArchivedRecordRow].filter(_.originalFilePath===filename).result
   ).map(_.headOption)
+
+  def findByVidispineId(vsid:String) = db.run(
+    TableQuery[ArchivedRecordRow].filter(_.vidispineItemId===vsid).result
+  ).map(_.headOption)
+
 }

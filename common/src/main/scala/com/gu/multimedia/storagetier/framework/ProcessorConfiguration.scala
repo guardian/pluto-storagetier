@@ -11,7 +11,17 @@ import java.util.UUID
  * @param processor instance of a MessageProcessor class to handle the messages
  */
 case class ProcessorConfiguration(exchangeName:String,
-                                  routingKey:String,
+                                  routingKey:Seq[String],
                                   outputRoutingKey:String,
                                   processor:MessageProcessor,
                                   testingForceReplyId:Option[UUID]=None)
+
+object ProcessorConfiguration extends ((String, Seq[String], String, MessageProcessor,Option[UUID])=>ProcessorConfiguration) {
+  def apply(exchangeName:String, routingKey:String, outputRoutingKey:String, processor:MessageProcessor) = {
+    new ProcessorConfiguration(
+      exchangeName,
+      Seq(routingKey),
+      outputRoutingKey,
+      processor)
+  }
+}

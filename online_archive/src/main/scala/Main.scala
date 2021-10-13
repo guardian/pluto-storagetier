@@ -1,4 +1,5 @@
 import akka.actor.ActorSystem
+import akka.http.scaladsl.{ConnectionContext, Http}
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.framework._
@@ -8,6 +9,7 @@ import org.slf4j.LoggerFactory
 import plutocore.PlutoCoreEnvironmentConfigProvider
 import plutodeliverables.PlutoDeliverablesConfig
 import sun.misc.{Signal, SignalHandler}
+import utils.TrustStoreHelper
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -46,6 +48,20 @@ object Main {
     case Right(config)=>config
   }
 
+  sys.env.get("LOCAL_TRUST_STORE") match {
+    case Some(localTrustStore)=>
+      logger.info(s"Adding local trust store at $localTrustStore")
+      TrustStoreHelper.setupTS(Seq(localTrustStore)) match {
+        case Success(context)=>
+          Http().setDefaultClientHttpsContext(ConnectionContext.https(context))
+        case Failure(err)=>
+          logger.error("Could not set up local trust store: ", err)
+          sys.exit(1)
+      }
+    case None=>
+      logger.info(s"No separate local trust store is set up.")
+  }
+
   def main(args:Array[String]):Unit = {
     implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
@@ -53,9 +69,17 @@ object Main {
     implicit lazy val archiveHunterCommunicator = new ArchiveHunterCommunicator(archiveHunterConfig)
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
 
-    implicit lazy val uploader = FileUploader.createFromEnvVars match {
+    implicit lazy val uploader = FileUploader.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
       case Left(err)=>
         logger.error(s"Could not initialise FileUploader: $err")
+        Await.ready(actorSystem.terminate(), 30.seconds)
+        sys.exit(1)
+      case Right(u)=>u
+    }
+
+    lazy val proxyUploader = FileUploader.createFromEnvVars("ARCHIVE_PROXY_BUCKET") match {
+      case Left(err)=>
+        logger.error(s"Could not initialise ProxyFileUploader: $err")
         Await.ready(actorSystem.terminate(), 30.seconds)
         sys.exit(1)
       case Right(u)=>u
@@ -72,9 +96,9 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        "vidispine.job.raw_import.stop",
+        Seq("vidispine.job.raw_import.stop", "vidispine.item.shape.modify"),
         "storagetier.onlinearchive.vidispineupdate",
-        new VidispineMessageProcessor(plutoConfig)
+        new VidispineMessageProcessor(plutoConfig, uploader, proxyUploader)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,

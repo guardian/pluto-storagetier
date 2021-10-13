@@ -5,12 +5,12 @@ import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider
 import com.rabbitmq.client.{AMQP, Channel, Connection, Consumer, Envelope, LongString, ShutdownSignalException}
 import io.circe.Json
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 import scala.concurrent.ExecutionContext.Implicits._
 import org.slf4j.LoggerFactory
-
+import scala.concurrent.duration._
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.util.UUID
@@ -116,27 +116,29 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
       logger.debug(s"${matchingConfigurations.length} processors matched, will use the first")
 
-      convertToUTFString(body).flatMap(wrappedParse) match {
+      val completionFuture = convertToUTFString(body).flatMap(wrappedParse) match {
         case Left(err)=>
           permanentlyRejectMessage(envelope, properties, body, err)
+          Future( () )
         case Right(msg)=>
           if(matchingConfigurations.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
             rejectMessage(envelope, Some(properties), msg)
+            Future( () )
           } else {
             val targetConfig = matchingConfigurations.head
             targetConfig.processor.handleMessage(envelope.getRoutingKey, msg).map({
               case Left(errDesc)=>
                 logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)
-                logger.debug(s"MsgID ${properties.getMessageId} Successfully rejected message")
+                logger.info(s"MsgID ${properties.getMessageId} sent to retry queue due to a retryable failure")
               case Right(returnValue)=>
                 confirmMessage(envelope.getDeliveryTag,
                   targetConfig.outputRoutingKey,
                   Option(properties).flatMap(p=>Option(p.getMessageId)),
                   returnValue,
                   targetConfig.testingForceReplyId)
-                logger.debug(s"MsgID ${properties.getMessageId} Successfully handled message")
+                logger.info(s"MsgID ${properties.getMessageId} Successfully handled message")
             }).recover({
               case err:SilentDropMessage=>
                 logger.info(s"Dropping message with id ${properties.getMessageId}: ${err.getMessage}")
@@ -146,6 +148,16 @@ class MessageProcessingFramework (ingest_queue_name:String,
                 permanentlyRejectMessage(envelope, properties, body, err.getMessage)
             })
           }
+      }
+      //Why are we using Await here, when you are not meant to use it in Scala production code? Well, the
+      //process seems to be executing multiple messages in parallel, which is not what we want and is causing issues
+      //when under load.  So, to prevent the rabbitmq library from sending us another message immediately we block the thread
+      //here until we have definitively handled it.
+      //The Try here _should_ never fail as exceptions are handled in the block above.
+      Try { Await.ready(completionFuture, 60.minutes) } match {
+        case Success(_)=>
+        case Failure(err)=>
+          logger.error(s"HandleDeliver failed for message id ${properties.getMessageId}: ${err.getMessage}", err)
       }
     }
   }
@@ -323,9 +335,12 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
       //now we also bind it to all of the exchanges that are listed in our configuration
       handlers.foreach(conf => {
-        channel.queueBind(ingest_queue_name, conf.exchangeName, conf.routingKey)
+        conf.routingKey.foreach(routingKey=> {
+          channel.queueBind(ingest_queue_name, conf.exchangeName, routingKey)
+        })
       })
 
+      channel.basicQos(1, true)
       channel.basicConsume(ingest_queue_name, false, MsgConsumer)
     } catch {
       case err:Throwable=>completionPromise.failure(err)

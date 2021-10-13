@@ -82,7 +82,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
         .singleRequest(updatedReq)
         .flatMap(response => AkkaHttpHelpers.handleResponse(response, "PlutoCore"))
         .flatMap({
-          case Right(Some(stream))=>contentBodyToJson(consumeStream(stream))
+          case Right(Some(stream))=>contentBodyToJson(consumeStream(stream.dataBytes))
           case Right(None)=>Future(None)
           case Left(RedirectRequired(newUri))=>
             logger.info(s"Redirecting to $newUri")

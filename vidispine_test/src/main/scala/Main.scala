@@ -28,7 +28,7 @@ object Main {
       logger.error(s"No thumbnail present on $itemId")
       Future( () )
     case Some(source)=>
-      source
+      source.dataBytes
         .toMat(FileIO.toPath(Paths.get("test.jpg")))(Keep.right)
         .run()
         .map(ioResult=>ioResult.status match {
@@ -45,7 +45,7 @@ object Main {
       Future( () )
     case Some(source)=>
       val path = Paths.get(s"$itemId.xml")
-      source
+      source.dataBytes
         .toMat(FileIO.toPath(path))(Keep.right)
         .run()
         .map(ioResult=>ioResult.status match {

@@ -1,30 +1,26 @@
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.{ContentType, ContentTypes, MediaTypes}
 import akka.stream.Materializer
-import com.gu.multimedia.storagetier.framework.MessageProcessor
+import archivehunter.ArchiveHunterCommunicator
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
+import com.gu.multimedia.storagetier.utils.FilenameSplitter
+import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
 import io.circe.generic.auto._
-import io.circe.syntax.EncoderOps
+import io.circe.syntax._
 import messages.VidispineMediaIngested
 import org.slf4j.LoggerFactory
 import plutocore.{AssetFolderLookup, PlutoCoreConfig}
+import utils.ArchiveHunter
 
 import java.io.File
-import java.nio.file.{Path, Paths}
+import java.net.URI
+import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Success, Try}
 
-class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
-                               (implicit archivedRecordDAO: ArchivedRecordDAO,
-                                failureRecordDAO: FailureRecordDAO,
-                                ignoredRecordDAO: IgnoredRecordDAO,
-                                vidispineCommunicator: VidispineCommunicator,
-                                ec: ExecutionContext,
-                                mat: Materializer,
-                                system: ActorSystem,
-                                uploader: FileUploader) extends MessageProcessor {
-  private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
+object VidispineMessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
@@ -37,11 +33,54 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       Paths.get(filePath)
     }.toEither.left.map(_.getMessage)
 
+  /**
+   * determines an appropriate S3 key to use for the proxy of the given file
+   * @param archivedRecord ArchivedRecord representing the "original" media for this content
+   * @param proxyFile VSShapeFile object representing the File portion that Vidispine returned
+   * @return a String containing the path to upload to
+   */
+  def uploadKeyForProxy(archivedRecord: ArchivedRecord, proxyFile:VSShapeFile) = {
+    val uploadedPath = Paths.get(archivedRecord.uploadedPath)
+
+    val proxyFileParts = proxyFile.uri.headOption.flatMap(_.split("/").lastOption) match {
+      case None=>
+        logger.error("No proxy file URI in information? This is unexpected.")
+        ("", None)
+      case Some(proxyFileName)=>
+        FilenameSplitter(proxyFileName)
+    }
+
+    val uploadedFileName = FilenameSplitter(uploadedPath.getFileName.toString)
+
+    uploadedPath.getParent.toString + "/" + uploadedFileName._1 + "_prox" + proxyFileParts._2.getOrElse("")
+  }
+
+}
+
+class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
+                                mediaFileUploader:FileUploader,
+                                proxyFileUploader: FileUploader)
+                               (implicit archivedRecordDAO: ArchivedRecordDAO,
+                                failureRecordDAO: FailureRecordDAO,
+                                ignoredRecordDAO: IgnoredRecordDAO,
+                                vidispineCommunicator: VidispineCommunicator,
+                                archiveHunterCommunicator: ArchiveHunterCommunicator,
+                                ec: ExecutionContext,
+                                mat: Materializer,
+                                system: ActorSystem) extends MessageProcessor {
+  private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
+  private val logger = LoggerFactory.getLogger(getClass)
+  import VidispineMessageProcessor._
+
+  def getRelativePath(filePath: String): Either[String, Path] = {
+    compositingGetPath(filePath).flatMap(path => asLookup.relativizeFilePath(path))
+  }
+
   private def uploadCreateOrUpdateRecord(filePath:String, relativePath:String, mediaIngested: VidispineMediaIngested,
                                          archivedRecord: Option[ArchivedRecord]) = {
-    logger.info(s"Archiving file '$filePath' to s3://${uploader.bucketName}/$relativePath")
+    logger.info(s"Archiving file '$filePath' to s3://${mediaFileUploader.bucketName}/$relativePath")
     Future.fromTry(
-      uploader.copyFileToS3(new File(filePath), Some(relativePath))
+      mediaFileUploader.copyFileToS3(new File(filePath), Some(relativePath))
     ).flatMap(fileInfo => {
       val (fileName, fileSize) = fileInfo
       logger.debug(s"$filePath: Upload completed")
@@ -55,14 +94,14 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
             vidispineVersionId = mediaIngested.essenceVersion
           )
         case None =>
-          val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
+          val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = mediaFileUploader.bucketName, fileName)
           logger.debug(s"Provisional archivehunter ID for $relativePath is $archiveHunterID")
           ArchivedRecord(None,
             archiveHunterID,
             archiveHunterIDValidated=false,
             originalFilePath=filePath,
             originalFileSize=fileSize,
-            uploadedBucket = uploader.bucketName,
+            uploadedBucket = mediaFileUploader.bucketName,
             uploadedPath = fileName,
             uploadedVersion = None,
             vidispineItemId = mediaIngested.itemId,
@@ -91,7 +130,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
   }
 
   private def showPreviousFailure(maybeFailureRecord:Option[FailureRecord], filePath: String) = {
-    if(maybeFailureRecord.isDefined) {
+    if (maybeFailureRecord.isDefined) {
       val reason = maybeFailureRecord.map(rec => rec.errorMessage)
       logger.warn(s"This job with filepath $filePath failed previously with reason $reason")
     }
@@ -122,7 +161,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
           if(archivedRecord.archiveHunterID.isEmpty || !archivedRecord.archiveHunterIDValidated) {
             logger.info(s"Archive hunter ID does not exist yet for filePath $filePath, will retry")
             Future(Left(s"Archive hunter ID does not exist yet for filePath $filePath, will retry"))
-          } else Future.fromTry(uploader.objectExists(archivedRecord.uploadedPath))
+          } else Future.fromTry(mediaFileUploader.objectExists(archivedRecord.uploadedPath))
             .flatMap(exist => {
               if (exist) {
                 logger.info(s"Filepath $filePath already exists in S3 bucket")
@@ -190,12 +229,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
     }
   }
 
-  def getRelativePath(filePath: String): Either[String, Path] = {
-    compositingGetPath(filePath).flatMap(path => asLookup.relativizeFilePath(path))
-  }
-
   /**
-   * Override this method in your subclass to handle an incoming message
    *
    * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
    *                   using msg.as[CaseClassFormat]
@@ -208,9 +242,117 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
       case Left(err) =>
         logger.error(s"Could not unmarshal vidispine.job.raw_import.stop message: $err")
         Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a VidispineMediaIngested: $err"))
-      case Right(mediaIngested)=>
+      case Right(mediaIngested) =>
         handleIngestedMedia(mediaIngested)
     }
+  }
+
+  /**
+   * check if a file exists. It's put into its own method so it can be over-ridden in tests
+   * @param filePath path to check
+   * @return boolean indicating if it exists
+   */
+  protected def internalCheckFile(filePath:Path) = Files.exists(filePath)
+
+  /**
+   * uploads the proxy shape for the given item to S3 using the provided proxyFileUploader
+   * @param fileInfo VSShapeFile representing the proxy file
+   * @param archivedRecord ArchivedRecord representing the item that needs to get
+   * @param shapeDoc ShapeDocument representing the proxy's shape
+   * @return a Future, with a tuple of the uploaded filename and file size. On error, the future will fail.
+   */
+  private def doUploadShape(fileInfo:VSShapeFile, archivedRecord: ArchivedRecord, shapeDoc:ShapeDocument) = {
+    val uploadKey = uploadKeyForProxy(archivedRecord, fileInfo)
+
+    fileInfo.uri.headOption.flatMap(u=>Try { URI.create(u)}.toOption) match {
+      case Some(uri)=>
+        val filePath = Paths.get(uri)
+        if(internalCheckFile(filePath)) {
+          logger.info(s"Starting upload of ${fileInfo.uri.headOption} to s3://${proxyFileUploader.bucketName}/$uploadKey")
+          Future.fromTry(proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey)))
+        } else {
+          logger.error(s"Could not find path for URI $uri ($filePath) on-disk")
+          Future.failed(new RuntimeException(s"File $filePath could not be found"))
+        }
+      case None=>
+        logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
+        Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
+    }
+  }
+
+  def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
+    ArchiveHunter.shapeTagToProxyTypeMap.get(shapeTag) match {
+      case None=>
+        logger.info(s"Shape $shapeTag for item $itemId is not required for ArchiveHunter, dropping the message")
+        Future.failed(SilentDropMessage())
+      case Some(destinationProxyType)=>
+        vidispineCommunicator.findItemShape(itemId, shapeId).flatMap({
+          case None=>
+            logger.error(s"Shape $shapeId does not exist on item $itemId despite a notification informing us that it does.")
+            Future.failed(new RuntimeException(s"Shape $shapeId does not exist"))
+          case Some(shapeDoc)=>
+            shapeDoc.getLikelyFile match {
+              case None =>
+                Future(Left(s"No file exists on shape $shapeId for item $itemId yet"))
+              case Some(fileInfo) =>
+                val uploadedFut = for {
+                  uploadResult <- doUploadShape(fileInfo, archivedRecord, shapeDoc)
+                  _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, uploadResult._1, proxyFileUploader.bucketName, destinationProxyType)
+                  updatedRecord <- Future(archivedRecord.copy(proxyBucket = Some(proxyFileUploader.bucketName), proxyPath = Some(uploadResult._1)))
+                  _ <- archivedRecordDAO.writeRecord(updatedRecord)
+                } yield Right(updatedRecord.asJson)
+
+                //the future will fail if we can't upload to S3, but treat this as a retryable failure
+                uploadedFut.recover({
+                  case err:Throwable=>
+                    logger.error(s"Could not upload ${fileInfo.uri} to S3: ${err.getMessage}", err)
+                    Left(s"Could not upload ${fileInfo.uri} to S3")
+                })
+            }
+          })
+    }
+  }
+
+  def uploadThumbnailsIfRequired(itemId:String, essenceVersion:Option[Int], archivedRecord: ArchivedRecord):Future[Either[String, Unit]] = {
+    vidispineCommunicator.akkaStreamFirstThumbnail(itemId, essenceVersion).flatMap({
+      case None=>
+        logger.error(s"No thumbnail is available for item $itemId ${if(essenceVersion.isDefined) " with essence version "+essenceVersion.get}")
+        Future(Right( () ))
+      case Some(streamSource)=>
+        logger.info(s"Uploading thumbnail for $itemId at version $essenceVersion - content type is ${streamSource.contentType}, content length is ${streamSource.contentLengthOption.map(_.toString).getOrElse("not set")}")
+        val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
+        val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
+        val result = for {
+          uploadResult <- proxyFileUploader.uploadAkkaStream(streamSource.dataBytes, thumbnailPath, streamSource.contentType, streamSource.contentLengthOption, allowOverwrite = true)
+          _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, uploadResult.key, uploadResult.bucket, ArchiveHunter.ProxyType.THUMBNAIL)
+        } yield uploadResult.location
+        result.map(_=>Right( () ) ) //throw away the final result, we just need to know it worked.
+    })
+  }
+
+  def handleShapeUpdate(shapeId:String, shapeTag:String, itemId:String): Future[Either[String, Json]] = {
+    for {
+      maybeArchivedItem <- archivedRecordDAO.findByVidispineId(itemId)
+      maybeIgnoredItem <- ignoredRecordDAO.findByVidispineId(itemId)
+      result <- (maybeArchivedItem, maybeIgnoredItem) match {
+        case (_, Some(ignoredItem))=>
+          logger.info(s"Item $itemId is ignored because ${ignoredItem.ignoreReason}, leaving alone")
+          Future(Right(ignoredItem.asJson))
+        case (Some(archivedItem), None)=>
+          if(archivedItem.archiveHunterIDValidated) {
+            for {
+              proxyUploadResult <- uploadShapeIfRequired(itemId, shapeId, shapeTag, archivedItem)
+              _ <- uploadThumbnailsIfRequired(itemId, None, archivedItem)
+            } yield proxyUploadResult
+          } else {
+            logger.info(s"ArchiveHunter ID for ${archivedItem.originalFilePath} has not been validated yet")
+            Future(Left(s"ArchiveHunter ID for ${archivedItem.originalFilePath} has not been validated yet"))
+          }
+        case (None, None)=>
+          logger.info(s"No record of vidispine item $itemId")
+          Future(Left(s"No record of vidispine item $itemId"))
+      }
+    } yield result
   }
 
   /**
@@ -225,10 +367,26 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig)
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
     logger.info(s"Received message from vidispine with routing key $routingKey")
-    routingKey match {
-      case "vidispine.job.raw_import.stop"=>
-        handleRawImportStop(msg)
-      case _=>
+    (msg.as[VidispineMediaIngested], routingKey) match {
+      case (Left(err), _) =>
+        Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a VidispineMediaIngested: $err"))
+      case (Right(mediaIngested), "vidispine.job.raw_import.stop")=>
+        handleIngestedMedia(mediaIngested)
+      case (Right(shapeUpdate), "vidispine.item.shape.modify")=>
+        (shapeUpdate.shapeId, shapeUpdate.shapeTag, shapeUpdate.itemId) match {
+          case (None, _, _)=>
+            logger.error("Shape update without any shape ID?")
+            Future.failed(new RuntimeException(s"Received shape update ${msg.noSpaces} without any shapeId"))
+          case (_, None, _)=>
+            logger.error("Shape update without any shape tag?")
+            Future.failed(new RuntimeException(s"Received shape update ${msg.noSpaces} without any shapeTag"))
+          case (_, _, None)=>
+            logger.error("Shape update without any item ID")
+            Future.failed(new RuntimeException(s"Received shape update ${msg.noSpaces} without any itemId"))
+          case (Some(shapeId), Some(shapeTag), Some(itemId))=>
+            handleShapeUpdate(shapeId, shapeTag, itemId)
+        }
+      case (_, _)=>
         logger.warn(s"Dropping message $routingKey from vidispine exchange as I don't know how to handle it. This should be fixed in" +
           s" the code.")
         Future.failed(new RuntimeException("Not meant to receive this"))

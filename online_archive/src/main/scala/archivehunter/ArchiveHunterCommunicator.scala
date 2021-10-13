@@ -56,23 +56,27 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
    * Will retry on 5xx errors up to 10 times.  Redirects are followed up to a depth of 10.
    * All errors (including unmarshalling errors) result in a failed Future
    * @param req HttpRequest to make
+   * @param maybeChecksum If you are passing a content body, include the SHA-384 checksum here encoded as a base64 string. Otherwise specify None.
    * @param attempt internally used attempt counter, don't specify this. if > 10 then the request is not made.
    * @param overrideTime override the "current" time used when calculating the signature. Used for testing.
    * @tparam T type to unmarshal returned JSON into
    * @return a Future, containing the unmarshalled data if the server returned 200 or None if the server returned 404. All other
    *         response codes result in a failed Future
    */
-  protected def callToArchiveHunter[T:io.circe.Decoder](req: HttpRequest, attempt: Int = 1, retryLimit:Int=10, overrideTime:Option[ZonedDateTime]=None): Future[Option[T]] = if (retryLimit > 10) {
+  protected def callToArchiveHunter[T:io.circe.Decoder](req: HttpRequest, maybeChecksum:Option[String], attempt: Int = 1, retryLimit:Int=10, overrideTime:Option[ZonedDateTime]=None): Future[Option[T]] = if (retryLimit > 10) {
     Future.failed(new RuntimeException("Too many retries, see logs for details"))
   } else {
     logger.debug(s"Request URL is ${req.uri.toString()}")
 
-    val checksumBytes = MessageDigest.getInstance("SHA-384").digest("".getBytes)
-    val contentChecksum = Base64.getEncoder.encodeToString(checksumBytes)
-
+    val contentChecksum = maybeChecksum match {
+      case Some(content)=>content
+      case None=>     //if we are not sending any content, use the checksum of an empty string
+        val checksumBytes = MessageDigest.getInstance("SHA-384").digest("".getBytes)
+        Base64.getEncoder.encodeToString(checksumBytes)
+    }
     val signatureTime = overrideTime.getOrElse(ZonedDateTime.now()).withZoneSameInstant(ZoneId.of("UTC"))
     val httpDate = httpDateFormatter.format(signatureTime)
-    val token = getToken(req.uri, httpDate, 0, "GET", contentChecksum)
+    val token = getToken(req.uri, httpDate, req.entity.contentLengthOption.getOrElse(0L).toInt, req.method.value, contentChecksum)
 
     val updatedRequest = req.withHeaders(req.headers ++ Seq(
       akka.http.scaladsl.model.headers.RawHeader("Date", httpDate),
@@ -85,15 +89,15 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
       .flatMap(response=>{
         AkkaHttpHelpers.handleResponse(response, "Archive Hunter").flatMap({
           case Right(Some(stream))=>
-            contentBodyToJson(consumeStream(stream))
+            contentBodyToJson(consumeStream(stream.dataBytes))
           case Right(None)=>
             Future(None)
           case Left(RedirectRequired(newUri))=>
               logger.info(s"Redirecting to $newUri")
-              callToArchiveHunter(req.withUri(newUri), attempt + 1)
+              callToArchiveHunter(req.withUri(newUri), maybeChecksum, attempt + 1)
           case Left(RetryRequired)=>
               Thread.sleep(500 * attempt)
-              callToArchiveHunter(req, attempt + 1)
+              callToArchiveHunter(req, maybeChecksum, attempt + 1)
         })
       })
   }
@@ -110,7 +114,7 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
    */
   def lookupArchivehunterId(docId:String, uploadedBucket:String, uploadedPath:String) = {
     val req = HttpRequest(uri=s"${config.baseUri}/api/entry/$docId")
-    callToArchiveHunter[ArchiveHunterEntryResponse](req).flatMap({
+    callToArchiveHunter[ArchiveHunterEntryResponse](req, None).flatMap({
       case None=>
         Future(false)    //the ID does not exist
       case Some(response)=>  //hooray, the ID does exist
@@ -129,15 +133,27 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
     import utils.ArchiveHunter.ProxyTypeEncoder._
     import akka.http.scaladsl.model.headers._
     import akka.http.scaladsl.model.ContentTypes
-    val requestBody = HttpEntity(ArchiveHunter.ImportProxyRequest(docId, proxyPath, Some(proxyBucket), proxyType).asJson.noSpaces)
-    val headers = Seq(`Content-Type`(ContentTypes.`application/json`))
-    val req = HttpRequest(uri=s"${config.baseUri}/api/importProxy",method = HttpMethods.POST, headers = headers, entity=requestBody)
+    val requestContent = ArchiveHunter.ImportProxyRequest(docId, proxyPath, Some(proxyBucket), proxyType).asJson.noSpaces
+    val requestBody = HttpEntity(requestContent).withContentType(ContentTypes.`application/json`)
 
-    callToArchiveHunter[Map[String,String]](req).flatMap({
+    logger.debug(s"URI is ${config.baseUri}/api/importProxy, content is $requestContent")
+    val req = HttpRequest(uri=s"${config.baseUri}/api/importProxy",method = HttpMethods.POST, entity=requestBody)
+
+    val checksumBytes = MessageDigest.getInstance("SHA-384").digest(requestContent.getBytes)
+    val contentChecksum = Base64.getEncoder.encodeToString(checksumBytes)
+
+    callToArchiveHunter[Map[String,String]](req, Some(contentChecksum)).flatMap({
       case None=>
         Future.failed(new RuntimeException("The item ID was not found"))
       case Some(_)=>
         Future( () )
+    }).recoverWith({
+      case err:RuntimeException=>
+        if(err.getMessage.contains("conflict error")) { //ignore conflict errors, if we get one then we have a proxy.
+          Future( () )
+        } else {
+          Future.failed(err)
+        }
     })
   }
 }

@@ -33,6 +33,7 @@ lazy val `common` = (project in file("common"))
     Docker / publish := {},
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-http-xml" % "10.2.6",
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
@@ -97,11 +98,12 @@ lazy val `online_archive` = (project in file("online_archive"))
     dockerBaseImage := "openjdk:11-jdk-slim",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-archive",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
+      "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
-      "org.scala-lang.modules" %% "scala-xml" % "2.0.1",
+      "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
       "org.specs2" %% "specs2-core" % "4.12.3" % Test,
       "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,

@@ -1,13 +1,23 @@
+import akka.http.scaladsl.model.{ContentType, Uri}
+import akka.stream.Materializer
+import akka.stream.alpakka.s3.{MultipartUploadResult, S3Headers}
+import akka.stream.alpakka.s3.scaladsl.S3
+import akka.stream.scaladsl.{Sink, Source}
+import akka.util.ByteString
 import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
-import com.amazonaws.services.s3.model.AmazonS3Exception
+import com.amazonaws.services.s3.model.{AmazonS3Exception, ObjectMetadata}
 import com.amazonaws.services.s3.transfer.{TransferManager, TransferManagerBuilder}
+import org.apache.commons.codec.binary.Hex
 import org.slf4j.LoggerFactory
 
-import java.io.File
+import java.io.{File, InputStream}
+import java.util.Base64
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
   private val logger = LoggerFactory.getLogger(getClass)
+  import FileUploader._
 
   /**
    * Attempt to copy the given file to S3 under a distinct name.
@@ -61,6 +71,25 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @return
    */
   private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[(String, Long)] = {
+    findFreeFilename(file.length(), filePath, increment).flatMap(result=>{
+      if(result._3) { //should copy==true
+        val uploadName = result._1
+        uploadFile(file, uploadName)
+      } else {
+        Success((result._1, result._2))
+      }
+    })
+    }
+
+  /**
+   * Internal method, that recursively finds a free filename to upload to, or will return a successful upload
+   * if a file matching the given length and size exists remotely
+   * @param contentLength length of the file in question
+   * @param filePath file path to try
+   * @param increment counter, set to 0 by default. Don't specify this when calling.
+   * @return a Try with a 3-tuple consisting of (found_filename, found_filesize, should_copy).
+   */
+  private def findFreeFilename(contentLength:Long, filePath:String, increment: Int = 0): Try[(String, Long, Boolean)] = {
     val newFilePath = if (increment <= 0) filePath else {
       // check if file has an extension and insert the increment before it if this is the case
       val pos = filePath.lastIndexOf(".")
@@ -72,16 +101,16 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     } match {
       case Success(metadata) =>
         val objectSize = metadata.getContentLength
-        if (file.length == objectSize) {
+        if (contentLength == objectSize) {
           logger.info(s"Object $newFilePath already exists on S3")
-          Success((newFilePath, objectSize))
+          Success((newFilePath, objectSize, false))
         } else {
           logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
-          tryUploadFile(file, filePath, increment + 1)
+          findFreeFilename(contentLength, filePath, increment + 1)
         }
       case Failure(s3e: AmazonS3Exception) =>
         if (fileNotFound(s3e)) {
-          uploadFile(file, newFilePath)
+          Success((newFilePath, 0, true))
         } else {
           Failure(s3e)
         }
@@ -105,13 +134,92 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param keyName S3 key name to upload to
    * @return
    */
-  private def uploadFile(file: File, keyName: String): Try[(String, Long)] = {
-    Try {
+  private def uploadFile(file: File, keyName: String): Try[(String, Long)] = Try {
       val upload = transferManager.upload(bucketName, keyName, file)
       upload.waitForCompletion
       val bytes = upload.getProgress.getBytesTransferred
 
       (keyName, bytes)
+    }
+
+  /**
+   * Uploads the given stream, closing the InputStream once upload is complete.
+   * Any prior existing file is over-written (or reversioned, depending on bucket settings).
+   * DEPRECATED: You should be using the Akka stream directly, via the `uploadAkkaStream` method
+   * @param stream InputStream to write
+   * @param keyName key to write within the bucket
+   * @param mimeType MIME type
+   * @param size size of the data that will be streamed.  While this is optional, it's highly recommended as the S3 Transfer library will buffer the whole contents into memory in this case
+   * @param vsMD5 MD5 checksum of the data that will be streamed. While this is optional, it's highly recommended so that the transfer library can verify data integrity
+   * @return a Try, containing a tuple of the uploaded file path and total number of bytes transferred. On error, the Try will fail.
+   */
+  @deprecated("Use uploadAkkaStream instead of an InputStream")
+  def uploadStreamNoChecks(stream:InputStream, keyName:String, mimeType:String, size:Option[Long], vsMD5:Option[String]): Try[(String, Long)] = Try {
+    val meta = new ObjectMetadata()
+    meta.setContentType(mimeType)
+    size.map(meta.setContentLength)
+
+    vsMD5.map(vsMD5toS3MD5) match {
+      case None=>
+      case Some(Failure(err))=>
+        logger.error(s"Could not convert vidispine MD5 value $vsMD5 to base64: $err")
+      case Some(Success(b64))=>
+        meta.setContentMD5(b64)
+    }
+
+    try {
+      val upload = transferManager.upload(bucketName, keyName, stream, meta)
+      upload.waitForCompletion()
+      (keyName, upload.getProgress.getBytesTransferred)
+    } finally {
+      stream.close()
+    }
+  }
+
+  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map(), allowOverwrite:Boolean=false)(implicit mat:Materializer, ec:ExecutionContext) = {
+    val baseHeaders = S3Headers.empty
+    val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
+
+    def performUpload(keyForUpload:String) = {
+      sizeHint match {
+        case Some(sizeHint) =>
+          if (sizeHint > 5242880) {
+            val chunkSize = calculateChunkSize(sizeHint).toInt
+            logger.info(s"SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize / 1048576}Mb")
+            src
+              .runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, chunkSize = chunkSize, s3Headers = applyHeaders))
+          } else {
+            logger.info(s"SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
+            S3
+              .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
+              .runWith(Sink.head)
+              .map(objectMetadata => MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)),
+                bucketName,
+                keyForUpload,
+                objectMetadata.eTag.getOrElse(""),
+                objectMetadata.versionId)
+              )
+          }
+        case None =>
+          logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyForUpload. Trying default multipart upload, this may fail!")
+          src.runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, s3Headers = applyHeaders))
+      }
+    }
+
+    if(allowOverwrite) {
+      performUpload(keyName)
+    } else {
+      for {
+        (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
+        result <- if(shouldUpload) {
+          performUpload(keyToUpload)
+        } else {
+          Future(MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyToUpload)),
+            bucketName,
+            keyToUpload,
+            etag="", versionId = None))
+        }
+      } yield result
     }
   }
 }
@@ -122,8 +230,8 @@ object FileUploader {
 
   private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
 
-  def createFromEnvVars:Either[String, FileUploader] =
-    sys.env.get("ARCHIVE_MEDIA_BUCKET") match {
+  def createFromEnvVars(varName:String):Either[String, FileUploader] =
+    sys.env.get(varName) match {
       case Some(mediaBucket) =>
         for {
           transferManager <- initTransferManager
@@ -131,6 +239,34 @@ object FileUploader {
           result <- Right(new FileUploader(transferManager, s3Client, mediaBucket))
         } yield result
       case None =>
-        Left("You must specify ARCHIVE_MEDIA_BUCKET so we know where to upload to!")
+        Left(s"You must specify $varName so we know where to upload to!")
     }
+
+  /**
+   * converts a Vidispine md5 checksum (hex bytes string) to an S3 compatible one (base64-encoded bytes in a string)
+   * @param vsMD5 incoming hex-string checksum
+   * @return Base64 encoded string wrapped in a Try
+   */
+  def vsMD5toS3MD5(vsMD5:String) = Try {
+    Base64.getEncoder.encodeToString(Hex.decodeHex(vsMD5))
+  }
+
+  /**
+   * AWS documentation states that there must be <10,000 parts in a multipart upload and each part must be
+   * between 5Mb and 5Gb. The last part can be shorter. This method tries to find a "good" value to use as the chunk
+   * size
+   * @param sizeHint actual size of the file to upload
+   */
+  def calculateChunkSize(sizeHint:Long, startingChunkSize:Long=50*1024*1024):Long = {
+    val proposedChunkCount:Double = sizeHint / startingChunkSize
+    if(proposedChunkCount>1000) { //if we end up with a LOT of chunks then we should increase the chunk size. AWS recommends larger chunks rather than more of them.
+      calculateChunkSize(sizeHint, startingChunkSize*2)
+    } else if(proposedChunkCount<1) { //if we end up with less than one chunk we should reduce the chunk size
+      calculateChunkSize(sizeHint, sizeHint/2)
+    } else if(startingChunkSize<5242880L) {  //if we end up with < 5Mb then just use that
+      5242880L
+    } else {
+      startingChunkSize
+    }
+  }
 }

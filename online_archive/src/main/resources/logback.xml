@@ -12,7 +12,8 @@
     <logger name="plutocore" level="INFO"/>
     <logger name="AssetSweeperMessageProcessor" level="INFO"/>
     <logger name="VidispineMessageProcessor" level="DEBUG"/>
-    <logger name="archivehunter" level="INFO"/>
+    <logger name="archivehunter" level="DEBUG"/>
+    <logger name="FileUploader" level="DEBUG"/>
     <logger name="Main$" level="INFO"/>
 
     <root level="ERROR">

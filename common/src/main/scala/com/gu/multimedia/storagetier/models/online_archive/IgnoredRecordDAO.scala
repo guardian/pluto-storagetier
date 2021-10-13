@@ -89,4 +89,8 @@ class IgnoredRecordDAO(override val db:Database) extends GenericDAO[IgnoredRecor
   def findBySourceFilename(filename:String) = db.run(
     TableQuery[IgnoredRecordRow].filter(_.originalFilePath===filename).result
   ).map(_.headOption)
+
+  def findByVidispineId(vsid:String) = db.run(
+    TableQuery[IgnoredRecordRow].filter(_.vidispineItemId===vsid).result
+  ).map(_.headOption)
 }
