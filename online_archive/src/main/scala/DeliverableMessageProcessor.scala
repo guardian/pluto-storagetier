@@ -55,8 +55,13 @@ class DeliverableMessageProcessor(config:PlutoDeliverablesConfig, uploader:FileU
         .map(recId=>Right(recordToWrite.copy(id=Some(recId)).asJson))
     case Failure(err)=>
       logger.error(s"Could not check for upload of ${pathName.toString}: ${err.getMessage}", err)
-      //FIXME: we can't see the attempt number here! Needs to be passed through from the framework
-      val recordToWrite = FailureRecord(None, pathName.toString, 1, err.getMessage, ErrorComponents.AWS, RetryStates.WillRetry)
+      val attemptCount = attemptCountFromMDC() match {
+        case Some(count)=>count
+        case None=>
+          logger.warn(s"Could not get attempt count from logging context for ${pathName.toString}")
+          1
+      }
+      val recordToWrite = FailureRecord(None, pathName.toString, attemptCount, err.getMessage, ErrorComponents.AWS, RetryStates.WillRetry)
       failureRecordDAO
         .writeRecord(recordToWrite)
         .map(_=>Left(err.getMessage))

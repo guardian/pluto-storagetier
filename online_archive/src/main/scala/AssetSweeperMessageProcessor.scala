@@ -8,7 +8,7 @@ import AssetSweeperNewFile.Decoder._
 import io.circe.generic.auto._
 import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 import utils.ArchiveHunter
 
 import java.nio.file.{Files, Path, Paths}
@@ -63,9 +63,15 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
           )
         )
     }).recoverWith(err=>{
+      val attemptCount = attemptCountFromMDC() match {
+        case Some(count)=>count
+        case None=>
+          logger.warn(s"Could not get attempt count from logging context for ${fullPath.toString}, creating failure report with attempt 1")
+          1
+      }
       val rec = FailureRecord(id = None,
         originalFilePath = fullPath.toString,
-        attempt = 1,  //FIXME: need to be passed the retry number by the Framework
+        attempt = attemptCount,
         errorMessage = err.getMessage,
         errorComponent = ErrorComponents.Internal,
         retryState = RetryStates.WillRetry)

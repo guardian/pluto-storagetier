@@ -119,9 +119,15 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
         .writeRecord(record)
         .map(recId=>Right(record.copy(id=Some(recId)).asJson))
     }).recoverWith(err=>{
+      val attemptCount = attemptCountFromMDC() match {
+        case Some(count)=>count
+        case None=>
+          logger.warn(s"Could not get attempt count from diagnostic context for $filePath")
+          1
+      }
       val rec = FailureRecord(id = None,
         originalFilePath = archivedRecord.map(_.originalFilePath).getOrElse(filePath),
-        attempt = 1,  //FIXME: need to be passed the retry number by the Framework
+        attempt = attemptCount,
         errorMessage = err.getMessage,
         errorComponent = ErrorComponents.AWS,
         retryState = RetryStates.WillRetry)
