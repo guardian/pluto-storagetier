@@ -102,22 +102,15 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        Seq("vidispine.job.raw_import.stop", "vidispine.item.shape.modify"),
+        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify"),
         "storagetier.onlinearchive.vidispineupdate",
-        new VidispineMessageProcessor(plutoConfig, uploader, proxyUploader)
+        new VidispineMessageProcessor(plutoConfig, deliverablesConfig, uploader, proxyUploader)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
         "storagetier.onlinearchive.newfile.success",
         "storagetier.onlinearchive.mediaingest",
         new OwnMessageProcessor()
-      ),
-      ProcessorConfiguration(
-        "pluto-deliverables",
-        "deliverables.deliverableasset.create",
-        "storagetier.onlinearchive.newfile",  //this is also a new file ingest which should get validated
-        //don't mind the "getOrElse" here, if it's not set then the intialisation of `uploader` fails and is caught above.
-        new DeliverableMessageProcessor(deliverablesConfig, uploader, sys.env.getOrElse("ARCHIVE_MEDIA_BUCKET","") )
       )
     )
 
