@@ -31,7 +31,7 @@ object Main {
   private lazy val db = DatabaseProvider.get()
   private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider =  ConnectionFactoryProviderReal
 
-  private implicit lazy val actorSystem:ActorSystem = ActorSystem()
+  private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-onlinearchive", defaultExecutionContext=Some(executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
   private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
     case Left(err)=>
