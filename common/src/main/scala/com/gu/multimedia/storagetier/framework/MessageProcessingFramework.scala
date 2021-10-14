@@ -125,20 +125,17 @@ class MessageProcessingFramework (ingest_queue_name:String,
 
       val completionFuture = convertToUTFString(body).flatMap(wrappedParse) match {
         case Left(err)=>
-          permanentlyRejectMessage(envelope, properties, body, err)
-          Future( () )
+          Future.fromTry(permanentlyRejectMessage(envelope, properties, body, err))
         case Right(msg)=>
           if(matchingConfigurations.isEmpty) {
             logger.error(s"No processors are configured to handle messages from ${envelope.getExchange}")
-            rejectMessage(envelope, Some(properties), msg)
-            Future( () )
+            Future.fromTry(rejectMessage(envelope, Some(properties), msg))
           } else {
             val targetConfig = matchingConfigurations.head
             targetConfig.processor.handleMessage(envelope.getRoutingKey, msg).map({
               case Left(errDesc)=>
-                logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
+                logger.warn(s"MsgID ${properties.getMessageId} Retryable failure: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)
-                logger.info(s"MsgID ${properties.getMessageId} sent to retry queue due to a retryable failure")
               case Right(returnValue)=>
                 confirmMessage(envelope.getDeliveryTag,
                   targetConfig.outputRoutingKey,

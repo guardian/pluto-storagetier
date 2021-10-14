@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.util.ByteString
 import com.gu.multimedia.storagetier.auth.HMAC
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -78,9 +78,14 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
       val date = RawHeader("Date", DateTimeFormatter.RFC_1123_DATE_TIME.format(messageTime))
       val updatedReq = req.withHeaders(scala.collection.immutable.Seq(auth, date, checksum)) //add in the authorization header
 
+      val loggerContext = Option(MDC.getCopyOfContextMap)
+
       callHttp
         .singleRequest(updatedReq)
-        .flatMap(response => AkkaHttpHelpers.handleResponse(response, "PlutoCore"))
+        .flatMap(response => {
+          if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
+          AkkaHttpHelpers.handleResponse(response, "PlutoCore")
+        })
         .flatMap({
           case Right(Some(stream))=>contentBodyToJson(consumeStream(stream.dataBytes))
           case Right(None)=>Future(None)
