@@ -230,7 +230,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
       logger.error(s"Import status not in correct state for archive $status itemId=${itemId}")
       Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
     } else {
-      mediaIngested.sourceFileId match {
+      mediaIngested.sourceOrDestFileId match {
         case Some(fileId)=>
           logger.debug(s"Got ingested file ID $fileId from the message")
           for {

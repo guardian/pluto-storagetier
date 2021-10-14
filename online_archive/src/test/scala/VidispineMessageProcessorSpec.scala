@@ -151,14 +151,41 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
         ))
 
-        val record = ArchivedRecord(
-          archiveHunterID="archiveId",
-          originalFilePath="the/correct/filepath/video.mp4",
-          originalFileSize=12345,
-          uploadedBucket="bucket",
-          uploadedPath="uploaded/path",
-          uploadedVersion=Some(4)
-        )
+        val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,Json]]]
+        val fakeResult = mock[Json]
+        mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
+
+        val basePath = Paths.get("/absolute/path")
+        val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
+          override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
+        }
+
+        val result = Await.result(toTest.handleIngestedMedia(mediaIngested), 2.seconds)
+        there was one(mockUploadIfReqd).apply("/absolute/path/relative/path.mp4","relative/path.mp4",mediaIngested)
+        result must beRight(fakeResult)
+      }
+
+      "fall back to fileId if sourceFileId not set" in {
+        val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+        implicit val mockVSCommunicator = mock[VidispineCommunicator]
+        mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
+        implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+        implicit val mockUploader = mock[FileUploader]
+        implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
+        archivedRecordDAO.writeRecord(any) returns Future(123)
+        implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+        failureRecordDAO.writeRecord(any) returns Future(234)
+        implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
+        ignoredRecordDAO.writeRecord(any) returns Future(345)
+        implicit val mat:Materializer = mock[Materializer]
+        implicit val sys:ActorSystem = mock[ActorSystem]
+        val mediaIngested = VidispineMediaIngested(List(
+          VidispineField("itemId", "VX-123"),
+          VidispineField("bytesWritten", "12345"),
+          VidispineField("status", "FINISHED"),
+          VidispineField("fileId", "VX-456"),
+          VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+        ))
 
         val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,Json]]]
         val fakeResult = mock[Json]

@@ -49,10 +49,22 @@ case class VidispineMediaIngested(field: List[VidispineField]) {
   def sourceFileIds:Array[String] = getValue("sourceFileIds")
     .map(_.split(",")).getOrElse[Array[String]](Array()) //FIXME: I assume that the separator is a , ?
 
+  /**
+   * gets the sourceFileId parameter, or if that is not set (because we are doing a copy-import) the fileId parameter.
+   * Note that sourceFileIds[0] is NOT the right file ID in that case (one less than fileId in my experiments)
+   * @return
+   */
+  def sourceOrDestFileId:Option[String] = (getValue("sourceFileId"), getValue("fileId")) match {
+    case (Some(sourceFileId), _)=>Some(sourceFileId)
+    case (_, Some(destFileId))=> Some(destFileId)
+    case _=>None
+  }
+
   def shapeId: Option[String] = getValue("shapeId")
   def shapeTag: Option[String] = getValue("shapeTag")
 
   def importSource:Option[String] = getValue("import_source")
+
 
   private def getValue(fieldKey: String) = field.find(field=>field.key == fieldKey).map(field=>field.value)
   private def getAllValues(fieldKey:String) = field.filter(_.key==fieldKey).map(_.value)
