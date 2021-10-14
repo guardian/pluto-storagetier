@@ -3,10 +3,9 @@ import io.circe.Json
 import org.slf4j.LoggerFactory
 import slick.jdbc.JdbcBackend.Database
 
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContext, Future}
 
-class FakeMessageProcessor (db:Database) extends MessageProcessor {
+class FakeMessageProcessor (db:Database)(implicit ec:ExecutionContext) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
   override def handleMessage(routingKey:String, msg: Json): Future[Either[String, Json]] = {

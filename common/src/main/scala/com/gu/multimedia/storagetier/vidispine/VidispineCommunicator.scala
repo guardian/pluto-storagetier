@@ -7,7 +7,7 @@ import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredent
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
 import akka.util.ByteString
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 import io.circe.generic.auto._
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
@@ -36,9 +36,14 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
 
     val updatedReq = req.withHeaders(req.headers ++ Seq(Authorization(BasicHttpCredentials(config.username, config.password))))
 
+    val loggerContext = Option(MDC.getCopyOfContextMap)
+
     callHttp
       .singleRequest(updatedReq)
-      .flatMap(response=>AkkaHttpHelpers.handleResponse(response,"Vidispine"))
+      .flatMap(response=>{
+        if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
+        AkkaHttpHelpers.handleResponse(response,"Vidispine")
+      })
       .flatMap({
         case Right(Some(entity))=>
           Future(Some(entity))

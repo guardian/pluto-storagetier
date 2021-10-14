@@ -5,10 +5,9 @@ import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.meta.MTable
 import slick.lifted.TableQuery
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
-class ArchivedRecordDAO(override protected val db:Database) extends GenericDAO[ArchivedRecordRow]{
+class ArchivedRecordDAO(override protected val db:Database)(implicit ec:ExecutionContext) extends GenericDAO[ArchivedRecordRow]{
   override def writeRecord(rec: ArchivedRecord):Future[Int] = {
     rec.id match {
       case None=>               //no id => try to insert the record

@@ -5,27 +5,33 @@ import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterEnvironmentConfigP
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
+import de.geekonaut.slickmdc.MdcExecutionContext
 import org.slf4j.LoggerFactory
 import plutocore.PlutoCoreEnvironmentConfigProvider
 import plutodeliverables.PlutoDeliverablesConfig
 import sun.misc.{Signal, SignalHandler}
 import utils.TrustStoreHelper
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
+import java.util.concurrent.Executors
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 import scala.concurrent.duration._
 
 object Main {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  implicit lazy val executionContext = new MdcExecutionContext(
+    ExecutionContext.fromExecutor(
+      Executors.newWorkStealingPool(10)
+    )
+  )
   private val OUTPUT_EXCHANGE_NAME = "storagetier-online-archive"
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
   private lazy val db = DatabaseProvider.get()
   private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider =  ConnectionFactoryProviderReal
 
-  private implicit lazy val actorSystem:ActorSystem = ActorSystem()
+  private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-onlinearchive", defaultExecutionContext=Some(executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
   private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
     case Left(err)=>

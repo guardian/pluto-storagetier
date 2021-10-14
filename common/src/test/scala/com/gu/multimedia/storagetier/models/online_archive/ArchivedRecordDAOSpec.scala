@@ -5,7 +5,7 @@ import org.specs2.specification.{AfterEach, Before, BeforeAll}
 import slick.jdbc.JdbcBackend.Database
 import slick.lifted.TableQuery
 import slick.jdbc.PostgresProfile.api._
-
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.util.Try

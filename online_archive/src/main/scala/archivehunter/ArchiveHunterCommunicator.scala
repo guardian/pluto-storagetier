@@ -6,7 +6,7 @@ import akka.http.scaladsl.model.headers.GenericHttpCredentials
 import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, Uri}
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.nio.charset.StandardCharsets
 import java.time.{ZoneId, ZonedDateTime}
@@ -84,9 +84,14 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
       akka.http.scaladsl.model.headers.Authorization(GenericHttpCredentials("HMAC", token))
     ))
 
+    val loggerContext = Option(MDC.getCopyOfContextMap)
+
     callHttp
       .singleRequest(updatedRequest)
       .flatMap(response=>{
+        //restore the logger context, in case it got lost on the journey through Akka
+        if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
+
         AkkaHttpHelpers.handleResponse(response, "Archive Hunter").flatMap({
           case Right(Some(stream))=>
             contentBodyToJson(consumeStream(stream.dataBytes))

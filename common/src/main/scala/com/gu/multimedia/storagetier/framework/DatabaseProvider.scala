@@ -1,5 +1,6 @@
 package com.gu.multimedia.storagetier.framework
 
+import de.geekonaut.slickmdc.MdcAsyncExecutor
 import slick.jdbc.JdbcBackend.Database
 
 object DatabaseProvider {
@@ -14,6 +15,6 @@ object DatabaseProvider {
     lazy val dbUser = sys.env.getOrElse("POSTGRES_USER", "storagetier")
     lazy val dbPasswd = sys.env.getOrElse("POSTGRES_PASSWORD", "storagetier-test")
     lazy val dbName = sys.env.getOrElse("POSTGRES_DB", "storagetier-test")
-    Database.forURL(s"jdbc:postgresql://${dbHost}:${dbPort}/${dbName}",user=dbUser, password=dbPasswd)
+    Database.forURL(s"jdbc:postgresql://${dbHost}:${dbPort}/${dbName}",user=dbUser, password=dbPasswd, executor = MdcAsyncExecutor("Database", 10))
   }
 }

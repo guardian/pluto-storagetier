@@ -2,10 +2,14 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZZ} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZZ} [%thread] [%X{msgId};%X{retryAttempt};%X{routingKey};%X{exchange};%X{isRedeliver}] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
+    <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="STDOUT"/>
+        <includeCallerData>true</includeCallerData>
+    </appender>
     <logger name="com.gu.multimedia" level="DEBUG"/>
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
     <logger name="FakeMessageProcessor" level="DEBUG"/>
@@ -17,7 +21,7 @@
     <logger name="Main$" level="INFO"/>
 
     <root level="ERROR">
-        <appender-ref ref="STDOUT" />
+        <appender-ref ref="ASYNC_STDOUT" />
         <!-- <appender-ref ref="Sentry" />-->
     </root>
 

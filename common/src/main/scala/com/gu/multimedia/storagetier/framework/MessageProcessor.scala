@@ -1,8 +1,10 @@
 package com.gu.multimedia.storagetier.framework
 
 import io.circe.Json
+import org.slf4j.MDC
 
 import scala.concurrent.Future
+import scala.util.Try
 
 /**
  * this trait represents the protocol which must be implemented by any message processor class.
@@ -36,5 +38,18 @@ trait MessageProcessor {
    *         to our exchange with details of the completed operation
    */
   def handleMessage(routingKey:String, msg:Json):Future[Either[String,Json]]
+
+  /**
+   * The retry attempt number should be set in the message diagnostic context (MDC) by the framework.
+   * Call this method to get the number
+   * @return an Option containing the retry count number, or None if there was an error / it was not set
+   */
+  def attemptCountFromMDC() = {
+    val attemptCount = for {
+      maybeStringValue <- Try { Option(MDC.get("retryAttempt")) }
+      maybeIntValue <- Try { maybeStringValue.map(_.toInt) }
+    } yield maybeIntValue
+    attemptCount.toOption.flatten
+  }
 }
 
