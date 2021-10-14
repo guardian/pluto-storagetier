@@ -12,6 +12,7 @@ import io.circe.syntax._
 import messages.VidispineMediaIngested
 import org.slf4j.LoggerFactory
 import plutocore.{AssetFolderLookup, PlutoCoreConfig}
+import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 
 import java.io.File
@@ -58,6 +59,7 @@ object VidispineMessageProcessor {
 }
 
 class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
+                                deliverablesConfig: PlutoDeliverablesConfig,
                                 mediaFileUploader:FileUploader,
                                 proxyFileUploader: FileUploader)
                                (implicit archivedRecordDAO: ArchivedRecordDAO,
@@ -72,8 +74,27 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   private val logger = LoggerFactory.getLogger(getClass)
   import VidispineMessageProcessor._
 
-  def getRelativePath(filePath: String): Either[String, Path] = {
-    compositingGetPath(filePath).flatMap(path => asLookup.relativizeFilePath(path))
+  def getRelativePath(filePath: String, maybeImportSource:Option[String]): Either[String, Path] = {
+    compositingGetPath(filePath).flatMap(path =>{
+      if(maybeImportSource.contains("pluto-deliverables")) {
+        //this key is always set on material that was ingested via Deliverables.
+        //We need to apply different naming rules to those; a base path taken from the configuration and then a specific number of subpath components
+        logger.debug(s"File path $filePath came from pluto-deliverables")
+        val result = Try {
+          Paths.get(deliverablesConfig.uploadBasePath).resolve(
+            path.subpath(path.getNameCount-deliverablesConfig.presevePathParts,path.getNameCount)
+          )
+        }.toEither.left.map(_.getMessage)
+        logger.debug(s"Relative path result is $result")
+        result
+      } else {
+        //if it did not come from Deliverables, assume that it's an asset
+        logger.debug(s"File path $filePath came from rushes")
+        val result = asLookup.relativizeFilePath(path)
+        logger.debug(s"Relative path result is $result")
+        result
+      }
+    })
   }
 
   private def uploadCreateOrUpdateRecord(filePath:String, relativePath:String, mediaIngested: VidispineMediaIngested,
@@ -219,7 +240,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
                 logger.error(s"Could not get absolute filepath for file $fileId")
                 Future.failed(new RuntimeException(s"Could not get absolute filepath for file $fileId"))
               case Some(absPath)=>
-                getRelativePath(absPath) match {
+                getRelativePath(absPath, mediaIngested.importSource) match {
                   case Left(err) =>
                     logger.error(s"Could not relativize file path $absPath: $err. Uploading to $absPath")
                     uploadIfRequiredAndNotExists(absPath, absPath, mediaIngested)
@@ -232,24 +253,6 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
           logger.error(s"The incoming message had no source file ID parameter, can't continue")
           Future.failed(new RuntimeException(s"No source file ID parameter"))
       }
-    }
-  }
-
-  /**
-   *
-   * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
-   *                   using msg.as[CaseClassFormat]
-   * @return You need to return Left() with a descriptive error string if the message could not be processed, or Right
-   *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
-   *         to our exchange with details of the completed operation
-   */
-  def handleRawImportStop(msg: Json): Future[Either[String, Json]] = {
-    msg.as[VidispineMediaIngested] match {
-      case Left(err) =>
-        logger.error(s"Could not unmarshal vidispine.job.raw_import.stop message: $err")
-        Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a VidispineMediaIngested: $err"))
-      case Right(mediaIngested) =>
-        handleIngestedMedia(mediaIngested)
     }
   }
 
@@ -376,6 +379,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     (msg.as[VidispineMediaIngested], routingKey) match {
       case (Left(err), _) =>
         Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a VidispineMediaIngested: $err"))
+      case (Right(mediaIngested), "vidispine.job.essence_version.stop")=>
+        handleIngestedMedia(mediaIngested)
       case (Right(mediaIngested), "vidispine.job.raw_import.stop")=>
         handleIngestedMedia(mediaIngested)
       case (Right(shapeUpdate), "vidispine.item.shape.modify")=>

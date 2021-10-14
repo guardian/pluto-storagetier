@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file._
 import scala.util.{Failure, Success, Try}
 import io.circe.generic.auto._
@@ -23,8 +23,7 @@ import cats.implicits._
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers._
 
-class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, actorSystem:ActorSystem) {
-  private implicit val dispatcher = actorSystem.dispatcher
+class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, actorSystem:ActorSystem, ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
 
   /* extract call to static object to make testing easier */

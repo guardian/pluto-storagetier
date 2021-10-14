@@ -52,6 +52,8 @@ case class VidispineMediaIngested(field: List[VidispineField]) {
   def shapeId: Option[String] = getValue("shapeId")
   def shapeTag: Option[String] = getValue("shapeTag")
 
+  def importSource:Option[String] = getValue("import_source")
+
   private def getValue(fieldKey: String) = field.find(field=>field.key == fieldKey).map(field=>field.value)
   private def getAllValues(fieldKey:String) = field.filter(_.key==fieldKey).map(_.value)
 

@@ -13,6 +13,7 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
 import plutocore.PlutoCoreConfig
+import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 
 import java.io.File
@@ -26,6 +27,7 @@ import java.io.InputStream
 import scala.util.{Success, Try}
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
+  val fakeDeliverablesConfig = PlutoDeliverablesConfig("Deliverables/",1)
   "VidispineMessageProcessor.uploadIfRequiredAndNotExists" should {
     "return a success message without an upload attempt but setting the vidispine item id" in {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -48,7 +50,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       val basePath = Paths.get("/media/assets")
-      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), mockMediaUploader, mockProxyUploader)
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
       val fields: List[VidispineField] = List(VidispineField("originalPath", "original/path"), VidispineField("itemId",
         "VX-123"), VidispineField("bytesWritten", "12345"), VidispineField("status", "FINISHED"))
       val ingested = VidispineMediaIngested(fields)
@@ -91,9 +93,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
 
       val basePath = Paths.get("/dummy/base/path")
-      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), mockUploader, mockUploader)
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader)
 
-      toTest.getRelativePath("/some/totally/other/path") must beLeft()
+      toTest.getRelativePath("/some/totally/other/path", None) must beLeft()
     }
 
     "VidispineMessageProcessor.handleIngestedMedia" should {
@@ -118,7 +120,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         ))
 
         val basePath = Paths.get("/dummy/base/path")
-        val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", basePath), mockUploader, mockUploader)
+        val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", basePath), fakeDeliverablesConfig, mockUploader, mockUploader)
 
         val result = Try {
           Await.result(toTest.handleIngestedMedia(mediaIngested), 3.seconds)
@@ -163,7 +165,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
 
         val basePath = Paths.get("/absolute/path")
-        val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), mockUploader, mockUploader) {
+        val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
           override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
         }
 
@@ -243,7 +245,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val materializer = mock[Materializer]
       val mockFileUploader = mock[FileUploader]
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockFileUploader, mockFileUploader) {
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
         override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
@@ -275,7 +277,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val materializer = mock[Materializer]
       val mockFileUploader = mock[FileUploader]
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockFileUploader, mockFileUploader) {
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
         override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
@@ -309,7 +311,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val materializer = mock[Materializer]
       val mockFileUploader = mock[FileUploader]
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockFileUploader, mockFileUploader) {
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
         override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
@@ -337,7 +339,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val materializer = mock[Materializer]
       val mockFileUploader = mock[FileUploader]
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockFileUploader, mockFileUploader) {
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
         override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
@@ -396,7 +398,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockProxyUploader.bucketName returns "proxy-bucket"
       mockProxyUploader.uploadStreamNoChecks(any,any,any,any,any) returns Success("path/to/uploaded/file_prox.mp4",1234L)
       mockProxyUploader.copyFileToS3(any,any) returns Success("path/to/uploaded/file_prox.mp4", 1234L)
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader) {
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader) {
         override protected def internalCheckFile(filePath: Path): Boolean = true
       }
 
@@ -449,7 +451,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockProxyUploader.bucketName returns "proxy-bucket"
       mockProxyUploader.uploadStreamNoChecks(any,any,any,any,any) returns Success("path/to/uploaded/file_prox.mp4",1234L)
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader)
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig],fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
 
       val result = Await.result(
         toTest.uploadShapeIfRequired("VX-123","VX-456","lowres", mockArchivedRecord),
@@ -488,7 +490,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockProxyUploader.bucketName returns "proxy-bucket"
       mockProxyUploader.uploadStreamNoChecks(any,any,any,any,any) returns Success("path/to/uploaded/file_prox.mp4",1234L)
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader)
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
 
       val result = Try { Await.result(
         toTest.uploadShapeIfRequired("VX-123","VX-456","lowres", mockArchivedRecord),
@@ -546,7 +548,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockProxyUploader.bucketName returns "proxy-bucket"
       mockProxyUploader.uploadStreamNoChecks(any,any,any,any,any) returns Success("path/to/uploaded/file_prox.mp4",1234L)
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader)
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
 
       val result = Try {
         Await.result(
@@ -607,7 +609,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockProxyUploader.bucketName returns "proxy-bucket"
       mockProxyUploader.uploadStreamNoChecks(any,any,any,any,any) throws new RuntimeException("kaboom")
 
-      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], mockMediaUploader, mockProxyUploader)
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
 
       val result = Await.result(
         toTest.uploadShapeIfRequired("VX-123","VX-456","lowres", mockArchivedRecord),
@@ -623,4 +625,74 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
   }
 
+  "VidispineMessageProcessor.getRelativePath" should {
+    "make a path relative to the media assets if maybeImportSource is not set" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig(
+        "https://fake-uri",
+        "notasecret",
+        Paths.get("/media/root")
+      ), fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      toTest.getRelativePath("/media/root/working_group/production/footage/something.mxf", None) must beRight(Paths.get("working_group/production/footage/something.mxf"))
+    }
+
+    "make a path relative to the media assets if maybeImportSource contains another source" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig(
+        "https://fake-uri",
+        "notasecret",
+        Paths.get("/media/root")
+      ), fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      toTest.getRelativePath("/media/root/working_group/production/footage/something.mxf", Some("hfsdghsdf")) must beRight(Paths.get("working_group/production/footage/something.mxf"))
+    }
+
+    "make a path relative to the deliverables if maybeImportSource contains 'pluto-deliverables'" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig(
+        "https://fake-uri",
+        "notasecret",
+        Paths.get("/media/root")
+      ), fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      toTest.getRelativePath("/media/root/working_group/production/footage/something.mxf", Some("pluto-deliverables")) must beRight(Paths.get("Deliverables/something.mxf"))
+    }
+  }
 }
