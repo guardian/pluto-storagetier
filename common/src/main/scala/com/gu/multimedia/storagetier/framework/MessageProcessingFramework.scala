@@ -139,7 +139,6 @@ class MessageProcessingFramework (ingest_queue_name:String,
                 logger.error(s"MsgID ${properties.getMessageId} Could not handle message: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)
                 logger.info(s"MsgID ${properties.getMessageId} sent to retry queue due to a retryable failure")
-                MDC.clear()
               case Right(returnValue)=>
                 confirmMessage(envelope.getDeliveryTag,
                   targetConfig.outputRoutingKey,
