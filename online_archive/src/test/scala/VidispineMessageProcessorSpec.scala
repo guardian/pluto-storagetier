@@ -753,6 +753,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         )
       }
 
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       result must beFailedTry
     }
 
@@ -790,6 +792,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         )
       }
 
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       result must beAFailedTry(SilentDropMessage())
     }
 
@@ -825,6 +829,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         10.seconds
       )
 
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       result must beLeft("No record of vidispine item VX-123")
     }
 
@@ -862,6 +868,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         10.seconds
       )
 
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       result must beLeft("ArchiveHunter ID for original/file/path has not been validated yet")
     }
 
@@ -915,6 +923,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         10.seconds
       )
 
+      there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       result must beRight(mockArchivedRecord
         .copy(
           proxyBucket = Some("proxyBucket"),
@@ -925,7 +935,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "VidispineMessageProcessor.uploadMetadataToS3" should {
-      "return Left if there is no metadata for the Vidispine itemId" in {
+      "fail Future when there is no metadata for the Vidispine itemId" in {
         val mockArchivedRecord = mock[ArchivedRecord]
         implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
         mockArchivedRecordDAO.writeRecord(any) returns Future(123)
@@ -943,12 +953,14 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
 
-        val result = Await.result(
+        val result = Try { Await.result(
           toTest.uploadMetadataToS3("VX-123", Some(1), mockArchivedRecord),
           10.seconds
-        )
+        )}
 
-        result must beLeft("No metadata present on VX-123")
+        there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        result must beFailedTry
       }
 
       "return Updated ArchiveRecord when metadata has been uploaded successfully" in {
@@ -991,6 +1003,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           10.seconds
         )
 
+        there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
         result must beRight(mockArchivedRecord
           .copy(
             proxyBucket = Some("proxyBucket"),
@@ -1049,6 +1063,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         result must beLeft("Big bang!")
         there was one(failureRecordDAO).writeRecord(failedRec)
+        there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       }
     }
 }

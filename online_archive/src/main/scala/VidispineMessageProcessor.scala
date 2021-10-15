@@ -375,7 +375,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     vidispineCommunicator.akkaStreamXMLMetadataDocument(itemId).flatMap({
       case None=>
         logger.error(s"No metadata present on $itemId")
-        Future(Left(s"No metadata present on $itemId"))
+        Future.failed(new RuntimeException(s"No metadata present on $itemId"))
       case Some(entity)=>
         logger.info(s"Got metadata source from Vidispine: ${entity} uploading to S3 bucket")
         val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
