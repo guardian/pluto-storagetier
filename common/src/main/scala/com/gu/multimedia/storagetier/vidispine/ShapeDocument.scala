@@ -51,4 +51,9 @@ case class ShapeDocument(
     }
     fileIdMap.headOption.map(_._2)
   }
+
+  def summaryString:String = {
+    val tagStr = tag.headOption.getOrElse("[untagged]")
+    s"$tagStr:$id"
+  }
 }

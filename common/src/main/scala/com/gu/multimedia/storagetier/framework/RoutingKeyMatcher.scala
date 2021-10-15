@@ -1,4 +1,3 @@
-
 package com.gu.multimedia.storagetier.framework
 
 object RoutingKeyMatcher {

@@ -1,0 +1,806 @@
+{
+  "id": "VX-20",
+  "created": "2021-10-01T15:31:48.758+0000",
+  "essenceVersion": 1,
+  "tag": [
+    "original"
+  ],
+  "mimeType": [
+    "video/mp4"
+  ],
+  "containerComponent": {
+    "duration": {
+      "samples": 27797000,
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 1000000
+      }
+    },
+    "format": "mov,mp4,m4a,3gp,3g2,mj2",
+    "startTimestamp": {
+      "samples": 0,
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 90000
+      }
+    },
+    "mediaInfo": {
+      "property": [
+        {
+          "key": "Audio codecs",
+          "value": "AAC LC"
+        },
+        {
+          "key": "Audio_Format_List",
+          "value": "AAC"
+        },
+        {
+          "key": "Audio_Format_WithHint_List",
+          "value": "AAC"
+        },
+        {
+          "key": "Audio_Language_List",
+          "value": "English"
+        },
+        {
+          "key": "Codec",
+          "value": "MPEG-4"
+        },
+        {
+          "key": "Codec ID",
+          "value": "mp42"
+        },
+        {
+          "key": "Codec ID/Url",
+          "value": "http://www.apple.com/quicktime/download/standalone.html"
+        },
+        {
+          "key": "Codec/Extensions usually used",
+          "value": "mov mp4 m4v m4a m4b m4p 3ga 3gpa 3gpp 3gp 3gpp2 3g2 k3g jpm jpx mqv ismv isma ismt f4a f4b f4v"
+        },
+        {
+          "key": "CodecID_Compatible",
+          "value": "isom/mp42"
+        },
+        {
+          "key": "Codecs Video",
+          "value": "AVC"
+        },
+        {
+          "key": "Commercial name",
+          "value": "MPEG-4"
+        },
+        {
+          "key": "Count",
+          "value": "326"
+        },
+        {
+          "key": "Count of audio streams",
+          "value": "1"
+        },
+        {
+          "key": "Count of stream of this kind",
+          "value": "1"
+        },
+        {
+          "key": "Count of video streams",
+          "value": "1"
+        },
+        {
+          "key": "DataSize",
+          "value": "59981585"
+        },
+        {
+          "key": "Duration",
+          "value": "27797"
+        },
+        {
+          "key": "Encoded date",
+          "value": "UTC 2018-12-29 16:26:04"
+        },
+        {
+          "key": "File extension",
+          "value": "mp4"
+        },
+        {
+          "key": "File last modification date",
+          "value": "UTC 2021-10-01 15:31:48"
+        },
+        {
+          "key": "File last modification date (local)",
+          "value": "2021-10-01 15:31:48"
+        },
+        {
+          "key": "File size",
+          "value": "59996762"
+        },
+        {
+          "key": "FooterSize",
+          "value": "15153"
+        },
+        {
+          "key": "Format",
+          "value": "MPEG-4"
+        },
+        {
+          "key": "Format profile",
+          "value": "Base Media / Version 2"
+        },
+        {
+          "key": "Format/Extensions usually used",
+          "value": "mov mp4 m4v m4a m4b m4p 3ga 3gpa 3gpp 3gp 3gpp2 3g2 k3g jpm jpx mqv ismv isma ismt f4a f4b f4v"
+        },
+        {
+          "key": "Frame count",
+          "value": "834"
+        },
+        {
+          "key": "Frame rate",
+          "value": "30.000"
+        },
+        {
+          "key": "HeaderSize",
+          "value": "24"
+        },
+        {
+          "key": "Internet media type",
+          "value": "video/mp4"
+        },
+        {
+          "key": "IsStreamable",
+          "value": "No"
+        },
+        {
+          "key": "Kind of stream",
+          "value": "General"
+        },
+        {
+          "key": "Overall bit rate",
+          "value": "17267118"
+        },
+        {
+          "key": "Proportion of this stream",
+          "value": "0.00025"
+        },
+        {
+          "key": "Stream identifier",
+          "value": "0"
+        },
+        {
+          "key": "Stream size",
+          "value": "15185"
+        },
+        {
+          "key": "Tagged date",
+          "value": "UTC 2018-12-29 16:26:04"
+        },
+        {
+          "key": "Video_Format_List",
+          "value": "AVC"
+        },
+        {
+          "key": "Video_Format_WithHint_List",
+          "value": "AVC"
+        },
+        {
+          "key": "Video_Language_List",
+          "value": "English"
+        },
+        {
+          "key": "com.android.version",
+          "value": "8.0.0"
+        }
+      ]
+    },
+    "file": [
+      {
+        "id": "VX-19",
+        "path": "VX-19.mp4",
+        "uri": [
+          "file:///media/shared/VX-19.mp4"
+        ],
+        "state": "CLOSED",
+        "size": 59996762,
+        "hash": "db9a9e784035ffdec247d8caed323ad0e2bc5c48",
+        "timestamp": "2021-10-01T15:32:15.007+0000",
+        "refreshFlag": 1,
+        "storage": "VX-8",
+        "metadata": {}
+      }
+    ],
+    "id": "VX-7",
+    "metadata": [
+      {
+        "key": "creation_time",
+        "value": "2018-12-29 16:26:04"
+      },
+      {
+        "key": "componentOriginalFilename",
+        "value": "VX-19.mp4"
+      },
+      {
+        "key": "major_brand",
+        "value": "mp42"
+      },
+      {
+        "key": "com.android.version",
+        "value": "8.0.0"
+      },
+      {
+        "key": "compatible_brands",
+        "value": "isommp42"
+      },
+      {
+        "key": "minor_version",
+        "value": "0"
+      }
+    ]
+  },
+  "audioComponent": [
+    {
+      "channelCount": 2,
+      "channelLayout": 3,
+      "sampleFormat": "AV_SAMPLE_FMT_S16",
+      "frameSize": 1024,
+      "mediaInfo": {
+        "property": [
+          {
+            "key": "Bit rate",
+            "value": "256000"
+          },
+          {
+            "key": "Bit rate mode",
+            "value": "CBR"
+          },
+          {
+            "key": "Channel positions",
+            "value": "2/0/0"
+          },
+          {
+            "key": "Channel(s)",
+            "value": "2"
+          },
+          {
+            "key": "ChannelLayout",
+            "value": "L R"
+          },
+          {
+            "key": "Codec",
+            "value": "AAC LC"
+          },
+          {
+            "key": "Codec ID",
+            "value": "40"
+          },
+          {
+            "key": "Codec/CC",
+            "value": "40"
+          },
+          {
+            "key": "Codec/Family",
+            "value": "AAC"
+          },
+          {
+            "key": "Commercial name",
+            "value": "AAC"
+          },
+          {
+            "key": "Compression mode",
+            "value": "Lossy"
+          },
+          {
+            "key": "Count",
+            "value": "275"
+          },
+          {
+            "key": "Count of stream of this kind",
+            "value": "1"
+          },
+          {
+            "key": "Duration",
+            "value": "27797"
+          },
+          {
+            "key": "Encoded date",
+            "value": "UTC 2018-12-29 16:26:04"
+          },
+          {
+            "key": "Format",
+            "value": "AAC"
+          },
+          {
+            "key": "Format profile",
+            "value": "LC"
+          },
+          {
+            "key": "Format/Info",
+            "value": "Advanced Audio Codec"
+          },
+          {
+            "key": "Frame count",
+            "value": "1303"
+          },
+          {
+            "key": "Frame rate",
+            "value": "46.875"
+          },
+          {
+            "key": "ID",
+            "value": "2"
+          },
+          {
+            "key": "Kind of stream",
+            "value": "Audio"
+          },
+          {
+            "key": "Language",
+            "value": "en"
+          },
+          {
+            "key": "Proportion of this stream",
+            "value": "0.01483"
+          },
+          {
+            "key": "Samples count",
+            "value": "1334256"
+          },
+          {
+            "key": "Samples per frame",
+            "value": "1024"
+          },
+          {
+            "key": "Sampling rate",
+            "value": "48000"
+          },
+          {
+            "key": "Stream identifier",
+            "value": "0"
+          },
+          {
+            "key": "Stream size",
+            "value": "889562"
+          },
+          {
+            "key": "StreamOrder",
+            "value": "1"
+          },
+          {
+            "key": "Tagged date",
+            "value": "UTC 2018-12-29 16:26:04"
+          },
+          {
+            "key": "Title",
+            "value": "SoundHandle"
+          }
+        ],
+        "Bit_rate_mode": "CBR"
+      },
+      "file": [
+        {
+          "id": "VX-19",
+          "path": "VX-19.mp4",
+          "uri": [
+            "file:///media/shared/VX-19.mp4"
+          ],
+          "state": "CLOSED",
+          "size": 59996762,
+          "hash": "db9a9e784035ffdec247d8caed323ad0e2bc5c48",
+          "timestamp": "2021-10-01T15:32:15.007+0000",
+          "refreshFlag": 1,
+          "storage": "VX-8",
+          "metadata": {}
+        }
+      ],
+      "id": "VX-8",
+      "metadata": [
+        {
+          "key": "creation_time",
+          "value": "2018-12-29 16:26:04"
+        },
+        {
+          "key": "handler_name",
+          "value": "oundHandle"
+        },
+        {
+          "key": "componentOriginalFilename",
+          "value": "VX-19.mp4"
+        },
+        {
+          "key": "language",
+          "value": "eng"
+        }
+      ],
+      "codec": "aac",
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 48000
+      },
+      "itemTrack": "A1",
+      "essenceStreamId": 1,
+      "bitrate": 256013,
+      "numberOfPackets": 1303,
+      "extradata": "1190",
+      "pid": 2,
+      "duration": {
+        "samples": 1334272,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 48000
+        }
+      },
+      "startTimestamp": {
+        "samples": 0,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 48000
+        }
+      }
+    }
+  ],
+  "videoComponent": [
+    {
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
+      "pixelFormat": "yuv420p",
+      "maxBFrames": 0,
+      "pixelAspectRatio": {
+        "horizontal": 65536,
+        "vertical": 65536
+      },
+      "fieldOrder": "progressive",
+      "codecTimeBase": {
+        "numerator": 1,
+        "denominator": 180000
+      },
+      "averageFrameRate": {
+        "numerator": 25020000,
+        "denominator": 834053
+      },
+      "realBaseFrameRate": {
+        "numerator": 30,
+        "denominator": 1
+      },
+      "displayWidth": {
+        "numerator": 1920,
+        "denominator": 1
+      },
+      "displayHeight": {
+        "numerator": 1080,
+        "denominator": 1
+      },
+      "containerSAR": {
+        "horizontal": 65536,
+        "vertical": 65536
+      },
+      "colr_primaries": 1,
+      "colr_transfer_function": 1,
+      "colr_matrix": 1,
+      "max_packet_size": 245257,
+      "ticks_per_frame": 2,
+      "bitDepth": 8,
+      "bitsPerPixel": 12,
+      "colorPrimaries": "BT709",
+      "mediaInfo": {
+        "Format_Settings_GOP": "M=1, N=30",
+        "property": [
+          {
+            "key": "Bit depth",
+            "value": "8"
+          },
+          {
+            "key": "Bit rate",
+            "value": "17004896"
+          },
+          {
+            "key": "Bits/(Pixel*Frame)",
+            "value": "0.273"
+          },
+          {
+            "key": "Chroma subsampling",
+            "value": "4:2:0"
+          },
+          {
+            "key": "Codec",
+            "value": "AVC"
+          },
+          {
+            "key": "Codec ID",
+            "value": "avc1"
+          },
+          {
+            "key": "Codec ID/Info",
+            "value": "Advanced Video Coding"
+          },
+          {
+            "key": "Codec profile",
+            "value": "High@L4"
+          },
+          {
+            "key": "Codec settings",
+            "value": "CABAC / 1 Ref Frames"
+          },
+          {
+            "key": "Codec settings, CABAC",
+            "value": "Yes"
+          },
+          {
+            "key": "Codec/CC",
+            "value": "avc1"
+          },
+          {
+            "key": "Codec/Family",
+            "value": "AVC"
+          },
+          {
+            "key": "Codec/Info",
+            "value": "Advanced Video Codec"
+          },
+          {
+            "key": "Codec/Url",
+            "value": "http://developers.videolan.org/x264.html"
+          },
+          {
+            "key": "Codec_Settings_RefFrames",
+            "value": "1"
+          },
+          {
+            "key": "Color space",
+            "value": "YUV"
+          },
+          {
+            "key": "Colorimetry",
+            "value": "4:2:0"
+          },
+          {
+            "key": "Commercial name",
+            "value": "AVC"
+          },
+          {
+            "key": "Count",
+            "value": "339"
+          },
+          {
+            "key": "Count of stream of this kind",
+            "value": "1"
+          },
+          {
+            "key": "Display aspect ratio",
+            "value": "1.778"
+          },
+          {
+            "key": "Duration",
+            "value": "27788"
+          },
+          {
+            "key": "Encoded date",
+            "value": "UTC 2018-12-29 16:26:04"
+          },
+          {
+            "key": "Format",
+            "value": "AVC"
+          },
+          {
+            "key": "Format profile",
+            "value": "High@L4"
+          },
+          {
+            "key": "Format settings",
+            "value": "CABAC / 1 Ref Frames"
+          },
+          {
+            "key": "Format settings, CABAC",
+            "value": "Yes"
+          },
+          {
+            "key": "Format settings, GOP",
+            "value": "M=1, N=30"
+          },
+          {
+            "key": "Format settings, ReFrames",
+            "value": "1"
+          },
+          {
+            "key": "Format/Info",
+            "value": "Advanced Video Codec"
+          },
+          {
+            "key": "Format/Url",
+            "value": "http://developers.videolan.org/x264.html"
+          },
+          {
+            "key": "Frame count",
+            "value": "834"
+          },
+          {
+            "key": "Frame rate",
+            "value": "30.000"
+          },
+          {
+            "key": "Frame rate mode",
+            "value": "VFR"
+          },
+          {
+            "key": "Height",
+            "value": "1080"
+          },
+          {
+            "key": "ID",
+            "value": "1"
+          },
+          {
+            "key": "Interlacement",
+            "value": "PPF"
+          },
+          {
+            "key": "Internet media type",
+            "value": "video/H264"
+          },
+          {
+            "key": "Kind of stream",
+            "value": "Video"
+          },
+          {
+            "key": "Language",
+            "value": "en"
+          },
+          {
+            "key": "Maximum frame rate",
+            "value": "30.211"
+          },
+          {
+            "key": "Minimum frame rate",
+            "value": "21.398"
+          },
+          {
+            "key": "Pixel aspect ratio",
+            "value": "1.000"
+          },
+          {
+            "key": "Proportion of this stream",
+            "value": "0.98492"
+          },
+          {
+            "key": "Resolution",
+            "value": "8"
+          },
+          {
+            "key": "Rotation",
+            "value": "0.000"
+          },
+          {
+            "key": "Sampled_Height",
+            "value": "1080"
+          },
+          {
+            "key": "Sampled_Width",
+            "value": "1920"
+          },
+          {
+            "key": "Scan type",
+            "value": "Progressive"
+          },
+          {
+            "key": "Source duration",
+            "value": "27802"
+          },
+          {
+            "key": "Source frame count",
+            "value": "834"
+          },
+          {
+            "key": "Source stream size",
+            "value": "59092015"
+          },
+          {
+            "key": "Source_StreamSize_Proportion",
+            "value": "0.98492"
+          },
+          {
+            "key": "Stored_Height",
+            "value": "1088"
+          },
+          {
+            "key": "Stream identifier",
+            "value": "0"
+          },
+          {
+            "key": "Stream size",
+            "value": "59092015"
+          },
+          {
+            "key": "StreamOrder",
+            "value": "0"
+          },
+          {
+            "key": "Tagged date",
+            "value": "UTC 2018-12-29 16:26:04"
+          },
+          {
+            "key": "Title",
+            "value": "VideoHandle"
+          },
+          {
+            "key": "Width",
+            "value": "1920"
+          },
+          {
+            "key": "mdhd_Duration",
+            "value": "27788"
+          }
+        ]
+      },
+      "file": [
+        {
+          "id": "VX-19",
+          "path": "VX-19.mp4",
+          "uri": [
+            "file:///media/shared/VX-19.mp4"
+          ],
+          "state": "CLOSED",
+          "size": 59996762,
+          "hash": "db9a9e784035ffdec247d8caed323ad0e2bc5c48",
+          "timestamp": "2021-10-01T15:32:15.007+0000",
+          "refreshFlag": 1,
+          "storage": "VX-8",
+          "metadata": {}
+        }
+      ],
+      "id": "VX-9",
+      "metadata": [
+        {
+          "key": "creation_time",
+          "value": "2018-12-29 16:26:04"
+        },
+        {
+          "key": "handler_name",
+          "value": "ideoHandle"
+        },
+        {
+          "key": "componentOriginalFilename",
+          "value": "VX-19.mp4"
+        },
+        {
+          "key": "language",
+          "value": "eng"
+        }
+      ],
+      "codec": "h264",
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 90000
+      },
+      "itemTrack": "V1",
+      "essenceStreamId": 0,
+      "bitrate": 17003815,
+      "numberOfPackets": 834,
+      "extradata": "01648028FFE1000B67648028ACB403C0113F2A01000468EE0D83",
+      "pid": 1,
+      "duration": {
+        "samples": 2502159,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 90000
+        }
+      },
+      "profile": 100,
+      "level": 40,
+      "startTimestamp": {
+        "samples": 0,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 90000
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "field": [
+      {
+        "key": "originalFilename",
+        "value": "20181229_162536.mp4"
+      }
+    ]
+  }
+}

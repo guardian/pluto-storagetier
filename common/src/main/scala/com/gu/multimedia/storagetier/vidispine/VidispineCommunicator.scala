@@ -232,6 +232,28 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       method = HttpMethods.GET
     ))
   }
+
+  /**
+   * returns a sequence of ShapeDocuments for every shape on the given item.
+   *
+   * @param itemId the item ID to query
+   * @return A Future containing - None if the item was not found, or a (possibly empty) sequence of ShapeDocuments
+   *         representing the individual shapes
+   */
+  def listItemShapes(itemId:String) = {
+    for {
+      shapeIdList <- callToVidispine[ShapeListDocument](HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/shape"))
+      result <- shapeIdList match {
+        case Some(shapeDoc)=>
+          Future
+            .sequence(shapeDoc.uri.map(shapeId=>findItemShape(itemId, shapeId)))
+            .map(_.collect({case Some(shapeDoc)=>shapeDoc}))
+            .map(Some(_))
+        case None=>
+          Future(None)
+      }
+    } yield result
+  }
 }
 
 object VidispineCommunicator {

@@ -5,6 +5,7 @@ import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import io.circe.Json
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.generic.auto._
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
@@ -13,18 +14,20 @@ import utils.ArchiveHunter
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
 class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
                                   (implicit archivedRecordDAO: ArchivedRecordDAO,
                                    failureRecordDAO: FailureRecordDAO,
                                    ignoredRecordDAO: IgnoredRecordDAO,
+                                   vidispineFunctions: VidispineFunctions,
+                                   vidispineCommunicator: VidispineCommunicator,
                                    ec:ExecutionContext,
                                    mat:Materializer,
                                    system:ActorSystem,
                                    uploader: FileUploader) extends MessageProcessor {
   private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
-  import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
   /**
    * assembles a java.nio.Path pointing to the Sweeper file, catching exceptions and converting to a Future
@@ -128,6 +131,98 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+    if(routingKey.startsWith("assetsweeper.asset_folder_importer.file")) {
+      handleNewFile(routingKey, msg)
+    } else if(routingKey=="assetsweeper.replay.file") {
+      handleReplay(routingKey, msg)
+    } else {
+      Future.failed(new RuntimeException(s"Did not recognise routing key $routingKey"))
+    }
+  }
+
+  /**
+   * for a given item, try to find the thumbnails and proxies and upload them all.
+   * this is used when "replaying" existing items in the AssetSweeper database
+   * @param vidispineItemId the vidispine item ID to query
+   * @param archivedRecord ArchivedRecord corresponding to the original media.
+   * @return
+   */
+  def uploadVidispineBits(vidispineItemId:String, archivedRecord: ArchivedRecord) = {
+    val resultsFut = for {
+      itemShapes <- vidispineCommunicator.listItemShapes(vidispineItemId)
+      thumbsResult <- vidispineFunctions.uploadThumbnailsIfRequired(vidispineItemId, None, archivedRecord)
+      shapesResult <- itemShapes match {
+        case Some(shapeDocs)=>
+          logger.info(s"Found ${shapeDocs.length} shapes for $vidispineItemId: ${shapeDocs.map(_.summaryString)}")
+          Future.sequence(
+            shapeDocs.map(shape=>{
+              vidispineFunctions
+                .uploadShapeIfRequired(vidispineItemId,shape.id, shape.tag.headOption.getOrElse(""), archivedRecord)
+                .map(_=>Right( () ))
+                .recover({
+                  case err:SilentDropMessage=>  //don't allow SilentDropMessage to break our loop here
+                    Left("ignored")
+                })
+            })
+          )
+        case None=>Future(Seq())
+      }
+    } yield (thumbsResult, shapesResult)
+
+    resultsFut.map(results=>results._2 :+ results._1)
+  }
+
+  /**
+   * handle a replay notification. This is telling us that we should check that the given record is correctly handled on
+   * our side, as it may have been missed before
+   * @param routingKey
+   * @param msg
+   * @return
+   */
+  def handleReplay(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+    msg.as[AssetSweeperNewFile] match {
+      case Left(err)=>
+        Future(Left(s"Could not parse incoming message: $err"))
+      case Right(newFile)=>
+        val initialUploadFut = for {
+          fullPath <- compositingGetPath(newFile)
+          projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
+          fileUploadResult <- processFileAndProject(fullPath, projectRecord)
+        } yield fileUploadResult
+
+        initialUploadFut.flatMap({
+          case err@Left(_) =>
+            Future(err)
+          case Right(jsonResult) =>
+            newFile.imported_id match {
+              case Some(vidispineItemId) =>
+                val filePathString = Paths.get(newFile.filepath, newFile.filename).toString
+                for {
+                  maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePathString)
+                  result <- maybeArchivedRecord match {
+                    case Some(archivedRecord)=>uploadVidispineBits(vidispineItemId, archivedRecord)
+                    case None=>
+                      logger.error(s"No ArchivedRecord found for $filePathString")
+                      Future(Seq())
+                  }
+                } yield result
+
+                Future( Left( "not implemeneted properly"))
+              case None =>
+                logger.info(s"The item at ${newFile.filepath}/${newFile.filename} is not ingested to Vidispine yet.")
+                Future(Right(jsonResult))
+            }
+        })
+    }
+  }
+
+  /**
+   * handle a notification from Asset Sweeper that a file has been found or updated
+   * @param routingKey message routing key
+   * @param msg message parsed content
+   * @return
+   */
+  def handleNewFile(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     import AssetSweeperNewFile.Decoder._  //need to use custom decoder to properly decode message
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
     msg.as[AssetSweeperNewFile] match {

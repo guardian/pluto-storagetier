@@ -1,6 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import com.gu.multimedia.storagetier.plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
@@ -18,6 +19,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
     "perform an upload and record success if the project is marked as deep-archive" in {
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
@@ -62,6 +65,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
       ignoredRecordDAO.writeRecord(any) returns Future(345)
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
@@ -103,6 +108,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
       ignoredRecordDAO.writeRecord(any) returns Future(345)
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
@@ -129,6 +136,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       uploader.copyFileToS3(any,any) returns Success(("uploaded/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
@@ -169,6 +178,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       uploader.copyFileToS3(any,any) returns Success(("uploaded/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
@@ -209,6 +220,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       uploader.copyFileToS3(any,any) returns Failure(new RuntimeException("My hovercraft is full of eels"))
       uploader.bucketName returns "somebucket"
 
@@ -239,4 +252,6 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
     }
   }
+
+  "AssetSweeperMessageProcessor."
 }
