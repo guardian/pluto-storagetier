@@ -1,0 +1,466 @@
+{
+  "id": "VX-5626",
+  "created": "2020-01-17T15:45:32.839+0000",
+  "essenceVersion": 0,
+  "tag": [
+	"wav-8track"
+  ],
+  "mimeType": [
+	"audio/x-wav"
+  ],
+  "containerComponent": {
+	"duration": {
+	  "samples": 300320000,
+	  "timeBase": {
+		"numerator": 1,
+		"denominator": 1000000
+	  }
+	},
+	"format": "wav",
+	"mediaInfo": {
+	  "property": [
+		{
+		  "key": "Audio codecs",
+		  "value": "PCM"
+		},
+		{
+		  "key": "Audio_Format_List",
+		  "value": "PCM"
+		},
+		{
+		  "key": "Audio_Format_WithHint_List",
+		  "value": "PCM"
+		},
+		{
+		  "key": "Codec",
+		  "value": "Wave"
+		},
+		{
+		  "key": "Codec/Extensions usually used",
+		  "value": "act wav"
+		},
+		{
+		  "key": "Commercial name",
+		  "value": "Wave"
+		},
+		{
+		  "key": "Count",
+		  "value": "325"
+		},
+		{
+		  "key": "Count of audio streams",
+		  "value": "1"
+		},
+		{
+		  "key": "Count of stream of this kind",
+		  "value": "1"
+		},
+		{
+		  "key": "Duration",
+		  "value": "300320"
+		},
+		{
+		  "key": "File extension",
+		  "value": "wav"
+		},
+		{
+		  "key": "File size",
+		  "value": "115773570"
+		},
+		{
+		  "key": "Format",
+		  "value": "Wave"
+		},
+		{
+		  "key": "Format/Extensions usually used",
+		  "value": "act wav"
+		},
+		{
+		  "key": "Internet media type",
+		  "value": "audio/vnd.wave"
+		},
+		{
+		  "key": "Kind of stream",
+		  "value": "General"
+		},
+		{
+		  "key": "Overall bit rate",
+		  "value": "3084006"
+		},
+		{
+		  "key": "Overall bit rate mode",
+		  "value": "CBR"
+		},
+		{
+		  "key": "Proportion of this stream",
+		  "value": "0.00389"
+		},
+		{
+		  "key": "Stream identifier",
+		  "value": "0"
+		},
+		{
+		  "key": "Stream size",
+		  "value": "450690"
+		}
+	  ]
+	},
+	"file": [
+	  {
+		"id": "VX-4222",
+		"path": "VX-4222.wav",
+		"uri": [
+		  "file://path/to/vidispine/Audio/VX-4222.wav"
+		],
+		"state": "CLOSED",
+		"size": 231546930,
+		"hash": "08a55101bb7f0afd9ca919817b5fbb59d86bba5e",
+		"timestamp": "2020-01-17T15:50:05.210+0000",
+		"refreshFlag": 1,
+		"storage": "VX-6",
+		"metadata": {}
+	  }
+	],
+	"id": "VX-6621",
+	"metadata": [
+	  {
+		"key": "componentOriginalFilename",
+		"value": "VX-4222.wav"
+	  }
+	]
+  },
+  "audioComponent": [
+	{
+	  "channelCount": 8,
+	  "channelLayout": 0,
+	  "sampleFormat": "AV_SAMPLE_FMT_S16",
+	  "frameSize": 1,
+	  "blockAlign": 16,
+	  "mediaInfo": {
+		"property": [
+		  {
+			"key": "Bit depth",
+			"value": "16"
+		  },
+		  {
+			"key": "Bit rate",
+			"value": "6144000"
+		  },
+		  {
+			"key": "Bit rate mode",
+			"value": "CBR"
+		  },
+		  {
+			"key": "Channel(s)",
+			"value": "8"
+		  },
+		  {
+			"key": "Codec",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Codec ID",
+			"value": "1"
+		  },
+		  {
+			"key": "Codec ID/Url",
+			"value": "http://www.microsoft.com/windows/"
+		  },
+		  {
+			"key": "Codec settings",
+			"value": "Little / Signed"
+		  },
+		  {
+			"key": "Codec settings, Endianness",
+			"value": "Little"
+		  },
+		  {
+			"key": "Codec settings, Sign",
+			"value": "Signed"
+		  },
+		  {
+			"key": "Codec/CC",
+			"value": "1"
+		  },
+		  {
+			"key": "Codec/Family",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Codec/Info",
+			"value": "Microsoft PCM"
+		  },
+		  {
+			"key": "Codec/Url",
+			"value": "http://www.microsoft.com/windows/"
+		  },
+		  {
+			"key": "Commercial name",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Count",
+			"value": "275"
+		  },
+		  {
+			"key": "Count of stream of this kind",
+			"value": "1"
+		  },
+		  {
+			"key": "Duration",
+			"value": "300320"
+		  },
+		  {
+			"key": "Format",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Format settings",
+			"value": "Little / Signed"
+		  },
+		  {
+			"key": "Format settings, Endianness",
+			"value": "Little"
+		  },
+		  {
+			"key": "Format settings, Sign",
+			"value": "Signed"
+		  },
+		  {
+			"key": "Kind of stream",
+			"value": "Audio"
+		  },
+		  {
+			"key": "Proportion of this stream",
+			"value": "0.99611"
+		  },
+		  {
+			"key": "Resolution",
+			"value": "16"
+		  },
+		  {
+			"key": "Samples count",
+			"value": "14415360"
+		  },
+		  {
+			"key": "Sampling rate",
+			"value": "48000"
+		  },
+		  {
+			"key": "Stream identifier",
+			"value": "0"
+		  },
+		  {
+			"key": "Stream size",
+			"value": "230645760"
+		  }
+		],
+		"Bit_rate_mode": "CBR"
+	  },
+	  "file": [
+		{
+		  "id": "VX-4222",
+		  "path": "VX-4222.wav",
+		  "uri": [
+			"file://path/to/vidispine/Audio/VX-4222.wav"
+		  ],
+		  "state": "CLOSED",
+		  "size": 231546930,
+		  "hash": "08a55101bb7f0afd9ca919817b5fbb59d86bba5e",
+		  "timestamp": "2020-01-17T15:50:05.210+0000",
+		  "refreshFlag": 1,
+		  "storage": "VX-6",
+		  "metadata": {}
+		}
+	  ],
+	  "id": "VX-6622",
+	  "metadata": [
+		{
+		  "key": "componentOriginalFilename",
+		  "value": "VX-4222.A0.wav"
+		}
+	  ],
+	  "codec": "pcm_s16le",
+	  "timeBase": {
+		"numerator": 1,
+		"denominator": 48000
+	  },
+	  "itemTrack": "A1",
+	  "essenceStreamId": 0,
+	  "bitrate": 6144000,
+	  "duration": {
+		"samples": 14415360,
+		"timeBase": {
+		  "numerator": 1,
+		  "denominator": 48000
+		}
+	  }
+	},
+	{
+	  "channelCount": 4,
+	  "channelLayout": 0,
+	  "sampleFormat": "AV_SAMPLE_FMT_S16",
+	  "frameSize": 1,
+	  "blockAlign": 8,
+	  "mediaInfo": {
+		"property": [
+		  {
+			"key": "Bit depth",
+			"value": "16"
+		  },
+		  {
+			"key": "Bit rate",
+			"value": "3072000"
+		  },
+		  {
+			"key": "Bit rate mode",
+			"value": "CBR"
+		  },
+		  {
+			"key": "Channel(s)",
+			"value": "4"
+		  },
+		  {
+			"key": "Codec",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Codec ID",
+			"value": "1"
+		  },
+		  {
+			"key": "Codec ID/Url",
+			"value": "http://www.microsoft.com/windows/"
+		  },
+		  {
+			"key": "Codec settings",
+			"value": "Little / Signed"
+		  },
+		  {
+			"key": "Codec settings, Endianness",
+			"value": "Little"
+		  },
+		  {
+			"key": "Codec settings, Sign",
+			"value": "Signed"
+		  },
+		  {
+			"key": "Codec/CC",
+			"value": "1"
+		  },
+		  {
+			"key": "Codec/Family",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Codec/Info",
+			"value": "Microsoft PCM"
+		  },
+		  {
+			"key": "Codec/Url",
+			"value": "http://www.microsoft.com/windows/"
+		  },
+		  {
+			"key": "Commercial name",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Count",
+			"value": "275"
+		  },
+		  {
+			"key": "Count of stream of this kind",
+			"value": "1"
+		  },
+		  {
+			"key": "Duration",
+			"value": "300320"
+		  },
+		  {
+			"key": "Format",
+			"value": "PCM"
+		  },
+		  {
+			"key": "Format settings",
+			"value": "Little / Signed"
+		  },
+		  {
+			"key": "Format settings, Endianness",
+			"value": "Little"
+		  },
+		  {
+			"key": "Format settings, Sign",
+			"value": "Signed"
+		  },
+		  {
+			"key": "Kind of stream",
+			"value": "Audio"
+		  },
+		  {
+			"key": "Proportion of this stream",
+			"value": "0.99611"
+		  },
+		  {
+			"key": "Resolution",
+			"value": "16"
+		  },
+		  {
+			"key": "Samples count",
+			"value": "14415360"
+		  },
+		  {
+			"key": "Sampling rate",
+			"value": "48000"
+		  },
+		  {
+			"key": "Stream identifier",
+			"value": "0"
+		  },
+		  {
+			"key": "Stream size",
+			"value": "115322880"
+		  }
+		],
+		"Bit_rate_mode": "CBR"
+	  },
+	  "file": [
+		{
+		  "id": "VX-4223",
+		  "path": "VX-4223.A1.wav",
+		  "uri": [
+			"s3://accurate-player/hybrik-test/VX-4223.A1.wav"
+		  ],
+		  "state": "CLOSED",
+		  "size": 115773570,
+		  "hash": "8c21f522fef73f420dba7d7ccaf4a2a752d761f2",
+		  "timestamp": "2020-01-17T15:50:05.210+0000",
+		  "refreshFlag": 1,
+		  "storage": "VX-22",
+		  "metadata": {}
+		}
+	  ],
+	  "id": "VX-6623",
+	  "metadata": [
+		{
+		  "key": "componentOriginalFilename",
+		  "value": "VX-4223.A1.wav"
+		}
+	  ],
+	  "codec": "pcm_s16le",
+	  "timeBase": {
+		"numerator": 1,
+		"denominator": 48000
+	  },
+	  "itemTrack": "A2",
+	  "essenceStreamId": 0,
+	  "bitrate": 3072000,
+	  "duration": {
+		"samples": 14415360,
+		"timeBase": {
+		  "numerator": 1,
+		  "denominator": 48000
+		}
+	  }
+	}
+  ]
+}

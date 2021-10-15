@@ -1,0 +1,209 @@
+{
+  "id": "VX-151335",
+  "created": "2018-09-19T13:59:26.220+0000",
+  "essenceVersion": 0,
+  "tag": [
+	"mp4-noaudio"
+  ],
+  "mimeType": [
+	"video/mp4"
+  ],
+  "containerComponent": {
+	"duration": {
+	  "samples": 888000000,
+	  "timeBase": {
+		"numerator": 1,
+		"denominator": 1000000
+	  }
+	},
+	"format": "mov,mp4,m4a,3gp,3g2,mj2",
+	"firstSMPTETimecode": "00:00:00:00",
+	"startTimecode": 0,
+	"startTimestamp": {
+	  "samples": 0,
+	  "timeBase": {
+		"numerator": 1,
+		"denominator": 6000
+	  }
+	},
+	"roundedTimeBase": 24,
+	"dropFrame": false,
+	"timeCodeTimeBase": {
+	  "numerator": 1,
+	  "denominator": 24
+	},
+	"file": [
+	  {
+		"id": "VX-735825",
+		"path": "VX-735825.mp4",
+		"uri": [
+		  "file:///path/to/vidispine/Proxies/VX-735825.mp4"
+		],
+		"state": "CLOSED",
+		"size": 189325589,
+		"hash": "9d304c3e23bdbe1f153c746679fd2f1f6846f561",
+		"timestamp": "2018-09-19T14:06:44.435+0000",
+		"refreshFlag": 1,
+		"storage": "VX-6",
+		"metadata": {}
+	  }
+	],
+	"id": "VX-451097",
+	"metadata": [
+	  {
+		"key": "creation_time",
+		"value": "1970-01-01 00:00:00"
+	  },
+	  {
+		"key": "componentOriginalFilename",
+		"value": "VX-735825.mp4"
+	  },
+	  {
+		"key": "drop_frame",
+		"value": "false"
+	  },
+	  {
+		"key": "major_brand",
+		"value": "isom"
+	  },
+	  {
+		"key": "rounded_time_base",
+		"value": "24"
+	  },
+	  {
+		"key": "encoder",
+		"value": "Lavf54.128.100"
+	  },
+	  {
+		"key": "start_timecode",
+		"value": "0"
+	  },
+	  {
+		"key": "compatible_brands",
+		"value": "isomiso2avc1mp41"
+	  },
+	  {
+		"key": "minor_version",
+		"value": "512"
+	  }
+	]
+  },
+  "videoComponent": [
+	{
+	  "resolution": {
+		"width": 1280,
+		"height": 720
+	  },
+	  "pixelFormat": "yuv420p",
+	  "maxBFrames": 0,
+	  "pixelAspectRatio": {
+		"horizontal": 1,
+		"vertical": 1
+	  },
+	  "fieldOrder": "progressive",
+	  "codecTimeBase": {
+		"numerator": 1,
+		"denominator": 50
+	  },
+	  "averageFrameRate": {
+		"numerator": 25,
+		"denominator": 1
+	  },
+	  "realBaseFrameRate": {
+		"numerator": 25,
+		"denominator": 1
+	  },
+	  "displayWidth": {
+		"numerator": 1280,
+		"denominator": 1
+	  },
+	  "displayHeight": {
+		"numerator": 720,
+		"denominator": 1
+	  },
+	  "max_packet_size": 82516,
+	  "ticks_per_frame": 2,
+	  "bitDepth": 8,
+	  "bitsPerPixel": 12,
+	  "file": [
+		{
+		  "id": "VX-735825",
+		  "path": "VX-735825.mp4",
+		  "uri": [
+			"file:///path/to/vidispine/Proxies/VX-735825.mp4"
+		  ],
+		  "state": "CLOSED",
+		  "size": 189325589,
+		  "hash": "9d304c3e23bdbe1f153c746679fd2f1f6846f561",
+		  "timestamp": "2018-09-19T14:06:44.435+0000",
+		  "refreshFlag": 1,
+		  "storage": "VX-6",
+		  "metadata": {}
+		}
+	  ],
+	  "id": "VX-451099",
+	  "metadata": [
+		{
+		  "key": "creation_time",
+		  "value": "1970-01-01 00:00:00"
+		},
+		{
+		  "key": "componentOriginalFilename",
+		  "value": "VX-735825.mp4"
+		},
+		{
+		  "key": "handler_name",
+		  "value": "ideoHandler"
+		},
+		{
+		  "key": "language",
+		  "value": "und"
+		},
+		{
+		  "key": "timecode",
+		  "value": "00:00:00:00"
+		}
+	  ],
+	  "codec": "h264",
+	  "timeBase": {
+		"numerator": 1,
+		"denominator": 6000
+	  },
+	  "itemTrack": "V1",
+	  "essenceStreamId": 0,
+	  "bitrate": 1697174,
+	  "numberOfPackets": 21312,
+	  "extradata": "0164001EFFE100296764001EAC2CA50201DF97016A0404048000000300800000187130007A120003D091F8C7076858B96001000568E9335250",
+	  "pid": 1,
+	  "duration": {
+		"samples": 5328000,
+		"timeBase": {
+		  "numerator": 1,
+		  "denominator": 6000
+		}
+	  },
+	  "profile": 100,
+	  "level": 30,
+	  "edl": {
+		"timeScale": {
+		  "numerator": 1,
+		  "denominator": 6000
+		},
+		"entry": [
+		  {
+			"start": 0,
+			"length": 5328000,
+			"mediaRate": 65536
+		  }
+		]
+	  },
+	  "startTimestamp": {
+		"samples": 0,
+		"timeBase": {
+		  "numerator": 1,
+		  "denominator": 6000
+		}
+	  }
+	}
+  ]
+}

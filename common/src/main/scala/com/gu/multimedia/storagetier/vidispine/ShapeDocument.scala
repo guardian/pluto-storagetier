@@ -33,13 +33,15 @@ case class ShapeDocument(
                         tag: Seq[String],
                         mimeType: Seq[String],
                         containerComponent: SimplifiedComponent,
-                        audioComponent: Seq[SimplifiedComponent],
-                        videoComponent: Seq[SimplifiedComponent]
+                        audioComponent: Option[Seq[SimplifiedComponent]],
+                        videoComponent: Option[Seq[SimplifiedComponent]]
                         ) {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def getLikelyFile:Option[VSShapeFile] = {
-    val allComponentFiles = containerComponent.file ++ audioComponent.flatMap(_.file) ++ videoComponent.flatMap(_.file)
+    val audioFiles = audioComponent.getOrElse(Seq.empty[SimplifiedComponent]).flatMap(_.file)
+    val videoFiles = videoComponent.getOrElse(Seq.empty[SimplifiedComponent]).flatMap(_.file)
+    val allComponentFiles = containerComponent.file ++ audioFiles ++ videoFiles
     val fileIdMap = allComponentFiles.foldLeft(Map[String, VSShapeFile]())((acc, elem)=>acc + (elem.id->elem))
     if(fileIdMap.size>1) {
       logger.warn(s"Shape $id with tag(s) ${tag.mkString(";")} has got ${fileIdMap.size} different files attached to it, expected one. Using the first.")
