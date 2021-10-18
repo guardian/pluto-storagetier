@@ -103,7 +103,8 @@ object Main {
       ProcessorConfiguration(
         "vidispine-events",
         Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify", "vidispine.item.metadata.modify"),
-        "storagetier.onlinearchive.vidispineupdate",
+        //we need to treat raw_import.stop and essence_version.stop as new files so that the archivehunter ID is validated
+        Seq("storagetier.onlinearchive.newfile", "storagetier.onlinearchive.newfile", "storagetier.onlinearchive.vidispineupdate", "storagetier.onlinearchive.vidispineupdate"),
         new VidispineMessageProcessor(plutoConfig, deliverablesConfig, uploader, proxyUploader)
       ),
       ProcessorConfiguration(

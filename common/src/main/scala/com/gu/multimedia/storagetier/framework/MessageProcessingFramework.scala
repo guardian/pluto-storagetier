@@ -137,12 +137,23 @@ class MessageProcessingFramework (ingest_queue_name:String,
                 logger.warn(s"MsgID ${properties.getMessageId} Retryable failure: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)
               case Right(returnValue)=>
-                confirmMessage(envelope.getDeliveryTag,
-                  targetConfig.outputRoutingKey,
-                  Option(properties).flatMap(p=>Option(p.getMessageId)),
-                  returnValue,
-                  targetConfig.testingForceReplyId)
-                logger.info(s"MsgID ${properties.getMessageId} Successfully handled message")
+                RoutingKeyMatcher.findMatchingIndex(targetConfig.routingKey, envelope.getRoutingKey) match {
+                  case Some(inputKeyIndex) =>
+                    logger.debug(s"actual routing key ${envelope.getRoutingKey} matches source $inputKeyIndex")
+                    confirmMessage(envelope.getDeliveryTag,
+                      targetConfig.outputRoutingKeys(inputKeyIndex),
+                      Option(properties).flatMap(p => Option(p.getMessageId)),
+                      returnValue,
+                      targetConfig.testingForceReplyId)
+                    logger.info(s"MsgID ${properties.getMessageId} Successfully handled message")
+                  case None =>
+                    logger.error(s"No routing key input spec matched the actual key of ${envelope.getRoutingKey}! Configured input specs were ${targetConfig.routingKey}. Outputting to ${targetConfig.outputRoutingKeys.head}")
+                    confirmMessage(envelope.getDeliveryTag,
+                      targetConfig.outputRoutingKeys.head,
+                      Option(properties).flatMap(p => Option(p.getMessageId)),
+                      returnValue,
+                      targetConfig.testingForceReplyId)
+                }
             }).recover({
               case err:SilentDropMessage=>
                 logger.info(s"Dropping message with id ${properties.getMessageId}: ${err.getMessage}")

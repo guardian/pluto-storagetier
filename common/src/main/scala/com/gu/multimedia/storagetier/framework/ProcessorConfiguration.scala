@@ -12,16 +12,26 @@ import java.util.UUID
  */
 case class ProcessorConfiguration(exchangeName:String,
                                   routingKey:Seq[String],
-                                  outputRoutingKey:String,
+                                  outputRoutingKeys:Seq[String],
                                   processor:MessageProcessor,
                                   testingForceReplyId:Option[UUID]=None)
 
-object ProcessorConfiguration extends ((String, Seq[String], String, MessageProcessor,Option[UUID])=>ProcessorConfiguration) {
+object ProcessorConfiguration extends ((String, Seq[String], Seq[String], MessageProcessor,Option[UUID])=>ProcessorConfiguration) {
+  def apply(exchangeName:String, routingKey:Seq[String], outputRoutingKey:Seq[String], processor:MessageProcessor) = {
+    if(routingKey.length!=outputRoutingKey.length) throw new RuntimeException(s"Processor configuration for $exchangeName is invalid, need equal input/output routing keys")
+    new ProcessorConfiguration(
+      exchangeName,
+      routingKey,
+      outputRoutingKey,
+      processor
+    )
+  }
+
   def apply(exchangeName:String, routingKey:String, outputRoutingKey:String, processor:MessageProcessor) = {
     new ProcessorConfiguration(
       exchangeName,
       Seq(routingKey),
-      outputRoutingKey,
+      Seq(outputRoutingKey),
       processor)
   }
 }
