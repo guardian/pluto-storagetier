@@ -7,7 +7,8 @@ import akka.util.ByteString
 import io.circe.syntax.EncoderOps
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.SilentDropMessage
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO, RetryStates}
+import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.{FileDocument, ShapeDocument, SimplifiedComponent, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
 import io.circe.syntax._
@@ -15,7 +16,7 @@ import io.circe.generic.auto._
 import messages.{VidispineField, VidispineMediaIngested}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.{PlutoCoreConfig}
+import plutocore.PlutoCoreConfig
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 

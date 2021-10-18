@@ -5,7 +5,8 @@ import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import akka.stream.alpakka.s3.scaladsl.S3
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
+import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
 import io.circe.Json

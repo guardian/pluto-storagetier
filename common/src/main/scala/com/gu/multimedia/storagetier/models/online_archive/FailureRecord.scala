@@ -1,25 +1,7 @@
 package com.gu.multimedia.storagetier.models.online_archive
 
+import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import slick.jdbc.PostgresProfile.api._
-
-object ErrorComponents extends Enumeration {
-  val Internal, Vidispine, AWS = Value
-}
-
-object RetryStates extends  Enumeration {
-  val WillRetry, RanOutOfRetries = Value
-}
-
-object FailureEnumMapper {
-  implicit val errorComponentsMapper = MappedColumnType.base[ErrorComponents.Value, String](
-    e=>e.toString,
-    s=>ErrorComponents.withName(s)
-  )
-  implicit val retryStatesMapper = MappedColumnType.base[RetryStates.Value, String](
-    e=>e.toString,
-    s=>RetryStates.withName(s)
-  )
-}
 
 case class FailureRecord(id:Option[Int],
                          originalFilePath:String,
@@ -30,7 +12,7 @@ case class FailureRecord(id:Option[Int],
                         )
 
 class FailureRecordRow(tag:Tag) extends Table[FailureRecord](tag, "onlinearchive_failure_record") {
-  import FailureEnumMapper._
+  import com.gu.multimedia.storagetier.models.common.FailureEnumMapper._
 
   def id=column[Int]("id", O.PrimaryKey, O.AutoInc)
   def originalFilePath = column[String]("s_original_file_path")
