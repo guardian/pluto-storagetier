@@ -400,12 +400,12 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val shapeDoc = ShapeDocument(
         "VX-456",
         "",
-        1,
+        Some(1),
         Seq("lowres"),
         Seq("video/mp4"),
-        SimplifiedComponent("VX-111",Seq(sampleFile)),
-        Seq(SimplifiedComponent("VX-112",Seq(sampleFile))),
-        Seq(SimplifiedComponent("VX-113",Seq(sampleFile)))
+        Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
+        Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
+        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -453,12 +453,12 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val shapeDoc = ShapeDocument(
         "VX-456",
         "",
-        1,
+        Some(1),
         Seq("lowres"),
         Seq("video/mp4"),
-        SimplifiedComponent("VX-111",Seq()),
-        Seq(SimplifiedComponent("VX-112",Seq())),
-        Seq(SimplifiedComponent("VX-113",Seq()))
+        Some(SimplifiedComponent("VX-111",Seq())),
+        Some(Seq(SimplifiedComponent("VX-112",Seq()))),
+        Some(Seq(SimplifiedComponent("VX-113",Seq())))
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -550,12 +550,12 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val shapeDoc = ShapeDocument(
         "VX-456",
         "",
-        1,
+        Some(1),
         Seq("original"),
         Seq("video/mxf"),
-        SimplifiedComponent("VX-111",Seq(sampleFile)),
-        Seq(SimplifiedComponent("VX-112",Seq(sampleFile))),
-        Seq(SimplifiedComponent("VX-113",Seq(sampleFile)))
+        Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
+        Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
+        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -611,12 +611,12 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val shapeDoc = ShapeDocument(
         "VX-456",
         "",
-        1,
+        Some(1),
         Seq("lowres"),
         Seq("video/mp4"),
-        SimplifiedComponent("VX-111",Seq(sampleFile)),
-        Seq(SimplifiedComponent("VX-112",Seq(sampleFile))),
-        Seq(SimplifiedComponent("VX-113",Seq(sampleFile)))
+        Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
+        Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
+        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
