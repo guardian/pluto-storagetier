@@ -72,7 +72,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
     }
 
     "make a request to /API/item/shape for a video with no audio and unmarshal the return value" in {
-      val rawJsonShapeDoc = readSampleDoc("sample_shape_doc_video_no_audio.json")
+      val rawJsonShapeDoc = readSampleDoc("sample_shape_video_no_audio_doc.json")
       val response = HttpResponse(StatusCodes.OK, entity = HttpEntity(rawJsonShapeDoc))
       val mockHttp = mock[HttpExt]
       mockHttp.singleRequest(any,any,any,any) returns Future(response)
@@ -151,6 +151,34 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       )
     }
 
+    "make a request to /API/item/shape for an shape with no files and unmarshal the return value" in {
+      val rawJsonShapeDoc = readSampleDoc("sample_shape_no_files_doc.json")
+      val response = HttpResponse(StatusCodes.OK, entity = HttpEntity(rawJsonShapeDoc))
+      val mockHttp = mock[HttpExt]
+      mockHttp.singleRequest(any,any,any,any) returns Future(response)
+      val toTest = new VidispineCommunicator(fakeConfig) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Await.result(toTest.findItemShape("VX-123","VX-456"), 1.second)
+
+      there was one(mockHttp).singleRequest(org.mockito.ArgumentMatchers.eq(
+        HttpRequest(
+          HttpMethods.GET,
+          "https://test-case/API/item/VX-123/shape/VX-456",
+          List(
+            Accept(MediaRange(MediaTypes.`application/json`)),
+            Authorization(BasicHttpCredentials("test","test"))
+          )
+        )
+      ),any,any,any)
+      result must beSome
+      result.get.id mustEqual "VX-151335"
+      result.get.mimeType mustEqual Seq("unknown")
+      result.get.tag mustEqual Seq("unknown")
+      result.get.getLikelyFile must beNone
+    }
+
     "return None if /API/item/shape returns 404" in {
       val response = HttpResponse(StatusCodes.NotFound)
       val mockHttp = mock[HttpExt]
@@ -173,7 +201,5 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       ),any,any,any)
       result must beNone
     }
-
-
   }
 }
