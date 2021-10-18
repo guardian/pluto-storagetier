@@ -110,3 +110,35 @@ lazy val `online_archive` = (project in file("online_archive"))
       "com.amazonaws" % "aws-java-sdk-s3" % "1.12.73"
     )
   )
+
+lazy val `nearline_archive` = (project in file("nearline_archive"))
+  .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
+  .dependsOn(common)
+  .settings(commonSettings,
+    version := sys.props.getOrElse("build.number","DEV"),
+    dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
+    Docker / daemonUserUid := None,
+    Docker / daemonUser := "daemon",
+    Docker / dockerUsername  := sys.props.get("docker.username"),
+    Docker / dockerRepository := Some("guardianmultimedia"),
+    Docker / packageName := "guardianmultimedia/storagetier-nearline-archive",
+    dockerChmodType := DockerChmodType.Custom("ugo=rx"),
+    dockerAdditionalPermissions += (DockerChmodType.Custom(
+      "ugo=rx"
+    ), "/opt/docker/bin/nearline_archive"),
+    packageName := "storagetier-nearline-archive",
+    dockerBaseImage := "openjdk:11-jdk-slim",
+    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-nearline-archive",Some(sys.props.getOrElse("build.number","DEV"))),
+    libraryDependencies ++= Seq(
+      "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+      "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
+      "org.specs2" %% "specs2-core" % "4.12.3" % Test,
+      "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
+      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
+      "com.amazonaws" % "aws-java-sdk-s3" % "1.12.73"
+    )
+  )
