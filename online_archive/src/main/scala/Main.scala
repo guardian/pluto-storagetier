@@ -102,7 +102,7 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify"),
+        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify", "vidispine.item.metadata.modify"),
         "storagetier.onlinearchive.vidispineupdate",
         new VidispineMessageProcessor(plutoConfig, deliverablesConfig, uploader, proxyUploader)
       ),

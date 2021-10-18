@@ -1,8 +1,10 @@
+import Main.logger
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{ContentType, ContentTypes, MediaTypes}
 import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
+import akka.stream.alpakka.s3.scaladsl.S3
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecordDAO, RetryStates}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
@@ -19,7 +21,7 @@ import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 object VidispineMessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -97,6 +99,44 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     })
   }
 
+  private def addOrUpdateArchiveRecord(archivedRecord: Option[ArchivedRecord], filePath: String, uploadedPath: String, fileSize: Long,
+                               itemId: Option[String], essenceVersion: Option[Int]) = {
+    val record = archivedRecord match {
+      case Some(rec) =>
+        logger.debug(s"actual archivehunter ID for $filePath is ${rec.archiveHunterID}")
+        rec.copy(
+          originalFileSize = fileSize,
+          uploadedPath = uploadedPath,
+          vidispineItemId = itemId,
+          vidispineVersionId = essenceVersion
+        )
+      case None =>
+        val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = mediaFileUploader.bucketName, uploadedPath)
+        logger.debug(s"Provisional archivehunter ID for $uploadedPath is $archiveHunterID")
+        ArchivedRecord(None,
+          archiveHunterID,
+          archiveHunterIDValidated=false,
+          originalFilePath=filePath,
+          originalFileSize=fileSize,
+          uploadedBucket = mediaFileUploader.bucketName,
+          uploadedPath = uploadedPath,
+          uploadedVersion = None,
+          vidispineItemId = itemId,
+          vidispineVersionId = essenceVersion,
+          None,
+          None,
+          None,
+          None,
+          None
+        )
+    }
+
+    logger.info(s"Updating record for ${record.originalFilePath} with vidispine ID ${itemId}, vidispine version ${essenceVersion}. ${if(!record.archiveHunterIDValidated) "ArchiveHunter ID validation is required."}")
+    archivedRecordDAO
+      .writeRecord(record)
+      .map(recId=>Right(record.copy(id=Some(recId)).asJson))
+  }
+
   private def uploadCreateOrUpdateRecord(filePath:String, relativePath:String, mediaIngested: VidispineMediaIngested,
                                          archivedRecord: Option[ArchivedRecord]) = {
     logger.info(s"Archiving file '$filePath' to s3://${mediaFileUploader.bucketName}/$relativePath")
@@ -105,40 +145,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     ).flatMap(fileInfo => {
       val (fileName, fileSize) = fileInfo
       logger.debug(s"$filePath: Upload completed")
-      val record = archivedRecord match {
-        case Some(rec) =>
-          logger.debug(s"actual archivehunter ID for $relativePath is ${rec.archiveHunterID}")
-          rec.copy(
-            originalFileSize = fileSize,
-            uploadedPath = fileName,
-            vidispineItemId = mediaIngested.itemId,
-            vidispineVersionId = mediaIngested.essenceVersion
-          )
-        case None =>
-          val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = mediaFileUploader.bucketName, fileName)
-          logger.debug(s"Provisional archivehunter ID for $relativePath is $archiveHunterID")
-          ArchivedRecord(None,
-            archiveHunterID,
-            archiveHunterIDValidated=false,
-            originalFilePath=filePath,
-            originalFileSize=fileSize,
-            uploadedBucket = mediaFileUploader.bucketName,
-            uploadedPath = fileName,
-            uploadedVersion = None,
-            vidispineItemId = mediaIngested.itemId,
-            vidispineVersionId = mediaIngested.essenceVersion,
-            None,
-            None,
-            None,
-            None,
-            None
-          )
-      }
-
-      logger.info(s"Updating record for ${record.originalFilePath} with vidispine ID ${mediaIngested.itemId}, vidispine version ${mediaIngested.essenceVersion}. ${if(!record.archiveHunterIDValidated) "ArchiveHunter ID validation is required."}")
-      archivedRecordDAO
-        .writeRecord(record)
-        .map(recId=>Right(record.copy(id=Some(recId)).asJson))
+      addOrUpdateArchiveRecord(archivedRecord, filePath, fileName, fileSize, mediaIngested.itemId, mediaIngested.essenceVersion)
     }).recoverWith(err=>{
       val attemptCount = attemptCountFromMDC() match {
         case Some(count)=>count
@@ -364,6 +371,72 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     } yield result
   }
 
+  def uploadMetadataToS3(itemId: String, essenceVersion: Option[Int], archivedRecord: ArchivedRecord): Future[Either[String, Json]] = {
+    vidispineCommunicator.akkaStreamXMLMetadataDocument(itemId).flatMap({
+      case None=>
+        logger.error(s"No metadata present on $itemId")
+        Future.failed(new RuntimeException(s"No metadata present on $itemId"))
+      case Some(entity)=>
+        logger.info(s"Got metadata source from Vidispine: ${entity} uploading to S3 bucket")
+        val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
+        val metadataPath = uploadedPathXtn._1 + "_metadata.xml"
+
+        for {
+          uploadResult <- proxyFileUploader.uploadAkkaStream(entity.dataBytes, metadataPath, entity.contentType, entity.contentLengthOption, allowOverwrite = true)
+          _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, uploadResult.key, uploadResult.bucket, ArchiveHunter.ProxyType.METADATA)
+          updatedRecord <- Future(archivedRecord.copy(
+            proxyBucket = Some(uploadResult.bucket),
+            metadataXML = Some(uploadResult.key),
+            metadataVersion = essenceVersion
+          ))
+          _ <- archivedRecordDAO.writeRecord(updatedRecord)
+        } yield Right(updatedRecord.asJson)
+    }).recoverWith(err=>{
+          val attemptCount = attemptCountFromMDC() match {
+            case Some(count)=>count
+            case None=>
+              logger.warn(s"Could not get attempt count from diagnostic context for $itemId")
+              1
+          }
+
+          val rec = FailureRecord(id = None,
+            originalFilePath = archivedRecord.originalFilePath,
+            attempt = attemptCount,
+            errorMessage = err.getMessage,
+            errorComponent = ErrorComponents.AWS,
+            retryState = RetryStates.WillRetry)
+          failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
+    })
+  }
+
+  def handleMetadataUpdate(msg: Json, mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
+    mediaIngested.itemId match {
+      case Some(itemId) =>
+        for {
+          maybeArchivedItem <- archivedRecordDAO.findByVidispineId(itemId)
+          maybeIgnoredItem <- ignoredRecordDAO.findByVidispineId(itemId)
+          result <- (maybeArchivedItem, maybeIgnoredItem) match {
+            case (_, Some(ignoredItem))=>
+              logger.info(s"Item $itemId is ignored because ${ignoredItem.ignoreReason}, leaving alone")
+              Future.failed(SilentDropMessage())
+            case (Some(archivedItem), None)=>
+              if(archivedItem.archiveHunterIDValidated) {
+                uploadMetadataToS3(itemId, mediaIngested.essenceVersion, archivedItem)
+              } else {
+                logger.info(s"ArchiveHunter ID for ${archivedItem.originalFilePath} has not been validated yet")
+                Future(Left(s"ArchiveHunter ID for ${archivedItem.originalFilePath} has not been validated yet"))
+              }
+            case (None, None)=>
+              logger.info(s"No record of vidispine item $itemId")
+              Future(Left(s"No record of vidispine item $itemId"))
+          }
+        } yield result
+      case None =>
+        logger.error("Metadata update without any item ID")
+        Future.failed(new RuntimeException(s"Received metadata update ${msg.noSpaces} without any itemId"))
+    }
+  }
+
   /**
    * Override this method in your subclass to handle an incoming message
    *
@@ -397,6 +470,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
           case (Some(shapeId), Some(shapeTag), Some(itemId))=>
             handleShapeUpdate(shapeId, shapeTag, itemId)
         }
+      case (Right(updatedMetadata), "vidispine.item.metadata.modify")=>
+        handleMetadataUpdate(msg, updatedMetadata)
       case (_, _)=>
         logger.warn(s"Dropping message $routingKey from vidispine exchange as I don't know how to handle it. This should be fixed in" +
           s" the code.")

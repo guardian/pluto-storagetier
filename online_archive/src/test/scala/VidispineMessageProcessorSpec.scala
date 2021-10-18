@@ -1,9 +1,13 @@
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.{ContentType, HttpEntity}
 import akka.stream.Materializer
+import akka.stream.alpakka.s3.MultipartUploadResult
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
 import io.circe.syntax.EncoderOps
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.SilentDropMessage
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO, RetryStates}
 import com.gu.multimedia.storagetier.vidispine.{FileDocument, ShapeDocument, SimplifiedComponent, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
 import io.circe.syntax._
@@ -11,20 +15,16 @@ import io.circe.generic.auto._
 import messages.{VidispineField, VidispineMediaIngested}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
-import plutocore.PlutoCoreConfig
+import plutocore.{PlutoCoreConfig}
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 
-import java.io.File
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import java.nio.file.{Path, Paths}
-import java.time.ZonedDateTime
 import scala.concurrent.duration.DurationInt
-import scala.util.{Failure, Success, Try}
-import java.io.InputStream
 import scala.util.{Success, Try}
+import java.io.InputStream
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   val fakeDeliverablesConfig = PlutoDeliverablesConfig("Deliverables/",1)
@@ -722,4 +722,349 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       toTest.getRelativePath("/media/root/working_group/production/footage/something.mxf", Some("pluto-deliverables")) must beRight(Paths.get("Deliverables/something.mxf"))
     }
   }
+
+  "VidispineMessageProcessor.handleMetadataUpdate" should {
+    "Fail Future when there is no itemId" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(None)
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+
+      val mockMsg = mock[Json]
+      mockMsg.noSpaces returns "{ 'key': 'value' }"
+
+      val mockMediaIngested = mock[VidispineMediaIngested]
+      mockMediaIngested.itemId returns None
+
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      val result = Try { Await.result(
+        toTest.handleMetadataUpdate(mockMsg, mockMediaIngested),
+        10.seconds
+        )
+      }
+
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      result must beFailedTry
+    }
+
+    "Silent ignore message when there is an IgnoreRecord for the itemId" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val mockArchivedRecord = mock[ArchivedRecord]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+      mockArchivedRecordDAO.findByVidispineId(any) returns Future(Some(mockArchivedRecord))
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val mockIgnoredRecord = mock[IgnoredRecord]
+      mockIgnoredRecord.ignoreReason returns "Top secret!"
+      mockIgnoredRecordDAO.findByVidispineId(any) returns Future(Some(mockIgnoredRecord))
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(None)
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+
+      val mockMsg = mock[Json]
+      mockMsg.noSpaces returns "{ 'key': 'value' }"
+
+      val mockMediaIngested = mock[VidispineMediaIngested]
+      mockMediaIngested.itemId returns Some("VX-123")
+
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      val result = Try { Await.result(
+          toTest.handleMetadataUpdate(mockMsg, mockMediaIngested),
+          10.seconds
+        )
+      }
+
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      result must beAFailedTry(SilentDropMessage())
+    }
+
+    "return Left when there are no records of the itemId" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val mockArchivedRecord = mock[ArchivedRecord]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+      mockArchivedRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val mockIgnoredRecord = mock[IgnoredRecord]
+      mockIgnoredRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(None)
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+
+      val mockMsg = mock[Json]
+      mockMsg.noSpaces returns "{ 'key': 'value' }"
+
+      val mockMediaIngested = mock[VidispineMediaIngested]
+      mockMediaIngested.itemId returns Some("VX-123")
+
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      val result = Await.result(
+        toTest.handleMetadataUpdate(mockMsg, mockMediaIngested),
+        10.seconds
+      )
+
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      result must beLeft("No record of vidispine item VX-123")
+    }
+
+    "return Left when the archivedRecord is not validated" in {
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val mockArchivedRecord = mock[ArchivedRecord]
+      mockArchivedRecord.archiveHunterIDValidated returns false
+      mockArchivedRecord.originalFilePath returns "original/file/path"
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+      mockArchivedRecordDAO.findByVidispineId(any) returns Future(Some(mockArchivedRecord))
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val mockIgnoredRecord = mock[IgnoredRecord]
+      mockIgnoredRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(None)
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val materializer = mock[Materializer]
+
+      val mockMsg = mock[Json]
+      mockMsg.noSpaces returns "{ 'key': 'value' }"
+
+      val mockMediaIngested = mock[VidispineMediaIngested]
+      mockMediaIngested.itemId returns Some("VX-123")
+
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      val result = Await.result(
+        toTest.handleMetadataUpdate(mockMsg, mockMediaIngested),
+        10.seconds
+      )
+
+      there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      result must beLeft("ArchiveHunter ID for original/file/path has not been validated yet")
+    }
+
+    "return updated archivedRecord when metadata has been uploaded" in {
+      val mockArchivedRecord =
+        ArchivedRecord("archive hunter ID", "/path/to/original/file", 123456L, "some-bucket", "/path/to/uploaded/file.mp4", None)
+          .copy(archiveHunterIDValidated = true)
+
+      implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+      mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+      mockArchivedRecordDAO.findByVidispineId(any) returns Future(Some(mockArchivedRecord))
+      implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val mockIgnoredRecord = mock[IgnoredRecord]
+      mockIgnoredRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+      val mockHttpEntity = mock[HttpEntity]
+      val mockDataBytes = mock[Source[ByteString, Any]]
+      val mockContentType = mock[ContentType]
+      val mockContentLengthOption = mock[Option[Long]]
+      mockHttpEntity.dataBytes returns mockDataBytes
+      mockHttpEntity.contentType returns mockContentType
+      mockHttpEntity.contentLengthOption returns mockContentLengthOption
+
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(Some(mockHttpEntity))
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+
+      val mockMediaUploader = mock[FileUploader]
+      val mockProxyUploader = mock[FileUploader]
+      val mockUploadResponse = mock[MultipartUploadResult]
+      mockUploadResponse.key returns "/uploaded/file/path"
+      mockUploadResponse.bucket returns "proxyBucket"
+
+      mockProxyUploader.uploadAkkaStream(any, any, any, any ,any, any)(any, any) returns Future(mockUploadResponse)
+
+      val mockMsg = mock[Json]
+      mockMsg.noSpaces returns "{ 'key': 'value' }"
+
+      val mockMediaIngested = mock[VidispineMediaIngested]
+      mockMediaIngested.itemId returns Some("VX-123")
+      mockMediaIngested.essenceVersion returns Some(2)
+
+      val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+      val result = Await.result(
+        toTest.handleMetadataUpdate(mockMsg, mockMediaIngested),
+        10.seconds
+      )
+
+      there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      result must beRight(mockArchivedRecord
+        .copy(
+          proxyBucket = Some("proxyBucket"),
+          metadataXML = Some("/uploaded/file/path"),
+          metadataVersion = Some(2)
+        ).asJson)
+      }
+    }
+
+    "VidispineMessageProcessor.uploadMetadataToS3" should {
+      "fail Future when there is no metadata for the Vidispine itemId" in {
+        val mockArchivedRecord = mock[ArchivedRecord]
+        implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+        mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+        implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+        implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+        implicit val vsCommunicator = mock[VidispineCommunicator]
+        vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(None)
+        val mockMediaUploader = mock[FileUploader]
+        val mockProxyUploader = mock[FileUploader]
+        implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+        archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+        implicit val actorSystem = mock[ActorSystem]
+        implicit val materializer = mock[Materializer]
+
+        val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+        val result = Try { Await.result(
+          toTest.uploadMetadataToS3("VX-123", Some(1), mockArchivedRecord),
+          10.seconds
+        )}
+
+        there was no(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        result must beFailedTry
+      }
+
+      "return Updated ArchiveRecord when metadata has been uploaded successfully" in {
+        val mockArchivedRecord =
+          ArchivedRecord("archive hunter ID", "/path/to/original/file", 123456L, "some-bucket", "/path/to/uploaded/file.mp4", None)
+            .copy(archiveHunterIDValidated = true)
+
+        implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+        mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+        implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+        implicit val failureRecordDAO = mock[FailureRecordDAO]
+
+        val mockHttpEntity = mock[HttpEntity]
+        val mockDataBytes = mock[Source[ByteString, Any]]
+        val mockContentType = mock[ContentType]
+        val mockContentLengthOption = mock[Option[Long]]
+        mockHttpEntity.dataBytes returns mockDataBytes
+        mockHttpEntity.contentType returns mockContentType
+        mockHttpEntity.contentLengthOption returns mockContentLengthOption
+
+        implicit val actorSystem = mock[ActorSystem]
+        implicit val mat = mock[Materializer]
+        implicit val vsCommunicator = mock[VidispineCommunicator]
+        vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(Some(mockHttpEntity))
+        implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+        archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+
+        val mockMediaUploader = mock[FileUploader]
+        val mockProxyUploader = mock[FileUploader]
+        val mockUploadResponse = mock[MultipartUploadResult]
+        mockUploadResponse.key returns "/uploaded/file/path"
+        mockUploadResponse.bucket returns "proxyBucket"
+
+        mockProxyUploader.uploadAkkaStream(any, any, any, any ,any, any)(any, any) returns Future(mockUploadResponse)
+
+        val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+        val result = Await.result(
+          toTest.uploadMetadataToS3("VX-123", Some(1), mockArchivedRecord),
+          10.seconds
+        )
+
+        there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        result must beRight(mockArchivedRecord
+          .copy(
+            proxyBucket = Some("proxyBucket"),
+            metadataXML = Some("/uploaded/file/path"),
+            metadataVersion = Some(1)
+          ).asJson)
+      }
+
+      "return Left error and write FailureRecord in case of a crash" in {
+        val mockArchivedRecord = mock[ArchivedRecord]
+        mockArchivedRecord.originalFilePath returns "original/path"
+
+        implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
+        mockArchivedRecordDAO.writeRecord(any) returns Future(123)
+        implicit val mockIgnoredRecordDAO = mock[IgnoredRecordDAO]
+        implicit val failureRecordDAO = mock[FailureRecordDAO]
+        failureRecordDAO.writeRecord(any) returns Future(123)
+
+        val mockHttpEntity = mock[HttpEntity]
+        val mockDataBytes = mock[Source[ByteString, Any]]
+        val mockContentType = mock[ContentType]
+        val mockContentLengthOption = mock[Option[Long]]
+        mockHttpEntity.dataBytes returns mockDataBytes
+        mockHttpEntity.contentType returns mockContentType
+        mockHttpEntity.contentLengthOption returns mockContentLengthOption
+
+        implicit val actorSystem = mock[ActorSystem]
+        implicit val mat = mock[Materializer]
+        implicit val vsCommunicator = mock[VidispineCommunicator]
+        vsCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(Some(mockHttpEntity))
+        implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+        archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
+
+        val mockMediaUploader = mock[FileUploader]
+        val mockProxyUploader = mock[FileUploader]
+        val mockUploadResponse = mock[MultipartUploadResult]
+        mockUploadResponse.key returns "/uploaded/file/path"
+        mockUploadResponse.bucket returns "proxyBucket"
+
+        mockProxyUploader.uploadAkkaStream(any, any, any, any ,any, any)(any, any) returns Future.failed(new NullPointerException("Big" +
+          " bang!"))
+
+        val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockMediaUploader, mockProxyUploader)
+
+        val result = Await.result(
+          toTest.uploadMetadataToS3("VX-123", Some(1), mockArchivedRecord),
+          10.seconds
+        )
+
+        val failedRec = FailureRecord(id = None,
+          originalFilePath = "original/path",
+          attempt = 1,
+          errorMessage = "Big bang!",
+          errorComponent = ErrorComponents.AWS,
+          retryState = RetryStates.WillRetry)
+
+        result must beLeft("Big bang!")
+        there was one(failureRecordDAO).writeRecord(failedRec)
+        there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+        there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
+      }
+    }
 }
