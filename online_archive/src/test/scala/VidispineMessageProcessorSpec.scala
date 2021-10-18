@@ -235,7 +235,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       archiveHunterCommunicator.importProxy(any,any,any,any) returns Future( () )
       implicit val actorSystem = mock[ActorSystem]
       implicit val materializer = mock[Materializer]
-      val mockFileUploader = mock[FileUploader]
 
       val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig)
       val result = Await.result(toTest.handleShapeUpdate("VX-456","lowres","VX-123"), 3.seconds)

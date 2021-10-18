@@ -141,38 +141,6 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
   }
 
   /**
-   * for a given item, try to find the thumbnails and proxies and upload them all.
-   * this is used when "replaying" existing items in the AssetSweeper database
-   * @param vidispineItemId the vidispine item ID to query
-   * @param archivedRecord ArchivedRecord corresponding to the original media.
-   * @return
-   */
-  def uploadVidispineBits(vidispineItemId:String, archivedRecord: ArchivedRecord) = {
-    val resultsFut = for {
-      itemShapes <- vidispineCommunicator.listItemShapes(vidispineItemId)
-      thumbsResult <- vidispineFunctions.uploadThumbnailsIfRequired(vidispineItemId, None, archivedRecord)
-      shapesResult <- itemShapes match {
-        case Some(shapeDocs)=>
-          logger.info(s"Found ${shapeDocs.length} shapes for $vidispineItemId: ${shapeDocs.map(_.summaryString)}")
-          Future.sequence(
-            shapeDocs.map(shape=>{
-              vidispineFunctions
-                .uploadShapeIfRequired(vidispineItemId,shape.id, shape.tag.headOption.getOrElse(""), archivedRecord)
-                .map(_=>Right( () ))
-                .recover({
-                  case err:SilentDropMessage=>  //don't allow SilentDropMessage to break our loop here
-                    Left("ignored")
-                })
-            })
-          )
-        case None=>Future(Seq())
-      }
-    } yield (thumbsResult, shapesResult)
-
-    resultsFut.map(results=>results._2 :+ results._1)
-  }
-
-  /**
    * handle a replay notification. This is telling us that we should check that the given record is correctly handled on
    * our side, as it may have been missed before
    * @param routingKey
@@ -184,35 +152,11 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(newFile)=>
-        val initialUploadFut = for {
+        for {
           fullPath <- compositingGetPath(newFile)
           projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
           fileUploadResult <- processFileAndProject(fullPath, projectRecord)
         } yield fileUploadResult
-
-        initialUploadFut.flatMap({
-          case err@Left(_) =>
-            Future(err)
-          case Right(jsonResult) =>
-            newFile.imported_id match {
-              case Some(vidispineItemId) =>
-                val filePathString = Paths.get(newFile.filepath, newFile.filename).toString
-                for {
-                  maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePathString)
-                  result <- maybeArchivedRecord match {
-                    case Some(archivedRecord)=>uploadVidispineBits(vidispineItemId, archivedRecord)
-                    case None=>
-                      logger.error(s"No ArchivedRecord found for $filePathString")
-                      Future(Seq())
-                  }
-                } yield result
-
-                Future( Left( "not implemeneted properly"))
-              case None =>
-                logger.info(s"The item at ${newFile.filepath}/${newFile.filename} is not ingested to Vidispine yet.")
-                Future(Right(jsonResult))
-            }
-        })
     }
   }
 

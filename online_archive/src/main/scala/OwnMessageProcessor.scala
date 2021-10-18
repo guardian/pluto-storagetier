@@ -4,10 +4,11 @@ import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import messages.RevalidateArchiveHunterRequest
+import messages.{AssetSweeperNewFile, RevalidateArchiveHunterRequest}
 import org.slf4j.LoggerFactory
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -15,6 +16,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
                           failureRecordDAO: FailureRecordDAO,
                           archiveHunterCommunicator: ArchiveHunterCommunicator,
+                          vidispineCommunicator:VidispineCommunicator,
+                          vidispineFunctions: VidispineFunctions,
                           ec:ExecutionContext,
                           mat:Materializer,
                           actorSystem: ActorSystem) extends MessageProcessor {
@@ -130,6 +133,73 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
   }
 
   /**
+   * for a given item, try to find the thumbnails and proxies and upload them all.
+   * this is used when "replaying" existing items in the AssetSweeper database
+   * @param vidispineItemId the vidispine item ID to query
+   * @param archivedRecord ArchivedRecord corresponding to the original media.
+   * @return
+   */
+  def uploadVidispineBits(vidispineItemId:String, archivedRecord: ArchivedRecord) =
+    for {
+      itemShapes <- vidispineCommunicator.listItemShapes(vidispineItemId)
+      thumbsResult <- vidispineFunctions.uploadThumbnailsIfRequired(vidispineItemId, None, archivedRecord)
+      shapesResult <- itemShapes match {
+        case Some(shapeDocs)=>
+          logger.info(s"Found ${shapeDocs.length} shapes for $vidispineItemId: ${shapeDocs.map(_.summaryString)}")
+          Future.sequence(
+            shapeDocs.map(shape=>{
+              vidispineFunctions
+                .uploadShapeIfRequired(vidispineItemId,shape.id, shape.tag.headOption.getOrElse(""), archivedRecord)
+                .recover({
+                  case err:SilentDropMessage=>  //don't allow SilentDropMessage to break our loop here
+                    Left("ignored")
+                })
+            })
+          )
+        case None=>Future(Seq())
+      }
+    } yield shapesResult
+
+  def handleReplayStageTwo(msg:Json) = {
+    msg.as[AssetSweeperNewFile] match {
+      case Right(newFile) =>
+        newFile.imported_id match {
+          case Some(vidispineItemId) =>
+            val filePathString = Paths.get(newFile.filepath, newFile.filename).toString
+            for {
+              maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePathString)
+              results <- maybeArchivedRecord match {
+                case Some(archivedRecord) => uploadVidispineBits(vidispineItemId, archivedRecord)
+                case None =>
+                  logger.error(s"No ArchivedRecord found for $filePathString")
+                  Future(Seq())
+              }
+              finalResult <- Future {
+                val failures = results.collect({case Left(err)=>err}).filter(msg=>msg!="ignored")
+                if(failures.nonEmpty) {
+                  logger.warn(s"Could not upload ${failures.length} assets for ${newFile.imported_id}: ")
+                  failures.foreach(msg=>logger.warn("\t$msg\n"))
+                  Left(s"${failures.length} assets failed upload")
+                } else {
+                  if(results.nonEmpty) {
+                    logger.info(s"No extra assets to upload for ${newFile.imported_id}")
+                    throw SilentDropMessage()
+                  } else {
+                    logger.info(s"Successfully uploaded ${results.length} assets for ${newFile.imported_id}")
+                    results.head.right.get
+                  }
+                }
+              }
+            } yield results
+          case None =>
+            logger.info(s"The item at ${newFile.filepath}/${newFile.filename} is not ingested to Vidispine yet.")
+            Future.failed(SilentDropMessage())
+        }
+      case Left(err)=>
+        Future(Left(s"Could not parse incoming message: $err"))
+    }
+  }
+  /**
    * Override this method in your subclass to handle an incoming message
    *
    * @param routingKey the routing key of the message as received from the broker.
@@ -144,6 +214,7 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
       case "storagetier.onlinearchive.newfile.success"=>
         handleArchivehunterValidation(msg)
           .map(_.map(_.asJson))
+      case "storagetier."
       case "storagetier.onlinearchive.request.archivehunter-revalidation"=>
         handleRevalidationList(msg)
       case _=>
