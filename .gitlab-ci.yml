@@ -56,7 +56,7 @@ online_archive:
     - gnm
     - docker
   only:
-    - master
+    - main
     - merge_requests
 
 # 'upload' block based on pluto-core, commented out until we actually have something to upload.
