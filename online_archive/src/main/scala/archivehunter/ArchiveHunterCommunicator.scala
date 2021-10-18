@@ -42,8 +42,6 @@ class ArchiveHunterCommunicator(config:ArchiveHunterConfig) (implicit ec:Executi
                        contentChecksum:String) = {
     val stringtoSign = s"$formattedTime\n$contentLength\n$contentChecksum\n$requestMethod\n${uri.path.toString()}"
 
-    logger.debug(s"stringToSign: $stringtoSign")
-
     val secret = new SecretKeySpec(config.sharedSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA384")
     val mac = Mac.getInstance("HmacSHA384")
     mac.init(secret)

@@ -8,7 +8,7 @@ import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
 import com.amazonaws.services.s3.model.{AmazonS3Exception, ObjectMetadata}
 import com.amazonaws.services.s3.transfer.{TransferManager, TransferManagerBuilder}
 import org.apache.commons.codec.binary.Hex
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.io.{File, InputStream}
 import java.util.Base64
@@ -180,6 +180,9 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     val baseHeaders = S3Headers.empty
     val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
 
+    //make sure we preserve the logger context for when we return from Akka
+    val loggerContext = Option(MDC.getCopyOfContextMap)
+
     def performUpload(keyForUpload:String) = {
       sizeHint match {
         case Some(sizeHint) =>
@@ -207,17 +210,19 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     }
 
     if(allowOverwrite) {
-      performUpload(keyName)
+      performUpload(keyName).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
     } else {
       for {
         (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
         result <- if(shouldUpload) {
-          performUpload(keyToUpload)
+          performUpload(keyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
         } else {
           Future(MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyToUpload)),
             bucketName,
             keyToUpload,
-            etag="", versionId = None))
+            etag="",
+            versionId = None)
+          ).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
         }
       } yield result
     }

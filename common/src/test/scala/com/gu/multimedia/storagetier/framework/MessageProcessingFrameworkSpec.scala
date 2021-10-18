@@ -161,7 +161,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
       val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
-        ProcessorConfiguration("some-exchange",Seq("input.routing.key"), "output.routing.key", mockedMessageProcessor, Some(replyuuid))
+        ProcessorConfiguration("some-exchange",Seq("input.routing.key"), Seq("output.routing.key"), mockedMessageProcessor, Some(replyuuid))
       )
 
       val f = new MessageProcessingFramework("input-queue",

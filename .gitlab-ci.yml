@@ -21,7 +21,7 @@ online_archive:
     - sbt test
     - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
     - docker version
-    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt docker:publishLocal
+    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt 'project online_archive; docker:publishLocal'
     - mv ${HOME}/.sbt .sbt || true
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker tag guardianmultimedia/storagetier-online-archive:$CI_PIPELINE_IID $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
