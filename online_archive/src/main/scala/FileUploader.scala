@@ -188,20 +188,28 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
         case Some(sizeHint) =>
           if (sizeHint > 5242880) {
             val chunkSize = calculateChunkSize(sizeHint).toInt
-            logger.info(s"SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize / 1048576}Mb")
+            logger.info(s"$keyForUpload - SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize / 1048576}Mb")
             src
               .runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, chunkSize = chunkSize, s3Headers = applyHeaders))
           } else {
-            logger.info(s"SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
+            logger.info(s"$keyForUpload - SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
             S3
               .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
               .runWith(Sink.head)
-              .map(objectMetadata => MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)),
-                bucketName,
-                keyForUpload,
-                objectMetadata.eTag.getOrElse(""),
-                objectMetadata.versionId)
-              )
+              .map(objectMetadata => {
+                Try { Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)) } match {
+                  case Success(uri)=>
+                    MultipartUploadResult(
+                      uri,
+                      bucketName,
+                      keyForUpload,
+                      objectMetadata.eTag.getOrElse(""),
+                      objectMetadata.versionId)
+                  case Failure(err)=>
+                    logger.error(s"Could not generate a URI for bucket $bucketName and path $keyForUpload: $err")
+                    throw err
+                }
+              })
           }
         case None =>
           logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyForUpload. Trying default multipart upload, this may fail!")
