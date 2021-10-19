@@ -72,7 +72,7 @@ lazy val `mxscopy` = (project in file("mxs-copy-components"))
       "io.circe" %% "circe-parser" % circeVersion,
       "org.slf4j" % "slf4j-api" % slf4jVersion,
       "commons-codec" % "commons-codec" % "1.15",
-      "commons-io" % "commons-io" % "2.6",
+      "commons-io" % "commons-io" % "2.7",
       "ch.qos.logback" % "logback-classic" % "1.2.6",
       "com.github.scopt" %% "scopt" % "4.0.1",
       "org.specs2" %% "specs2-core" % "4.12.12" % Test,
