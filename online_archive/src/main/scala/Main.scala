@@ -109,7 +109,7 @@ object Main {
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
-        Seq("storagetier.onlinearchive.newfile.success","storagetier.onlinearchive.request.*","storagetier.onlinearchive.replay"),
+        Seq("storagetier.onlinearchive.newfile.success","storagetier.onlinearchive.request.*","storagetier.onlinearchive.replay.success"),
         Seq("storagetier.onlinearchive.mediaingest","storagetier.onlinearchive.requested","storagetier.onlinearchive.replayed"),
         new OwnMessageProcessor()
       )
