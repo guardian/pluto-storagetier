@@ -53,7 +53,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         None,
         None
       )
-      val result = Await.result(toTest.handleArchivehunterValidation(incomingRecord.asJson), 3.seconds)
+      val result = Await.result(toTest.handleArchivehunterValidation(incomingRecord), 3.seconds)
 
       result must beRight(updatedRecord)
       there was one(archiveHunterCommunicator).lookupArchivehunterId("abcdefg","testbucket","path/to/some.file")
@@ -95,7 +95,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         None,
         None
       )
-      val result = Await.result(toTest.handleArchivehunterValidation(incomingRecord.asJson), 3.seconds)
+      val result = Await.result(toTest.handleArchivehunterValidation(incomingRecord), 3.seconds)
 
       result must beLeft
       there was one(archiveHunterCommunicator).lookupArchivehunterId("abcdefg","testbucket","path/to/some.file")
@@ -137,7 +137,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         None,
         None
       )
-      val result = Try { Await.result(toTest.handleArchivehunterValidation(incomingRecord.asJson), 3.seconds) }
+      val result = Try { Await.result(toTest.handleArchivehunterValidation(incomingRecord), 3.seconds) }
 
       result must beFailedTry
       there was one(archiveHunterCommunicator).lookupArchivehunterId("abcdefg","testbucket","path/to/some.file")
@@ -146,31 +146,6 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was one(failureRecordDAO).writeRecord(any)
     }
 
-    "return a failure if the given message is not in the right format" in {
-      implicit val mat:Materializer = mock[Materializer]
-      implicit val system:ActorSystem = mock[ActorSystem]
-      implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
-      implicit val failureRecordDAO = mock[FailureRecordDAO]
-      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
-      implicit val vidispineFunctions = mock[VidispineFunctions]
-
-      archiveHunterCommunicator.lookupArchivehunterId(any,any,any) returns Future.failed(new RuntimeException("kaboom"))
-      val updatedRecord = mock[ArchivedRecord]
-      archivedRecordDAO.getRecord(any) returns Future(Some(updatedRecord))
-      archivedRecordDAO.updateIdValidationStatus(any,any) returns Future(1)
-
-      val toTest = new OwnMessageProcessor()
-
-      val incomingRecord = Map[String,String]("key"->"value")
-      val result = Try { Await.result(toTest.handleArchivehunterValidation(incomingRecord.asJson), 3.seconds) }
-
-      result must beFailedTry
-      there was no(archiveHunterCommunicator).lookupArchivehunterId(any,any,any)
-      there was no(archivedRecordDAO).updateIdValidationStatus(any,any)
-      there was no(archivedRecordDAO).getRecord(any)
-      there was no(failureRecordDAO).writeRecord(any)
-    }
   }
 
   "OwnMessageProcessor.handleRevalidationList" should {
@@ -200,10 +175,10 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
-      val mockHandleArchivehunterValidation = mock[(Json)=>Future[Either[String, ArchivedRecord]]]
-      mockHandleArchivehunterValidation.apply(any[Json]) returns Future(Right(mock[ArchivedRecord]))
+      val mockHandleArchivehunterValidation = mock[(ArchivedRecord)=>Future[Either[String, ArchivedRecord]]]
+      mockHandleArchivehunterValidation.apply(any[ArchivedRecord]) returns Future(Right(mock[ArchivedRecord]))
       val toTest = new OwnMessageProcessor() {
-        override def handleArchivehunterValidation(msg: Json): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(msg)
+        override def handleArchivehunterValidation(rec:ArchivedRecord): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(rec)
       }
 
       val result = Try { Await.result(toTest.handleRevalidationList(req.asJson), 2.seconds) }
@@ -215,11 +190,11 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was one(archivedRecordDAO).getRecord(13)
       there was 5.times(archivedRecordDAO).getRecord(any)
 
-      there was one(mockHandleArchivehunterValidation).apply(records.head.asJson)
-      there was one(mockHandleArchivehunterValidation).apply(records(1).asJson)
-      there was one(mockHandleArchivehunterValidation).apply(records(2).asJson)
-      there was one(mockHandleArchivehunterValidation).apply(records(3).asJson)
-      there was one(mockHandleArchivehunterValidation).apply(records(4).asJson)
+      there was one(mockHandleArchivehunterValidation).apply(records.head)
+      there was one(mockHandleArchivehunterValidation).apply(records(1))
+      there was one(mockHandleArchivehunterValidation).apply(records(2))
+      there was one(mockHandleArchivehunterValidation).apply(records(3))
+      there was one(mockHandleArchivehunterValidation).apply(records(4))
 
       there was 5.times(mockHandleArchivehunterValidation).apply(any)
     }
@@ -248,10 +223,10 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
-      val mockHandleArchivehunterValidation = mock[(Json)=>Future[Either[String, ArchivedRecord]]]
-      mockHandleArchivehunterValidation.apply(any[Json]) returns Future(Right(mock[ArchivedRecord]))
+      val mockHandleArchivehunterValidation = mock[(ArchivedRecord)=>Future[Either[String, ArchivedRecord]]]
+      mockHandleArchivehunterValidation.apply(any[ArchivedRecord]) returns Future(Right(mock[ArchivedRecord]))
       val toTest = new OwnMessageProcessor() {
-        override def handleArchivehunterValidation(msg: Json): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(msg)
+        override def handleArchivehunterValidation(rec: ArchivedRecord): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(rec)
       }
 
       val result = Try { Await.result(toTest.handleRevalidationList(req.asJson), 2.seconds) }
@@ -263,9 +238,9 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was one(archivedRecordDAO).getRecord(13)
       there was 5.times(archivedRecordDAO).getRecord(any)
 
-      there was one(mockHandleArchivehunterValidation).apply(records.head.asJson)
-      there was one(mockHandleArchivehunterValidation).apply(records(2).asJson)
-      there was one(mockHandleArchivehunterValidation).apply(records(4).asJson)
+      there was one(mockHandleArchivehunterValidation).apply(records.head)
+      there was one(mockHandleArchivehunterValidation).apply(records(2))
+      there was one(mockHandleArchivehunterValidation).apply(records(4))
 
       there was 3.times(mockHandleArchivehunterValidation).apply(any)
     }
@@ -351,7 +326,12 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, MessageProcessorReturnValue]]]]
       mockUploadVidispineBits.apply(any,any) returns Future(Seq(Left("ignored"), Right(archivedRecord.asJson)))
+
+      val mockHandleArchivehunterValidation = mock[(ArchivedRecord)=>Future[Either[String, ArchivedRecord]]]
+      mockHandleArchivehunterValidation.apply(any) answers ((rec:Any)=>Future(Right(rec.asInstanceOf[ArchivedRecord])))
+
       val toTest = new OwnMessageProcessor() {
+        override def handleArchivehunterValidation(rec: ArchivedRecord): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(rec)
         override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
@@ -365,11 +345,12 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       result.get must beRight
       result.get.getOrElse(null).content.as[ArchivedRecord] must beRight(archivedRecord)
 
+      there was one(mockHandleArchivehunterValidation).apply(archivedRecord)
       there was one(archivedRecordDAO).findBySourceFilename("/path/to/original.file")
       there was one(mockUploadVidispineBits).apply("VX-1234", archivedRecord)
     }
 
-    "retry if there was no archived record found" in {
+    "fail if there was no archived record found" in {
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
@@ -390,8 +371,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         123, 456, "/path/to", "original.file")
 
       val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
-      result must beSuccessfulTry
-      result.get must beLeft("no ArchivedRecord found for /path/to/original.file")
+      result must beFailedTry
+      result.failed.get.getMessage mustEqual("The given asset sweeper record for /path/to/original.file is not imported yet")
 
       there was one(archivedRecordDAO).findBySourceFilename("/path/to/original.file")
       there was no(mockUploadVidispineBits).apply(any, any)
@@ -410,7 +391,12 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, MessageProcessorReturnValue]]]]
       mockUploadVidispineBits.apply(any,any) returns Future.failed(new RuntimeException("Kaboom!"))
+
+      val mockHandleArchivehunterValidation = mock[(ArchivedRecord)=>Future[Either[String, ArchivedRecord]]]
+      mockHandleArchivehunterValidation.apply(any) answers ((rec:Any)=>Future(Right(rec.asInstanceOf[ArchivedRecord])))
+
       val toTest = new OwnMessageProcessor() {
+        override def handleArchivehunterValidation(rec: ArchivedRecord): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(rec)
         override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
@@ -425,6 +411,42 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       there was one(archivedRecordDAO).findBySourceFilename("/path/to/original.file")
       there was one(mockUploadVidispineBits).apply("VX-1234", archivedRecord)
+    }
+
+    "return a retryable failure if the validation fails" in {
+      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1))
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val system:ActorSystem = mock[ActorSystem]
+      implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
+      archivedRecordDAO.findBySourceFilename(any) returns Future(Some(archivedRecord))
+      implicit val failureRecordDAO = mock[FailureRecordDAO]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+
+      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, MessageProcessorReturnValue]]]]
+      mockUploadVidispineBits.apply(any,any) returns Future.failed(new RuntimeException("Kaboom!"))
+
+      val mockHandleArchivehunterValidation = mock[(ArchivedRecord)=>Future[Either[String, ArchivedRecord]]]
+      mockHandleArchivehunterValidation.apply(any) answers ((rec:Any)=>Future(Left("ArchiveHunter ID is not validated yet")))
+
+      val toTest = new OwnMessageProcessor() {
+        override def handleArchivehunterValidation(rec: ArchivedRecord): Future[Either[String, ArchivedRecord]] = mockHandleArchivehunterValidation(rec)
+        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
+      }
+
+      val msg = AssetSweeperNewFile(Some("VX-1234"),
+        12345L, false, "video/mxf",
+        ZonedDateTime.now(), ZonedDateTime.now(), ZonedDateTime.now(),
+        123, 456, "/path/to", "original.file")
+
+      val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
+      result must beASuccessfulTry
+      result.get must beLeft("ArchiveHunter ID is not validated yet")
+
+      there was one(archivedRecordDAO).findBySourceFilename("/path/to/original.file")
+      there was one(mockHandleArchivehunterValidation).apply(archivedRecord)
+      there was no(mockUploadVidispineBits).apply("VX-1234", archivedRecord)
     }
   }
 }

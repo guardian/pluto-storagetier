@@ -60,46 +60,40 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
   /**
    * perform validation of the ArchiveHunter ID contained in the message
    *
-   * @param msg parsed JSON of the incoming message. This is expected to be an ArchivedRecord and the future will fail
-   *            if it can't be unmarshalled.
+   * @param rec ArchivedRecord to be validated.
    * @return a Future, with either a Left indicating a retryable error or a Right with an updated message indicating success.
    *         If a non-retryable error occurs then the Future will be failed.
    */
-  def handleArchivehunterValidation(msg: Json) = {
-    msg.as[ArchivedRecord] match {
-      case Left(err)=>
-        Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ArchivedRecord: $err"))
-      case Right(rec)=>
-        if(rec.archiveHunterIDValidated) {
-          logger.info(s"Archivehunter ID ${rec.archiveHunterID} already validated for s3://${rec.uploadedBucket}/${rec.uploadedPath}, leaving it")
-          Future(Right(rec))
-        } else {
-          logger.info(s"Performing archivehunter validation on s3://${rec.uploadedBucket}/${rec.uploadedPath}")
-          archiveHunterCommunicator
-            .lookupArchivehunterId(rec.archiveHunterID, rec.uploadedBucket, rec.uploadedPath)
-            .flatMap({
-              case true=> //the ID matches
-                logger.info(s"Successfully validated s3://${rec.uploadedBucket}/${rec.uploadedPath}")
-                recordSuccessfulValidation(rec)
-              case false=> //the ID does not exist
-                logger.info(s"Archive hunter ID for ${rec.originalFilePath} does not exist, will retry")
-                Future(Left("Archivehunter ID does not exist yet, will retry"))
-            })
-        }.recoverWith({
-          case err:Throwable=>
-            val failure = FailureRecord(
-              None,
-              rec.originalFilePath,
-              1,
-              s"Uncaught exception: ${err.getMessage}",
-              ErrorComponents.Internal,
-              RetryStates.RanOutOfRetries
-            )
-            failureRecordDAO
-              .writeRecord(failure)
-              .flatMap(_=>Future.failed(err))
+  def handleArchivehunterValidation(rec:ArchivedRecord) = {
+    if(rec.archiveHunterIDValidated) {
+      logger.info(s"Archivehunter ID ${rec.archiveHunterID} already validated for s3://${rec.uploadedBucket}/${rec.uploadedPath}, leaving it")
+      Future(Right(rec))
+    } else {
+      logger.info(s"Performing archivehunter validation on s3://${rec.uploadedBucket}/${rec.uploadedPath}")
+      archiveHunterCommunicator
+        .lookupArchivehunterId(rec.archiveHunterID, rec.uploadedBucket, rec.uploadedPath)
+        .flatMap({
+          case true=> //the ID matches
+            logger.info(s"Successfully validated s3://${rec.uploadedBucket}/${rec.uploadedPath}")
+            recordSuccessfulValidation(rec)
+          case false=> //the ID does not exist
+            logger.info(s"Archive hunter ID for ${rec.originalFilePath} does not exist, will retry")
+            Future(Left("Archivehunter ID does not exist yet, will retry"))
         })
-    }
+    }.recoverWith({
+      case err:Throwable=>
+        val failure = FailureRecord(
+          None,
+          rec.originalFilePath,
+          1,
+          s"Uncaught exception: ${err.getMessage}",
+          ErrorComponents.Internal,
+          RetryStates.RanOutOfRetries
+        )
+        failureRecordDAO
+          .writeRecord(failure)
+          .flatMap(_=>Future.failed(err))
+    })
   }
 
   def handleRevalidationList(msg:Json):Future[Either[String, MessageProcessorReturnValue]] = {
@@ -114,10 +108,10 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
           records <- Future.sequence(rec.id.map(requestedId => archivedRecordDAO.getRecord(requestedId).recover(_ => None)))
           results <- Future.sequence(
             records
-              .collect({ case Some(rec) => rec })
-              .map(rec =>
-                handleArchivehunterValidation(rec.asJson)
-                  .recover({ case err: Throwable => Left(err.getMessage) })
+              .collect({case Some(rec)=>rec})
+              .map(rec=>
+                handleArchivehunterValidation(rec)
+                  .recover({case err:Throwable=>Left(err.getMessage)})
               )
           )
         } yield results
@@ -164,42 +158,53 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
       _ <- vidispineFunctions.uploadMetadataToS3(vidispineItemId, None, archivedRecord)
     } yield shapesResult
 
+  private def handleReplayUpload(newFile:AssetSweeperNewFile, vidispineItemId:String, filePathString:String, archivedRecord:ArchivedRecord) =
+    for {
+      results <- uploadVidispineBits(vidispineItemId, archivedRecord)
+      finalResult <- Future {
+        val failures = results.collect({case Left(err)=>err}).filter(msg=>msg!="ignored")
+        if(failures.nonEmpty) {
+          logger.warn(s"Could not upload ${failures.length} assets for ${newFile.imported_id}: ")
+          failures.foreach(msg=>logger.warn(s"\t$msg\n"))
+          if(failures.head=="no archivedRecord") {
+            Left(s"no ArchivedRecord found for $filePathString")
+          } else {
+            Left(s"${failures.length} assets failed upload")
+          }
+        } else {
+          val successes = results.collect({case Right(json)=>json})
+          if(successes.isEmpty) {
+            logger.info(s"No extra assets to upload for ${newFile.imported_id}")
+            throw SilentDropMessage()
+          } else {
+            logger.info(s"Successfully uploaded ${results.length} assets for ${newFile.imported_id}")
+            Right(successes.head)
+          }
+        }
+      }
+    } yield finalResult
+
   def handleReplayStageTwo(msg:Json) = {
     msg.as[AssetSweeperNewFile] match {
       case Right(newFile) =>
         newFile.imported_id match {
           case Some(vidispineItemId) =>
             val filePathString = Paths.get(newFile.filepath, newFile.filename).toString
-            for {
+            val validationResult = for {
               maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePathString)
-              results <- maybeArchivedRecord match {
-                case Some(archivedRecord) => uploadVidispineBits(vidispineItemId, archivedRecord)
-                case None =>
-                  logger.error(s"No ArchivedRecord found for $filePathString")
-                  Future(Seq(Left("no archivedRecord")))
+              maybeArchiveHunterValidated <- maybeArchivedRecord match {
+                case Some(archivedRecord)=>handleArchivehunterValidation(archivedRecord)
+                case None=>
+                  Future.failed(new RuntimeException(s"The given asset sweeper record for ${newFile.filepath}/${newFile.filename} is not imported yet"))
               }
-              finalResult <- Future {
-                val failures = results.collect({case Left(err)=>err}).filter(msg=>msg!="ignored")
-                if(failures.nonEmpty) {
-                  logger.warn(s"Could not upload ${failures.length} assets for ${newFile.imported_id}: ")
-                  failures.foreach(msg=>logger.warn("\t$msg\n"))
-                  if(failures.head=="no archivedRecord") {
-                    Left(s"no ArchivedRecord found for $filePathString")
-                  } else {
-                    Left(s"${failures.length} assets failed upload")
-                  }
-                } else {
-                  val successes = results.collect({case Right(json)=>json})
-                  if(successes.isEmpty) {
-                    logger.info(s"No extra assets to upload for ${newFile.imported_id}")
-                    throw SilentDropMessage()
-                  } else {
-                    logger.info(s"Successfully uploaded ${results.length} assets for ${newFile.imported_id}")
-                    Right(successes.head)
-                  }
-                }
-              }
-            } yield finalResult
+            } yield maybeArchiveHunterValidated
+
+            validationResult.flatMap({
+              case Left(retryableErr)=>
+                Future(Left(retryableErr))
+              case Right(updatedArchivedRecord)=>
+                handleReplayUpload(newFile, vidispineItemId, filePathString, updatedArchivedRecord)
+            })
           case None =>
             logger.info(s"The item at ${newFile.filepath}/${newFile.filename} is not ingested to Vidispine yet.")
             Future.failed(SilentDropMessage())
@@ -221,8 +226,14 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     routingKey match {
       case "storagetier.onlinearchive.newfile.success"=>
-        handleArchivehunterValidation(msg)
-          .map(_.map(_.asJson))
+        msg.as[ArchivedRecord] match {
+          case Left(err)=>
+            Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ArchivedRecord: $err"))
+          case Right(file)=>
+            handleArchivehunterValidation(file)
+              .map(_.map(_.asJson))
+        }
+
       case "storagetier.onlinearchive.replay"=>
         handleReplayStageTwo(msg)
       case "storagetier.onlinearchive.request.archivehunter-revalidation"=>
