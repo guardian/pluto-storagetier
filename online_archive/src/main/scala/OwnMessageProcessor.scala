@@ -158,6 +158,7 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
           )
         case None=>Future(Seq())
       }
+      _ <- vidispineFunctions.uploadMetadataToS3(vidispineItemId, None, archivedRecord)
     } yield shapesResult
 
   def handleReplayStageTwo(msg:Json) = {
@@ -172,25 +173,30 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
                 case Some(archivedRecord) => uploadVidispineBits(vidispineItemId, archivedRecord)
                 case None =>
                   logger.error(s"No ArchivedRecord found for $filePathString")
-                  Future(Seq())
+                  Future(Seq(Left("no archivedRecord")))
               }
               finalResult <- Future {
                 val failures = results.collect({case Left(err)=>err}).filter(msg=>msg!="ignored")
                 if(failures.nonEmpty) {
                   logger.warn(s"Could not upload ${failures.length} assets for ${newFile.imported_id}: ")
                   failures.foreach(msg=>logger.warn("\t$msg\n"))
-                  Left(s"${failures.length} assets failed upload")
+                  if(failures.head=="no archivedRecord") {
+                    Left(s"no ArchivedRecord found for $filePathString")
+                  } else {
+                    Left(s"${failures.length} assets failed upload")
+                  }
                 } else {
-                  if(results.nonEmpty) {
+                  val successes = results.collect({case Right(json)=>json})
+                  if(successes.isEmpty) {
                     logger.info(s"No extra assets to upload for ${newFile.imported_id}")
                     throw SilentDropMessage()
                   } else {
                     logger.info(s"Successfully uploaded ${results.length} assets for ${newFile.imported_id}")
-                    results.head.right.get
+                    Right(successes.head)
                   }
                 }
               }
-            } yield results
+            } yield finalResult
           case None =>
             logger.info(s"The item at ${newFile.filepath}/${newFile.filename} is not ingested to Vidispine yet.")
             Future.failed(SilentDropMessage())
@@ -214,7 +220,8 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
       case "storagetier.onlinearchive.newfile.success"=>
         handleArchivehunterValidation(msg)
           .map(_.map(_.asJson))
-      case "storagetier."
+      case "storagetier.onlinearchive.replay"=>
+        handleReplayStageTwo(msg)
       case "storagetier.onlinearchive.request.archivehunter-revalidation"=>
         handleRevalidationList(msg)
       case _=>
