@@ -49,22 +49,33 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       logger.debug(s"$fullPath: Upload completed")
       val archiveHunterID = ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
       logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
-      val rec = ArchivedRecord(archiveHunterID,
-        originalFilePath=fullPath.toString,
-        originalFileSize=fileSize,
-        uploadedBucket = uploader.bucketName,
-        uploadedPath = fileName,
-        uploadedVersion = None)
-
       archivedRecordDAO
-        .writeRecord(rec)
-        .map(recId=>
-          Right(
-            rec
-              .copy(id=Some(recId))
-              .asJson
+        .findBySourceFilename(fullPath.toString)
+        .map({
+          case Some(existingRecord)=>
+            existingRecord.copy(
+              uploadedBucket = uploader.bucketName,
+              uploadedPath = fileName,
+              uploadedVersion = None
+            )
+          case None=>
+            ArchivedRecord(archiveHunterID,
+              originalFilePath=fullPath.toString,
+              originalFileSize=fileSize,
+              uploadedBucket = uploader.bucketName,
+              uploadedPath = fileName,
+              uploadedVersion = None)
+        }).flatMap(rec=>{
+          archivedRecordDAO
+            .writeRecord(rec)
+            .map(recId =>
+              Right(
+                rec
+                  .copy(id = Some(recId))
+                  .asJson
+              )
           )
-        )
+      })
     }).recoverWith(err=>{
       val attemptCount = attemptCountFromMDC() match {
         case Some(count)=>count
