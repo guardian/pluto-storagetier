@@ -1,18 +1,20 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import com.gu.multimedia.storagetier.plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
-
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 import java.time.ZonedDateTime
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
+import io.circe.syntax._
 
 class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
   "AssetSweeperMessageProcessor.processFileAndProject" should {
@@ -253,5 +255,60 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
     }
   }
 
-  "AssetSweeperMessageProcessor."
+  "AssetSweeperMessageProcessor.handleReplay" should {
+    "look up the corresponding pluto-core project and call processFileAndProject" in {
+      implicit val archivedRecordDAO: ArchivedRecordDAO = mock[ArchivedRecordDAO]
+      archivedRecordDAO.writeRecord(any) returns Future(123)
+      implicit val vidispineFunctions = mock[VidispineFunctions]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val ignoredRecordDAO: IgnoredRecordDAO = mock[IgnoredRecordDAO]
+      ignoredRecordDAO.writeRecord(any) returns Future(345)
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val uploader: FileUploader = mock[FileUploader]
+
+      val fakeProject = mock[ProjectRecord]
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.deletable returns None
+      fakeProject.sensitive returns None
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      mockAssetFolderLookup.assetFolderProjectLookup(any) returns Future(Some(fakeProject))
+
+      val mockProcessFile = mock[(Path, Option[ProjectRecord])=>Future[Either[String, MessageProcessorReturnValue]]]
+      mockProcessFile.apply(any,any) returns Future(Right(Map("fake"->"result").asJson))
+      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://pluto.base.uri", "shared-secret", Paths.get("/path/to/assets"))) {
+        override protected lazy val asLookup: AssetFolderLookup = mockAssetFolderLookup
+
+        override def processFileAndProject(fullPath: Path, maybeProject: Option[ProjectRecord]): Future[Either[String, MessageProcessorReturnValue]] = mockProcessFile(fullPath, maybeProject)
+      }
+
+      val msgContent =
+        """{
+          |"imported_id":"VX-1234",
+          |"size":123456,
+          |"ignore":false,
+          |"mime_type":"application/mxf",
+          |"mtime":1634654625,
+          |"ctime":1634654625,
+          |"atime":1634654625,
+          |"owner":1234,
+          |"group":2345,
+          |"parent_dir":"/path/to/assets/project",
+          |"filename":"somefile.mxf"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+      val result = Try {
+        Await.result(toTest.handleMessage("assetsweeper.replay.file", msg.right.get), 2.seconds)
+      }
+
+      result must beASuccessfulTry
+      result.get must beRight(MessageProcessorReturnValue(Map("fake"->"result").asJson))
+      there was one(mockAssetFolderLookup).assetFolderProjectLookup(Paths.get("/path/to/assets/project/somefile.mxf"))
+      there was one(mockProcessFile).apply(Paths.get("/path/to/assets/project/somefile.mxf"), Some(fakeProject))
+    }
+  }
 }

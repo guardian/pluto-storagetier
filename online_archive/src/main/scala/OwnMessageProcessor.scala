@@ -8,9 +8,12 @@ import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import messages.{AssetSweeperNewFile, RevalidateArchiveHunterRequest}
+import messages.RevalidateArchiveHunterRequest
 import org.slf4j.LoggerFactory
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
+
+import java.nio.file.Paths
 import scala.concurrent.{ExecutionContext, Future}
 
 class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,

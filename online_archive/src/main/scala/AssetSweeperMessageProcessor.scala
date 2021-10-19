@@ -26,7 +26,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
                                    mat:Materializer,
                                    system:ActorSystem,
                                    uploader: FileUploader) extends MessageProcessor {
-  private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
+  protected lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
@@ -148,6 +148,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    * @return
    */
   def handleReplay(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+    import AssetSweeperNewFile.Decoder._  //need to use custom decoder to properly decode message
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))

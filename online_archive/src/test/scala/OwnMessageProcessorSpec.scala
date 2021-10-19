@@ -1,7 +1,8 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
-import com.gu.multimedia.storagetier.framework.SilentDropMessage
+import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, SilentDropMessage}
+import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VidispineCommunicator}
 import io.circe.Json
@@ -9,8 +10,8 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import io.circe.generic.auto._
 import io.circe.syntax._
-import messages.{AssetSweeperNewFile, RevalidateArchiveHunterRequest}
-
+import messages.RevalidateArchiveHunterRequest
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import java.time.ZonedDateTime
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -288,7 +289,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       vidispineFunctions.uploadThumbnailsIfRequired(any,any,any) returns Future(Right( () ))
       vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("original"), any) returns Future.failed(SilentDropMessage())
-      vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("lowres"), any) answers((args:Array[AnyRef])=>Future(Right(args(3).asInstanceOf[ArchivedRecord].asJson)))
+      vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("lowres"), any) answers((args:Array[AnyRef])=>Future(Right(MessageProcessorReturnValue(args(3).asInstanceOf[ArchivedRecord].asJson))))
       vidispineFunctions.uploadMetadataToS3(any,any,any) answers((args:Array[AnyRef])=>Future(Right(args(2).asInstanceOf[ArchivedRecord].asJson)))
 
       val rec = ArchivedRecord("abcdefg","/path/to/original.file", 1234L, "somebucket", "uploaded/file", Some(1)).copy(id=Some(1234),vidispineItemId = Some("VX-33"))
@@ -323,7 +324,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       vidispineFunctions.uploadThumbnailsIfRequired(any,any,any) returns Future.failed(new RuntimeException("Kaboom"))
       vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("original"), any) returns Future.failed(SilentDropMessage())
-      vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("lowres"), any) answers((args:Array[AnyRef])=>Future(Right(args(3).asInstanceOf[ArchivedRecord].asJson)))
+      vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("lowres"), any) answers((args:Array[AnyRef])=>Future(Right(MessageProcessorReturnValue(args(3).asInstanceOf[ArchivedRecord].asJson))))
       vidispineFunctions.uploadMetadataToS3(any,any,any) answers((args:Array[AnyRef])=>Future(Right(args(2).asInstanceOf[ArchivedRecord].asJson)))
 
       val rec = ArchivedRecord("abcdefg","/path/to/original.file", 1234L, "somebucket", "uploaded/file", Some(1)).copy(id=Some(1234),vidispineItemId = Some("VX-33"))
@@ -348,10 +349,10 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
-      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, Json]]]]
+      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, MessageProcessorReturnValue]]]]
       mockUploadVidispineBits.apply(any,any) returns Future(Seq(Left("ignored"), Right(archivedRecord.asJson)))
       val toTest = new OwnMessageProcessor() {
-        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, Json]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
+        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
       val msg = AssetSweeperNewFile(Some("VX-1234"),
@@ -362,7 +363,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
       result must beASuccessfulTry
       result.get must beRight
-      result.get.getOrElse(null).as[ArchivedRecord] must beRight(archivedRecord)
+      result.get.getOrElse(null).content.as[ArchivedRecord] must beRight(archivedRecord)
 
       there was one(archivedRecordDAO).findBySourceFilename("/path/to/original.file")
       there was one(mockUploadVidispineBits).apply("VX-1234", archivedRecord)
@@ -378,9 +379,9 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
-      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, Json]]]]
+      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, MessageProcessorReturnValue]]]]
       val toTest = new OwnMessageProcessor() {
-        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, Json]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
+        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
       val msg = AssetSweeperNewFile(Some("VX-1234"),
@@ -407,10 +408,10 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
-      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, Json]]]]
+      val mockUploadVidispineBits = mock[(String, ArchivedRecord)=>Future[Seq[Either[String, MessageProcessorReturnValue]]]]
       mockUploadVidispineBits.apply(any,any) returns Future.failed(new RuntimeException("Kaboom!"))
       val toTest = new OwnMessageProcessor() {
-        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, Json]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
+        override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
       val msg = AssetSweeperNewFile(Some("VX-1234"),
