@@ -54,6 +54,34 @@ lazy val `common` = (project in file("common"))
     )
   )
 
+lazy val `mxscopy` = (project in file("mxs-copy-components"))
+  .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
+  .dependsOn(common)
+  .settings(commonSettings,
+    Docker / aggregate := false,
+    Docker / publish := {},
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
+      "com.typesafe.akka" %% "akka-agent" % "2.5.32",
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-http-xml" % "10.2.6",
+      "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
+      "io.circe" %% "circe-core" % circeVersion,
+      "io.circe" %% "circe-generic" % circeVersion,
+      "io.circe" %% "circe-parser" % circeVersion,
+      "org.slf4j" % "slf4j-api" % slf4jVersion,
+      "commons-codec" % "commons-codec" % "1.15",
+      "commons-io" % "commons-io" % "2.6",
+      "ch.qos.logback" % "logback-classic" % "1.2.6",
+      "com.github.scopt" %% "scopt" % "4.0.1",
+      "org.specs2" %% "specs2-core" % "4.12.12" % Test,
+      "org.specs2" %% "specs2-mock" % "4.12.12" % Test,
+      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
+      "org.mockito" % "mockito-core" % "4.0.0" % Test
+    )
+  )
+
 lazy val `vidispine_test` = (project in file("vidispine_test"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
   .dependsOn(common)
@@ -113,7 +141,7 @@ lazy val `online_archive` = (project in file("online_archive"))
 
 lazy val `nearline_archive` = (project in file("nearline_archive"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
-  .dependsOn(common)
+  .dependsOn(common, mxscopy)
   .settings(commonSettings,
     version := sys.props.getOrElse("build.number","DEV"),
     dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
