@@ -17,6 +17,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import scala.util.Try
+import AssetSweeperNewFile.Encoder._
 
 class OwnMessageProcessorSpec extends Specification with Mockito {
   "OwnMessageProcessor.handleArchivehunterValidation" should {

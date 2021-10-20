@@ -1,7 +1,7 @@
 package com.gu.multimedia.storagetier.messages
 
 import io.circe.Decoder.Result
-import io.circe.{Decoder, HCursor}
+import io.circe.{Decoder, Encoder, HCursor, Json}
 
 import java.time.{Instant, ZoneId, ZonedDateTime}
 
@@ -20,6 +20,24 @@ case class AssetSweeperNewFile(
                               )
 
 object AssetSweeperNewFile {
+  object Encoder {
+    implicit val encodeAssetSweeperNewFile:Encoder[AssetSweeperNewFile] = new Encoder[AssetSweeperNewFile] {
+      override def apply(a: AssetSweeperNewFile): Json = Json.obj(
+        ("imported_id", a.imported_id.map(Json.fromString).getOrElse(Json.Null)),
+        ("size", Json.fromLong(a.size)),
+        ("ignore", Json.fromBoolean(a.ignore)),
+        ("mime_type", Json.fromString(a.mime_type)),
+        ("mtime", Json.fromLong(a.mtime.toInstant.toEpochMilli/1000)),
+        ("ctime", Json.fromLong(a.ctime.toInstant.toEpochMilli/1000)),
+        ("atime", Json.fromLong(a.atime.toInstant.toEpochMilli/1000)),
+        ("owner", Json.fromInt(a.owner)),
+        ("group", Json.fromInt(a.group)),
+        ("parent_dir", Json.fromString(a.filepath)),
+        ("filename", Json.fromString(a.filename))
+      )
+    }
+  }
+
   object Decoder {
     implicit val decodeAssetSweeperNewFile:Decoder[AssetSweeperNewFile] = new Decoder[AssetSweeperNewFile] {
       final def apply(c: HCursor): Result[AssetSweeperNewFile] = {
