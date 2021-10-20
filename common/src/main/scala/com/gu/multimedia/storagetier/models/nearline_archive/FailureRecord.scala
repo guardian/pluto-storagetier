@@ -1,4 +1,4 @@
-package com.gu.multimedia.storagetier.models.online_archive
+package com.gu.multimedia.storagetier.models.nearline_archive
 
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import slick.jdbc.PostgresProfile.api._
@@ -11,7 +11,7 @@ case class FailureRecord(id:Option[Int],
                          retryState:RetryStates.Value
                         )
 
-class FailureRecordRow(tag:Tag) extends Table[FailureRecord](tag, "onlinearchive_failure_record") {
+class FailureRecordRow(tag:Tag) extends Table[FailureRecord](tag, "nearlinearchive_failure_record") {
   import com.gu.multimedia.storagetier.models.common.FailureEnumMapper._
 
   def id=column[Int]("id", O.PrimaryKey, O.AutoInc)

@@ -2,7 +2,8 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, ErrorComponents, FailureRecord, FailureRecordDAO, RetryStates}
+import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
