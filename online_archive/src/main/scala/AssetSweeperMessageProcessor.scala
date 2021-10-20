@@ -165,11 +165,15 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(newFile)=>
-        for {
+        val uploadResultFut = for {
           fullPath <- compositingGetPath(newFile)
           projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
           fileUploadResult <- processFileAndProject(fullPath, projectRecord)
         } yield fileUploadResult
+        uploadResultFut.map({
+          case recoverableErr@Left(_)=>recoverableErr
+          case Right(_)=>Right(msg) //when replaying, we want to output the _replay_ message on success, not our record
+        })
     }
   }
 
