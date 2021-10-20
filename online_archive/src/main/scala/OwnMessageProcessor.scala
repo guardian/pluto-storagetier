@@ -234,7 +234,7 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
               .map(_.map(_.asJson))
         }
 
-      case "storagetier.onlinearchive.replay"=>
+      case "storagetier.onlinearchive.replay.success"=>
         handleReplayStageTwo(msg)
       case "storagetier.onlinearchive.request.archivehunter-revalidation"=>
         handleRevalidationList(msg)
