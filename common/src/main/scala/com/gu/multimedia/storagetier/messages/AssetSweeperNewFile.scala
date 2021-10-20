@@ -20,7 +20,7 @@ case class AssetSweeperNewFile(
                               )
 
 object AssetSweeperNewFile {
-  object Encoder {
+  object Codec {
     implicit val encodeAssetSweeperNewFile:Encoder[AssetSweeperNewFile] = new Encoder[AssetSweeperNewFile] {
       override def apply(a: AssetSweeperNewFile): Json = Json.obj(
         ("imported_id", a.imported_id.map(Json.fromString).getOrElse(Json.Null)),
@@ -36,9 +36,7 @@ object AssetSweeperNewFile {
         ("filename", Json.fromString(a.filename))
       )
     }
-  }
 
-  object Decoder {
     implicit val decodeAssetSweeperNewFile:Decoder[AssetSweeperNewFile] = new Decoder[AssetSweeperNewFile] {
       final def apply(c: HCursor): Result[AssetSweeperNewFile] = {
         for {

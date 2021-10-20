@@ -17,7 +17,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import scala.util.Try
-import AssetSweeperNewFile.Encoder._
+import AssetSweeperNewFile.Codec._
 
 class OwnMessageProcessorSpec extends Specification with Mockito {
   "OwnMessageProcessor.handleArchivehunterValidation" should {
@@ -336,11 +336,22 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
-      val msg = AssetSweeperNewFile(Some("VX-1234"),
-        12345L, false, "video/mxf",
-        ZonedDateTime.now(), ZonedDateTime.now(), ZonedDateTime.now(),
-        123, 456, "/path/to", "original.file")
+      val msgContent =
+        """{
+          |"imported_id":"VX-1234",
+          |"size":12345,
+          |"ignore":false,
+          |"mime_type":"video/mxf",
+          |"mtime":1634654625,
+          |"ctime":1634654625,
+          |"atime":1634654625,
+          |"owner":1234,
+          |"group":2345,
+          |"parent_dir":"/path/to",
+          |"filename":"original.file"
+          |}""".stripMargin
 
+      val msg = io.circe.parser.parse(msgContent).right.get
       val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
       result must beASuccessfulTry
       result.get must beRight
@@ -366,12 +377,24 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
-      val msg = AssetSweeperNewFile(Some("VX-1234"),
-        12345L, false, "video/mxf",
-        ZonedDateTime.now(), ZonedDateTime.now(), ZonedDateTime.now(),
-        123, 456, "/path/to", "original.file")
+      val msgContent =
+        """{
+          |"imported_id":"VX-1234",
+          |"size":12345,
+          |"ignore":false,
+          |"mime_type":"video/mxf",
+          |"mtime":1634654625,
+          |"ctime":1634654625,
+          |"atime":1634654625,
+          |"owner":1234,
+          |"group":2345,
+          |"parent_dir":"/path/to",
+          |"filename":"original.file"
+          |}""".stripMargin
 
-      val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
+      val msg = io.circe.parser.parse(msgContent).right.get
+
+      val result = Try { Await.result(toTest.handleReplayStageTwo(msg), 2.seconds) }
       result must beFailedTry
       result.failed.get.getMessage mustEqual("The given asset sweeper record for /path/to/original.file is not imported yet")
 
@@ -401,12 +424,24 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
-      val msg = AssetSweeperNewFile(Some("VX-1234"),
-        12345L, false, "video/mxf",
-        ZonedDateTime.now(), ZonedDateTime.now(), ZonedDateTime.now(),
-        123, 456, "/path/to", "original.file")
+      val msgContent =
+        """{
+          |"imported_id":"VX-1234",
+          |"size":12345,
+          |"ignore":false,
+          |"mime_type":"video/mxf",
+          |"mtime":1634654625,
+          |"ctime":1634654625,
+          |"atime":1634654625,
+          |"owner":1234,
+          |"group":2345,
+          |"parent_dir":"/path/to",
+          |"filename":"original.file"
+          |}""".stripMargin
 
-      val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
+      val msg = io.circe.parser.parse(msgContent).right.get
+
+      val result = Try { Await.result(toTest.handleReplayStageTwo(msg), 2.seconds) }
       result must beAFailedTry
       result.failed.get.getMessage mustEqual "Kaboom!"
 
@@ -436,12 +471,24 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         override def uploadVidispineBits(vidispineItemId: String, archivedRecord: ArchivedRecord): Future[Seq[Either[String, MessageProcessorReturnValue]]] = mockUploadVidispineBits(vidispineItemId, archivedRecord)
       }
 
-      val msg = AssetSweeperNewFile(Some("VX-1234"),
-        12345L, false, "video/mxf",
-        ZonedDateTime.now(), ZonedDateTime.now(), ZonedDateTime.now(),
-        123, 456, "/path/to", "original.file")
+      val msgContent =
+        """{
+          |"imported_id":"VX-1234",
+          |"size":12345,
+          |"ignore":false,
+          |"mime_type":"video/mxf",
+          |"mtime":1634654625,
+          |"ctime":1634654625,
+          |"atime":1634654625,
+          |"owner":1234,
+          |"group":2345,
+          |"parent_dir":"/path/to",
+          |"filename":"original.file"
+          |}""".stripMargin
 
-      val result = Try { Await.result(toTest.handleReplayStageTwo(msg.asJson), 2.seconds) }
+      val msg = io.circe.parser.parse(msgContent).right.get
+
+      val result = Try { Await.result(toTest.handleReplayStageTwo(msg), 2.seconds) }
       result must beASuccessfulTry
       result.get must beLeft("ArchiveHunter ID is not validated yet")
 

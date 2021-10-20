@@ -5,6 +5,7 @@ import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import io.circe.Json
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
+import AssetSweeperNewFile.Codec._
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.generic.auto._
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
@@ -160,7 +161,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    * @return
    */
   def handleReplay(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
-    import AssetSweeperNewFile.Decoder._  //need to use custom decoder to properly decode message
+    import AssetSweeperNewFile.Codec._  //need to use custom decoder to properly decode message
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
@@ -184,7 +185,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    * @return
    */
   def handleNewFile(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
-    import AssetSweeperNewFile.Decoder._  //need to use custom decoder to properly decode message
+    import AssetSweeperNewFile.Codec._  //need to use custom decoder to properly decode message
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>
