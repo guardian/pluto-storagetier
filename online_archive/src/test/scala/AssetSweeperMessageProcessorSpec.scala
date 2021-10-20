@@ -1,12 +1,14 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
+import io.circe.Json
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
+
 import java.io.File
 import java.nio.file.{Path, Paths}
 import java.time.ZonedDateTime
@@ -21,6 +23,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
     "perform an upload and record success if the project is marked as deep-archive" in {
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
+      archivedRecordDAO.findBySourceFilename(any) returns Future(None)
+
       implicit val vidispineFunctions = mock[VidispineFunctions]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
@@ -53,6 +57,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
+      there was one(archivedRecordDAO).findBySourceFilename("/media/assets/path/to/file.ext")
       result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).writeRecord(any)
       there was no(ignoredRecordDAO).writeRecord(any)
@@ -63,6 +68,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
     "use the full path for upload if it can't relativize" in {
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
+      archivedRecordDAO.findBySourceFilename(any) returns Future(None)
+
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
@@ -96,6 +103,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson =
         """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDptZWRpYS9hc3NldHMvcGF0aC90by9maWxlLmV4dA==","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"media/assets/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}""".stripMargin
+      there was one(archivedRecordDAO).findBySourceFilename("/media/assets/path/to/file.ext")
       result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).writeRecord(any)
       there was no(ignoredRecordDAO).writeRecord(any)
@@ -106,6 +114,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
     "perform an upload and record success if no project could be found" in {
       implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
       archivedRecordDAO.writeRecord(any) returns Future(123)
+      archivedRecordDAO.findBySourceFilename(any) returns Future(None)
+
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
@@ -123,6 +133,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), None), 2.seconds)
       val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
+      there was one(archivedRecordDAO).findBySourceFilename("/media/assets/path/to/file.ext")
       result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).writeRecord(any)
       there was one(uploader).copyFileToS3(new File("/media/assets/path/to/file.ext"),Some("path/to/file.ext"))

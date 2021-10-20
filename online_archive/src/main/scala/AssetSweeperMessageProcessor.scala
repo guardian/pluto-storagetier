@@ -77,6 +77,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
           )
       })
     }).recoverWith(err=>{
+      logger.error(s"Could not complete upload for $fullPath ${err.getMessage}", err)
       val attemptCount = attemptCountFromMDC() match {
         case Some(count)=>count
         case None=>
