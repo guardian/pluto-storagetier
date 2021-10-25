@@ -13,7 +13,7 @@
     <logger name="com.gu.multimedia" level="DEBUG"/>
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
     <logger name="FakeMessageProcessor" level="DEBUG"/>
-    <logger name="plutocore" level="INFO"/>
+    <logger name="com.gu.multimedia.storagetier.plutocore" level="INFO"/>
     <logger name="AssetSweeperMessageProcessor" level="INFO"/>
     <logger name="VidispineMessageProcessor" level="DEBUG"/>
     <logger name="archivehunter" level="DEBUG"/>

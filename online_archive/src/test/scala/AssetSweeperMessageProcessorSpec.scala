@@ -3,7 +3,7 @@ import akka.stream.Materializer
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, FailureRecordDAO, IgnoredRecordDAO}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
+import com.gu.multimedia.storagetier.plutocore.{EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
 
 import java.io.File
 import java.nio.file.Paths

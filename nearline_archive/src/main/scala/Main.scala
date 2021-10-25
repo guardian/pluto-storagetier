@@ -1,6 +1,7 @@
 import Main.logger
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, DatabaseProvider, MessageProcessingFramework, ProcessorConfiguration}
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.models.nearline_archive.FailureRecordDAO

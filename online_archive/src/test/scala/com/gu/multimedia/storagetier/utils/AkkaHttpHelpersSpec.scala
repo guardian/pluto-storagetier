@@ -5,7 +5,7 @@ import akka.stream.Materializer
 import io.circe.generic.auto._
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.AssetFolderRecord
+import com.gu.multimedia.storagetier.plutocore.AssetFolderRecord
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

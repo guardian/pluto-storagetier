@@ -16,7 +16,7 @@ import io.circe.generic.auto._
 import messages.{VidispineField, VidispineMediaIngested}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.PlutoCoreConfig
+import com.gu.multimedia.storagetier.plutocore.PlutoCoreConfig
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 

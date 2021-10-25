@@ -14,7 +14,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import messages.VidispineMediaIngested
 import org.slf4j.LoggerFactory
-import plutocore.{AssetFolderLookup, PlutoCoreConfig}
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig}
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 

@@ -6,7 +6,7 @@ import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, Arch
 import io.circe.Json
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import io.circe.generic.auto._
-import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
 import org.slf4j.{LoggerFactory, MDC}
 import utils.ArchiveHunter

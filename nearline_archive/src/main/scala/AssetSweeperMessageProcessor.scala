@@ -1,5 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecordDAO}
