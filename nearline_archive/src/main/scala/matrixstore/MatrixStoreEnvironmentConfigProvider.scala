@@ -2,7 +2,7 @@ package matrixstore
 
 class MatrixStoreEnvironmentConfigProvider extends MatrixStoreConfigProvider {
   private def stringToArray(str:String):Array[String] = {
-    str.split(",")
+    str.split("\\s*,\\s*")
   }
 
   override def get(): Either[String, MatrixStoreConfig] = {
