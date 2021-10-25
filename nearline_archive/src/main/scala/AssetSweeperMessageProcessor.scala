@@ -17,7 +17,7 @@ class AssetSweeperMessageProcessor()
                                    ec:ExecutionContext,
                                    mat:Materializer,
                                    system:ActorSystem,
-                                   matrixStore: MatrixStore) extends MessageProcessor {
+                                   matrixStoreBuilder: MXSConnectionBuilder) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {

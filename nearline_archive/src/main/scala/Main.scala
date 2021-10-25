@@ -46,12 +46,7 @@ object Main {
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
       accessKeySecret = matrixStoreConfig.accessKeySecret
-    ).build() match {
-      case Success(value) => value
-      case Failure(err) =>
-        logger.error(s"Could not initialise matrix-store connection: $err")
-        sys.exit(1)
-    }
+    )
 
     val config = Seq(
       ProcessorConfiguration(
