@@ -1,4 +1,4 @@
-package messages
+package com.gu.multimedia.storagetier.messages
 
 import io.circe.Decoder.Result
 import io.circe.{Decoder, HCursor}
