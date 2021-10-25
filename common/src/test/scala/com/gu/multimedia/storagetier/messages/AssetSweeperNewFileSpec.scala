@@ -1,8 +1,6 @@
-package messages
+package com.gu.multimedia.storagetier.messages
 
 import org.specs2.mutable.Specification
-import io.circe.generic.auto._
-import io.circe.syntax._
 
 import java.time.{ZoneId, ZonedDateTime}
 

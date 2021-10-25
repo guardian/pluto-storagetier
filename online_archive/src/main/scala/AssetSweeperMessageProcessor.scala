@@ -1,10 +1,9 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
+import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import io.circe.Json
-import messages.AssetSweeperNewFile
-import AssetSweeperNewFile.Decoder._
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import io.circe.generic.auto._
 import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
@@ -134,7 +133,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(newFile)=>
-        if(routingKey=="assetsweeper.asset_folder_importer.file.update") {
+        if (routingKey=="assetsweeper.asset_folder_importer.file.update") {
           logger.warn("Received an update message, these are not implemented yet")
           Future(Left("not implemented yet"))
         } else {
