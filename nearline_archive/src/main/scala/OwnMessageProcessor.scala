@@ -30,7 +30,17 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    * @param maybeWG WorkingGroupRecord, can be None
    * @return a CustomMXSMetadata object
    */
-  def generateMetadata(maybeProject:Option[ProjectRecord], maybeCommission:Option[CommissionRecord], maybeWG:Option[WorkingGroupRecord]):CustomMXSMetadata = {
+  def generateMetadata(maybeProject:Option[ProjectRecord], maybeCommission:Option[CommissionRecord], maybeWG:Option[WorkingGroupRecord], filename:String):CustomMXSMetadata = {
+    if(maybeProject.isEmpty) {
+      logger.warn(s"Could not find project information for file $filename")
+    }
+    if(maybeCommission.isEmpty) {
+      logger.warn(s"Could not find commission information for file $filename")
+    }
+    if(maybeWG.isEmpty) {
+      logger.warn(s"Could not find working-group information for file $filename")
+    }
+
     CustomMXSMetadata(
       CustomMXSMetadata.TYPE_RUSHES,
       maybeProject.flatMap(_.id).map(_.toString),
@@ -50,6 +60,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
 
   protected def writeMetadataToObject(mxsObject: MxsObject, md:MxsMetadata, rec:NearlineRecord) =
     Try {
+      logger.debug(s"Writing metadata to ${mxsObject.getId} for file ${rec.originalFilePath}")
       val view = mxsObject.getAttributeView
       view.writeAllAttributes(md.toAttributes.asJava)
     } match {
@@ -67,7 +78,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
       maybeProject <- asLookup.assetFolderProjectLookup(Paths.get(rec.originalFilePath))  //check - is this safe? might Paths.get raise an exception?
       maybeCommission <- asLookup.optionCommissionLookup(maybeProject.flatMap(_.commissionId))
       maybeWg <- asLookup.optionWGLookup(maybeCommission.map(_.workingGroup))
-      mxsData <- Future(generateMetadata(maybeProject, maybeCommission, maybeWg))
+      mxsData <- Future(generateMetadata(maybeProject, maybeCommission, maybeWg, rec.originalFilePath))
     } yield mxsData.toAttributes(MxsMetadata.empty)
 
     //write the attributes onto the file, if successful
@@ -90,15 +101,16 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
     case Left(err)=>
       Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
     case Right(rec)=>
-      mxsConnectionBuilder.build() match {
-        case Success(mxs)=>
-          MXSConnectionBuilder.withVaultFuture(mxs, mxsConfig.nearlineVaultId) { vault=>
-            applyCustomMetadata(rec, vault)
-          }
+      mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
+        applyCustomMetadata(rec, vault)
+      }.andThen({
+        case Success(Left(err))=>
+          logger.warn(s"Could not process message for ${rec.originalFilePath} due to retryable fault: $err")
+        case Success(Right(_))=>
+          logger.info(s"Successfully processed copy-success message for ${rec.originalFilePath}")
         case Failure(err)=>
-          logger.error(s"Could not connect to MatrixStore: $err")
-          Future(Left("Could not connect to MatrixStore"))
-      }
+          logger.error(s"Could not process message for ${rec.originalFilePath} due to fatal error: $err")
+      })
   }
 
   /**

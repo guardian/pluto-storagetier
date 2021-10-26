@@ -39,9 +39,7 @@ object HMAC {
     val httpDate = httpDateFormatter.format(time)
 
     val string_to_sign = s"$uri\n$httpDate\n$contentType\n$sha384Checksum\n$method"
-    logger.debug(s"Outgoing request, string to sign: $string_to_sign")
     val hmac = generateHMAC(sharedSecret, string_to_sign)
-    logger.debug(s"HMAC generated: $hmac")
     Some(hmac)
   } catch {
     case e:java.util.NoSuchElementException=>

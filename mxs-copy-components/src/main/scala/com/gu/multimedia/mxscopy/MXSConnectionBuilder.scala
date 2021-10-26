@@ -18,6 +18,24 @@ case class MXSConnectionBuilder(hosts: Array[String], clusterId:String, accessKe
       .build()
   }
 
+  /**
+   * initiates a connection to the configuration indicated by the builder, opens the given vault then runs the callback.
+   * The callback is expected to return a Future of some type T.
+   * Whether it succeeds or fails, the vault connection is then disposed.
+   * Use this in preference to the static method if you have no pre-existing connection
+   * @param vaultId vault ID to open
+   * @param cb callback function which takes the Vault instance as a parameter and returns a Future of any type
+   * @param ec implicitly defined execution context
+   * @tparam T the type returned by the callback's Future
+   * @return either the result of the callback, or a failed Try indicating some error in establishing the connection
+   */
+  def withVaultFuture[T](vaultId:String)(cb: Vault => Future[T])(implicit ec:ExecutionContext) = {
+    Future.fromTry(build()).flatMap(mxs=>{
+      MXSConnectionBuilder
+        .withVaultFuture(mxs, vaultId)(cb)
+        .andThen(_=>mxs.dispose())
+    })
+  }
 }
 
 object MXSConnectionBuilder {
