@@ -7,11 +7,11 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-case class MXSConnectionBuilder(hosts: Array[String], accessKeyId:String, accessKeySecret:String) {
+case class MXSConnectionBuilder(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String) {
   def build() = Try {
     val credentials = Credentials.newAccessKeyCredentials(accessKeyId, accessKeySecret)
 
-    val conn = MatrixStoreConnection.builder().withHosts(hosts).build()
+    val conn = MatrixStoreConnection.builder().withHosts(hosts).withClusterId(clusterId).build()
     MatrixStore.builder()
       .withConnection(conn)
       .withCredentials(credentials)

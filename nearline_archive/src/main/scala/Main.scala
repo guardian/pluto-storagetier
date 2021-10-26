@@ -53,7 +53,8 @@ object Main {
     implicit lazy val matrixStore = new MXSConnectionBuilder(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
-      accessKeySecret = matrixStoreConfig.accessKeySecret
+      accessKeySecret = matrixStoreConfig.accessKeySecret,
+      clusterId = matrixStoreConfig.clusterId
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
 

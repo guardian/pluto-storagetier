@@ -16,7 +16,7 @@ import java.nio.file.Paths
 import scala.concurrent.{Await, Future}
 
 class OwnMessageProcessorSpec extends Specification with Mockito {
-  val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"),"mxs-access-key", "mxs-secret-key", "vault-id")
+  val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id")
 
   "OwnMessageProcessor.applyCustomMetadata" should {
     "generate metadata, request to write it down onto the given item and return a Right" in {

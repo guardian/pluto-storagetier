@@ -130,7 +130,7 @@ lazy val `nearline_archive` = (project in file("nearline_archive"))
       "ugo=rx"
     ), "/opt/docker/bin/nearline_archive"),
     packageName := "storagetier-online-nearline",
-    dockerBaseImage := "openjdk:11-jdk-slim",
+    dockerBaseImage := "openjdk:8-jdk-slim-buster",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
