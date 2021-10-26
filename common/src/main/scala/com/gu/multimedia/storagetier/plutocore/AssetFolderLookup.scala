@@ -175,6 +175,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
   }
 
   def commissionLookup(commissionId:Int) = {
+    import ProjectRecordEncoder._
     val req = HttpRequest(uri = s"${config.baseUri}/api/pluto/commission/$commissionId")
     callToPluto[CommissionRecord](req)  //FIXME: think that there may be a wrapper on this
   }

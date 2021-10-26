@@ -44,7 +44,9 @@ case class CustomMXSMetadata(itemType:String,
 
     val secondUpdate = intContent.foldLeft(firstUpdate)((acc,kv)=>acc.withValue(kv._1,kv._2))
 
-    secondUpdate.withValue("GNM_HIDDEN_FILE", hidden)
+    secondUpdate
+      .withValue("GNM_HIDDEN_FILE", hidden)
+      .withValue("GNM_TYPE", itemType)
   }
 }
 

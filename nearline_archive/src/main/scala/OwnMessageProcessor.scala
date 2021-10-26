@@ -6,20 +6,20 @@ import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.framework.MessageProcessor
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
-import com.om.mxs.client.japi.Vault
+import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import org.slf4j.LoggerFactory
 import io.circe.syntax._
+
 import java.nio.file.Paths
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
 
-class OwnMessageProcessor(plutoCoreConfig: PlutoCoreConfig, mxsConfig:MatrixStoreConfig)(implicit mat:Materializer, ec:ExecutionContext, actorSystem:ActorSystem, mxsConnectionBuilder: MXSConnectionBuilder) extends MessageProcessor {
+class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLookup)(implicit mat:Materializer, ec:ExecutionContext, actorSystem:ActorSystem, mxsConnectionBuilder: MXSConnectionBuilder) extends MessageProcessor {
   import com.gu.multimedia.storagetier.plutocore.ProjectRecordEncoder._
-  private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
@@ -48,6 +48,19 @@ class OwnMessageProcessor(plutoCoreConfig: PlutoCoreConfig, mxsConfig:MatrixStor
     )
   }
 
+  protected def writeMetadataToObject(mxsObject: MxsObject, md:MxsMetadata, rec:NearlineRecord) =
+    Try {
+      val view = mxsObject.getAttributeView
+      view.writeAllAttributes(md.toAttributes.asJava)
+    } match {
+      case Success(_)=>
+        //we wrote the attributes down to the appliance successfully
+        Right(rec)
+      case Failure(err)=>
+        logger.error(s"Could not write attributes to object ID ${rec.objectId}: ${err.getMessage}", err)
+        Left(err.getMessage)
+    }
+
   def applyCustomMetadata(rec:NearlineRecord, vault:Vault) = {
     //generate vaultdoor-compatible metadata
     val mdFuture = for {
@@ -57,31 +70,25 @@ class OwnMessageProcessor(plutoCoreConfig: PlutoCoreConfig, mxsConfig:MatrixStor
       mxsData <- Future(generateMetadata(maybeProject, maybeCommission, maybeWg))
     } yield mxsData.toAttributes(MxsMetadata.empty)
 
-    //write the attributes onto the file
+    //write the attributes onto the file, if successful
     mdFuture.map(md=>{
       Try { vault.getObject(rec.objectId) } match {
         case Failure(err)=>
           logger.error(s"Could not get object with ID ${rec.objectId} for correlation id ${rec.id}: $err", err)
           Left(err.getMessage)
         case Success(mxsObject)=>
-          Try {
-            val view = mxsObject.getAttributeView
-            view.writeAllAttributes(md.toAttributes.asJava)
-          } match {
-            case Success(_)=>
-              //we wrote the attributes down to the appliance successfully
-              Right(rec)
-            case Failure(err)=>
-              logger.error(s"Could not write attributes to object ID ${rec.objectId}: ${err.getMessage}", err)
-              Left(err.getMessage)
-          }
+          writeMetadataToObject(mxsObject, md, rec)
       }
+    }).recover({
+      case err:Throwable=>
+        logger.error(s"Lookup of metadata failed for ${rec.originalFilePath} (${rec.objectId}): ${err.getMessage}", err)
+        Left(err.getMessage)
     })
   }
 
   def handleSuccessfulMediaCopy(msg: Json) = msg.as[NearlineRecord] match {
     case Left(err)=>
-      Future.failed(new RuntimeException(s"Could not parse message as a nearlinerecord: $err"))
+      Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
     case Right(rec)=>
       mxsConnectionBuilder.build() match {
         case Success(mxs)=>
