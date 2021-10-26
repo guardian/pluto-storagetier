@@ -77,7 +77,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
     val mdFuture = for {
       maybeProject <- asLookup.assetFolderProjectLookup(Paths.get(rec.originalFilePath))  //check - is this safe? might Paths.get raise an exception?
       maybeCommission <- asLookup.optionCommissionLookup(maybeProject.flatMap(_.commissionId))
-      maybeWg <- asLookup.optionWGLookup(maybeCommission.map(_.workingGroup))
+      maybeWg <- asLookup.optionWGLookup(maybeCommission.map(_.workingGroupId))
       mxsData <- Future(generateMetadata(maybeProject, maybeCommission, maybeWg, rec.originalFilePath))
     } yield mxsData.toAttributes(MxsMetadata.empty)
 

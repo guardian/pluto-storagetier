@@ -35,7 +35,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val fakeComm = mock[CommissionRecord]
       fakeComm.id returns Some(2345)
       fakeComm.title returns "test commission"
-      fakeComm.workingGroup returns 3
+      fakeComm.workingGroupId returns 3
       val fakeWg = mock[WorkingGroupRecord]
       fakeWg.id returns Some(3)
       fakeWg.name returns "test working group"
