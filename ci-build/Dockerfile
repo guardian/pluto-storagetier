@@ -1,4 +1,4 @@
-FROM openjdk:11-jdk-slim-buster
+FROM openjdk:8-jdk-slim-buster
 
 COPY ./containerscripts/sbt-install.sh /tmp
 COPY ./containerscripts/awstools.sh /tmp

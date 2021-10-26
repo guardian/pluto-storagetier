@@ -124,14 +124,14 @@ lazy val `nearline_archive` = (project in file("nearline_archive"))
     Docker / daemonUser := "daemon",
     Docker / dockerUsername  := sys.props.get("docker.username"),
     Docker / dockerRepository := Some("guardianmultimedia"),
-    Docker / packageName := "guardianmultimedia/storagetier-nearline-archive",
+    Docker / packageName := "guardianmultimedia/storagetier-online-nearline",
     dockerChmodType := DockerChmodType.Custom("ugo=rx"),
     dockerAdditionalPermissions += (DockerChmodType.Custom(
       "ugo=rx"
     ), "/opt/docker/bin/nearline_archive"),
-    packageName := "storagetier-nearline-archive",
+    packageName := "storagetier-online-nearline",
     dockerBaseImage := "openjdk:11-jdk-slim",
-    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-nearline-archive",Some(sys.props.getOrElse("build.number","DEV"))),
+    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
       "com.typesafe.akka" %% "akka-http" % "10.2.6",

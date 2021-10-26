@@ -151,7 +151,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
         logger.warn(err)
         Future(None)
       case Right(assetFolder)=>
-        val req = HttpRequest(uri = s"${config.baseUri}/api/assetfolder/lookup?path=${URLEncoder.encode(assetFolder.toString, StandardCharsets.UTF_8)}")
+        val req = HttpRequest(uri = s"${config.baseUri}/api/assetfolder/lookup?path=${URLEncoder.encode(assetFolder.toString, "UTF-8")}")
         callToPluto[AssetFolderRecord](req)
     }
   }

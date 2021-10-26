@@ -1,5 +1,5 @@
 online_archive:
-  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20210928
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
   services:
     - postgres:13-alpine
     - docker:19.03.11-dind
@@ -59,7 +59,7 @@ online_archive:
     - merge_requests
 
 nearline_archive:
-  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20210928
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
   services:
     - postgres:13-alpine
     - docker:19.03.11-dind
@@ -83,12 +83,12 @@ nearline_archive:
     - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt 'project nearline_archive; docker:publishLocal'
     - mv ${HOME}/.sbt .sbt || true
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker tag guardianmultimedia/storagetier-nearline-archive:$CI_PIPELINE_IID $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+    - docker tag guardianmultimedia/storagetier-online-nearline:$CI_PIPELINE_IID $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
     - docker push $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
     - if [ "${AWS_ACCESS_KEY_ID}" == "" ]; then echo Cannot upload to ECR without aws credential; exit 0; fi
     - aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 855023211239.dkr.ecr.eu-west-1.amazonaws.com
-    - docker tag guardianmultimedia/storagetier-nearline-archive:$CI_PIPELINE_IID 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-nearline-archive:$CI_PIPELINE_IID
-    - docker push 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-nearline-archive:$CI_PIPELINE_IID
+    - docker tag guardianmultimedia/storagetier-online-nearline:$CI_PIPELINE_IID 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-nearline:$CI_PIPELINE_IID
+    - docker push 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-nearline:$CI_PIPELINE_IID
     - "echo ci_commit_branch: ${CI_COMMIT_BRANCH} >> build-info.yaml"
     - "echo ci_commit_ref_name: ${CI_COMMIT_REF_NAME} >> build-info.yaml"
     - "echo ci_commit_sha: ${CI_COMMIT_SHA} >> build-info.yaml"
@@ -99,7 +99,7 @@ nearline_archive:
     - "echo ci_merge_request_project_url: ${CI_MERGE_REQUEST_PROJECT_URL} >> build-info.yaml"
     - "echo ci_merge_request_title: \\\"${CI_MERGE_REQUEST_TITLE}\\\" >> build-info.yaml"
     - "echo ci_pipeline_iid: ${CI_PIPELINE_IID} >> build-info.yaml"
-    - "echo built_image: 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-nearline-archive:$CI_PIPELINE_IID >> build-info.yaml"
+    - "echo built_image: 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-nearline:$CI_PIPELINE_IID >> build-info.yaml"
   artifacts:
     reports:
       junit: junit-tests/*.xml
