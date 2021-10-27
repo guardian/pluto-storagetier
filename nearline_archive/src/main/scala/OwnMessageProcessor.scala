@@ -13,6 +13,7 @@ import io.circe.generic.auto._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import org.slf4j.LoggerFactory
 import io.circe.syntax._
+import jdk.nashorn.internal.runtime.Context.ThrowErrorManager
 
 import java.nio.file.Paths
 import scala.concurrent.{ExecutionContext, Future}
@@ -165,6 +166,10 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
                   case Some(_)=>
                     logger.info(s"Successfully updated metadata on $itemId")
                     Right(updatedNearlineRecord.asJson)
+                }).recover({
+                  case err:Throwable=>
+                    logger.error(s"Could not update item $itemId in Vidispine: ${err.getMessage}", err)
+                    Left(s"Could not update item $itemId in Vidispine")
                 })
               case None=>
                 logger.info(s"The nearline record for ${rec.originalFilePath} does not have a vidispine id (yet)")

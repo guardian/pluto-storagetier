@@ -6,6 +6,7 @@ import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, Conne
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.models.nearline_archive.FailureRecordDAO
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
+import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
 import matrixstore.MatrixStoreEnvironmentConfigProvider
 import org.slf4j.LoggerFactory
@@ -47,6 +48,13 @@ object Main {
     case Right(config)=>config
   }
 
+  private lazy val vidispineConfig = VidispineConfig.fromEnvironment match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect Vidispine config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
+
   def main(args:Array[String]):Unit = {
     implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
@@ -57,6 +65,7 @@ object Main {
       clusterId = matrixStoreConfig.clusterId
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
+    implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
 
     val config = Seq(
       ProcessorConfiguration(
