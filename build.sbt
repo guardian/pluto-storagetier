@@ -1,7 +1,7 @@
 import com.typesafe.sbt.packager.docker
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport.{dockerExposedPorts, dockerUsername}
 import com.typesafe.sbt.packager.docker.{Cmd, DockerChmodType, DockerPermissionStrategy}
-import sbt.Keys.scalacOptions
+import sbt.Keys.{libraryDependencies, scalacOptions}
 
 name := "pluto-storagetier"
 
@@ -19,12 +19,14 @@ lazy val commonSettings = Seq(
   version := "1.0",
   scalaVersion := "2.13.6",
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint"),
-  scalacOptions += "-target:jvm-1.8"
+  scalacOptions += "-target:jvm-1.8",
+  libraryDependencies ++= Seq(
+    "com.novocode" % "junit-interface" % "0.11" % Test,
+    "org.specs2" %% "specs2-junit" % "4.12.12" % Test
+  ),
+  Test / testOptions ++= Seq( Tests.Argument("junitxml", "junit.outdir", sys.env.getOrElse("SBT_JUNIT_OUTPUT","/tmp")), Tests.Argument("console") )
 )
 
-libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test
-
-Test / testOptions ++= Seq( Tests.Argument("junitxml", "junit.outdir", sys.env.getOrElse("SBT_JUNIT_OUTPUT","/tmp")), Tests.Argument("console") )
 
 lazy val `common` = (project in file("common"))
   .enablePlugins(plugins.JUnitXmlReportPlugin)
