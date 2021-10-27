@@ -1,9 +1,10 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
+import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecordDAO}
-import com.om.mxs.client.japi.MatrixStore
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
@@ -20,7 +21,7 @@ class AssetSweeperMessageProcessor()
                                    matrixStoreBuilder: MXSConnectionBuilder) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>

@@ -1,9 +1,11 @@
 import Main.logger
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, DatabaseProvider, MessageProcessingFramework, ProcessorConfiguration}
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.models.nearline_archive.FailureRecordDAO
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
 import de.geekonaut.slickmdc.MdcExecutionContext
 import matrixstore.MatrixStoreEnvironmentConfigProvider
 import org.slf4j.LoggerFactory
@@ -27,6 +29,12 @@ object Main {
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
   private lazy val db = DatabaseProvider.get()
   private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider =  ConnectionFactoryProviderReal
+  private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
 
   private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-nearlinearchive", defaultExecutionContext=Some
   (executionContext))
@@ -45,25 +53,33 @@ object Main {
     implicit lazy val matrixStore = new MXSConnectionBuilder(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
-      accessKeySecret = matrixStoreConfig.accessKeySecret
+      accessKeySecret = matrixStoreConfig.accessKeySecret,
+      clusterId = matrixStoreConfig.clusterId
     )
+    val assetFolderLookup = new AssetFolderLookup(plutoConfig)
 
     val config = Seq(
       ProcessorConfiguration(
         "assetsweeper",
         "assetsweeper.asset_folder_importer.file.#",
-        "storagetier.nearlinearchive.newfile",
+        "storagetier.nearline.newfile",
         new AssetSweeperMessageProcessor()
+      ),
+      ProcessorConfiguration(
+        OUTPUT_EXCHANGE_NAME,
+        "storagetier.nearline.newfile.success",
+        "storagetier.nearline.metadata",
+        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
       )
     )
 
     MessageProcessingFramework(
       "storagetier-nearline-archive",
       OUTPUT_EXCHANGE_NAME,
-      "pluto.storagetier.nearline-archive",
-      "storagetier-nearline-archive-retry",
-      "storagetier-nearline-archive-fail",
-      "storagetier-nearline-archive-dlq",
+      "pluto.storagetier.online-nearline",
+      "storagetier-online-nearline-retry",
+      "storagetier-online-nearline-fail",
+      "storagetier-online-nearline-dlq",
       config
     ) match {
       case Left(err) =>

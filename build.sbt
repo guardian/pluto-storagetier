@@ -1,7 +1,7 @@
 import com.typesafe.sbt.packager.docker
 import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport.{dockerExposedPorts, dockerUsername}
 import com.typesafe.sbt.packager.docker.{Cmd, DockerChmodType, DockerPermissionStrategy}
-import sbt.Keys.scalacOptions
+import sbt.Keys.{libraryDependencies, scalacOptions}
 
 name := "pluto-storagetier"
 
@@ -19,12 +19,14 @@ lazy val commonSettings = Seq(
   version := "1.0",
   scalaVersion := "2.13.6",
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint"),
-  scalacOptions += "-target:jvm-1.8"
+  scalacOptions += "-target:jvm-1.8",
+  libraryDependencies ++= Seq(
+    "com.novocode" % "junit-interface" % "0.11" % Test,
+    "org.specs2" %% "specs2-junit" % "4.12.12" % Test
+  ),
+  Test / testOptions ++= Seq( Tests.Argument("junitxml", "junit.outdir", sys.env.getOrElse("SBT_JUNIT_OUTPUT","/tmp")), Tests.Argument("console") )
 )
 
-libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test
-
-Test / testOptions ++= Seq( Tests.Argument("junitxml", "junit.outdir", sys.env.getOrElse("SBT_JUNIT_OUTPUT","/tmp")), Tests.Argument("console") )
 
 lazy val `common` = (project in file("common"))
   .enablePlugins(plugins.JUnitXmlReportPlugin)
@@ -124,14 +126,14 @@ lazy val `nearline_archive` = (project in file("nearline_archive"))
     Docker / daemonUser := "daemon",
     Docker / dockerUsername  := sys.props.get("docker.username"),
     Docker / dockerRepository := Some("guardianmultimedia"),
-    Docker / packageName := "guardianmultimedia/storagetier-nearline-archive",
+    Docker / packageName := "guardianmultimedia/storagetier-online-nearline",
     dockerChmodType := DockerChmodType.Custom("ugo=rx"),
     dockerAdditionalPermissions += (DockerChmodType.Custom(
       "ugo=rx"
     ), "/opt/docker/bin/nearline_archive"),
-    packageName := "storagetier-nearline-archive",
-    dockerBaseImage := "openjdk:11-jdk-slim",
-    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-nearline-archive",Some(sys.props.getOrElse("build.number","DEV"))),
+    packageName := "storagetier-online-nearline",
+    dockerBaseImage := "openjdk:8-jdk-slim-buster",
+    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
       "com.typesafe.akka" %% "akka-http" % "10.2.6",

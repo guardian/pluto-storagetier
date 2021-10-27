@@ -1,16 +1,15 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import io.circe.Json
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import io.circe.generic.auto._
-import plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
 import org.slf4j.{LoggerFactory, MDC}
 import utils.ArchiveHunter
-
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -25,6 +24,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
                                    uploader: FileUploader) extends MessageProcessor {
   private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
+  import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
   /**
    * assembles a java.nio.Path pointing to the Sweeper file, catching exceptions and converting to a Future
@@ -79,7 +79,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     })
   }
 
-  def processFileAndProject(fullPath:Path, maybeProject: Option[ProjectRecord]):Future[Either[String, Json]] = {
+  def processFileAndProject(fullPath:Path, maybeProject: Option[ProjectRecord]):Future[Either[String, MessageProcessorReturnValue]] = {
     val ignoreReason = maybeProject match {
       case Some(project)=>
         if(project.deletable.getOrElse(false)) {  //If the project is marked as “deletable”, record to datastore as “ignored”
@@ -127,7 +127,7 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>

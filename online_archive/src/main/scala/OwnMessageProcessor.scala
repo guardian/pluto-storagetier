@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO}
 import io.circe.Json
@@ -9,8 +9,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import messages.RevalidateArchiveHunterRequest
 import org.slf4j.LoggerFactory
-
-import java.nio.file.Paths
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
 class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
@@ -97,31 +96,31 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
     }
   }
 
-  def handleRevalidationList(msg:Json):Future[Either[String, Json]] = {
+  def handleRevalidationList(msg:Json):Future[Either[String, MessageProcessorReturnValue]] = {
     msg.as[RevalidateArchiveHunterRequest] match {
-      case Left(err)=>
+      case Left(err) =>
         Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a RevalidateArchiveHunterRequest: $err"))
-      case Right(rec)=>
+      case Right(rec) =>
         logger.info(s"Received revalidation request for ${rec.id.length} records: ${rec.id.mkString(",")}")
 
         val resultFut = for {
           //look up each record by id, and drop the ones that fail
-          records <- Future.sequence(rec.id.map(requestedId=>archivedRecordDAO.getRecord(requestedId).recover(_=>None)))
+          records <- Future.sequence(rec.id.map(requestedId => archivedRecordDAO.getRecord(requestedId).recover(_ => None)))
           results <- Future.sequence(
             records
-              .collect({case Some(rec)=>rec})
-              .map(rec=>
+              .collect({ case Some(rec) => rec })
+              .map(rec =>
                 handleArchivehunterValidation(rec.asJson)
-                  .recover({case err:Throwable=>Left(err.getMessage)})
+                  .recover({ case err: Throwable => Left(err.getMessage) })
               )
           )
         } yield results
 
-        resultFut.flatMap(results=>{
-          val failures = results.collect({case Left(err)=>err})
-          if(failures.nonEmpty) {
+        resultFut.flatMap(results => {
+          val failures = results.collect({ case Left(err) => err })
+          if (failures.nonEmpty) {
             logger.warn(s"${failures.length} revalidation requests failed: ")
-            failures.foreach(err=>logger.warn(s"\t$err"))
+            failures.foreach(err => logger.warn(s"\t$err"))
           }
           logger.info(s"Revalidation operation complete. Out of ${rec.id.length} requests, ${results.length - failures.length} succeeded")
           //signal we don't need a return value
@@ -140,7 +139,7 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     routingKey match {
       case "storagetier.onlinearchive.newfile.success"=>
         handleArchivehunterValidation(msg)

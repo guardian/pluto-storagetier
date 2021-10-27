@@ -6,7 +6,7 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import io.circe.syntax.EncoderOps
 import archivehunter.ArchiveHunterCommunicator
-import com.gu.multimedia.storagetier.framework.SilentDropMessage
+import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.vidispine.{FileDocument, ShapeDocument, SimplifiedComponent, VSShapeFile, VidispineCommunicator}
@@ -16,10 +16,10 @@ import io.circe.generic.auto._
 import messages.{VidispineField, VidispineMediaIngested}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import plutocore.PlutoCoreConfig
+import com.gu.multimedia.storagetier.plutocore.PlutoCoreConfig
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
-
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import java.nio.file.{Path, Paths}
@@ -152,18 +152,19 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
         ))
 
-        val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,Json]]]
+        val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,MessageProcessorReturnValue]]]
         val fakeResult = mock[Json]
         mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
 
         val basePath = Paths.get("/absolute/path")
         val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
-          override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
+          override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
         }
 
         val result = Await.result(toTest.handleIngestedMedia(mediaIngested), 2.seconds)
         there was one(mockUploadIfReqd).apply("/absolute/path/relative/path.mp4","relative/path.mp4",mediaIngested)
-        result must beRight(fakeResult)
+        result must beRight
+        result.right.get.content mustEqual fakeResult
       }
 
       "fall back to fileId if sourceFileId not set" in {
@@ -194,12 +195,13 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         val basePath = Paths.get("/absolute/path")
         val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
-          override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
+          override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
         }
 
         val result = Await.result(toTest.handleIngestedMedia(mediaIngested), 2.seconds)
         there was one(mockUploadIfReqd).apply("/absolute/path/relative/path.mp4","relative/path.mp4",mediaIngested)
-        result must beRight(fakeResult)
+        result must beRight
+        result.right.get.content mustEqual(fakeResult)
       }
     }
   }
@@ -274,13 +276,14 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockFileUploader = mock[FileUploader]
 
       val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
-        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
+        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
 
       val result = Await.result(toTest.handleShapeUpdate("VX-456","lowres","VX-123"), 3.seconds)
 
-      result must beRight(mockArchivedRecord.asJson)
+      result must beRight
+      result.right.get.content mustEqual (mockArchivedRecord.asJson)
       there was one(mockUploadShapeIfRequired).apply("VX-123","VX-456", "lowres", mockArchivedRecord)
       there was one(mockArchivedRecordDAO).findByVidispineId("VX-123")
       there was one(mockIgnoredRecordDAO).findByVidispineId("VX-123")
@@ -306,7 +309,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockFileUploader = mock[FileUploader]
 
       val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
-        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
+        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
 
@@ -340,13 +343,14 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockFileUploader = mock[FileUploader]
 
       val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
-        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
+        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
 
       val result = Await.result(toTest.handleShapeUpdate("VX-456","lowres","VX-123"), 3.seconds)
 
-      result must beRight(mockIgnoredRecord.asJson)
+      result must beRight
+      result.right.get.content mustEqual (mockIgnoredRecord.asJson)
       there was no(mockUploadShapeIfRequired).apply("VX-123","VX-456", "lowres", mockArchivedRecord)
       there was one(mockArchivedRecordDAO).findByVidispineId("VX-123")
       there was one(mockIgnoredRecordDAO).findByVidispineId("VX-123")
@@ -368,7 +372,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockFileUploader = mock[FileUploader]
 
       val toTest = new VidispineMessageProcessor(mock[PlutoCoreConfig], fakeDeliverablesConfig, mockFileUploader, mockFileUploader) {
-        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, Json]] =
+        override def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag: String, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
           mockUploadShapeIfRequired(itemId, shapeId, shapeTag, archivedRecord)
       }
 
@@ -436,7 +440,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       )
 
       val outputRecord = mockArchivedRecord.copy(proxyPath = Some("path/to/uploaded/file_prox.mp4"), proxyBucket = Some("proxy-bucket"))
-      result must beRight(outputRecord.asJson)
+      result must beRight
+      result.right.get.content mustEqual (outputRecord.asJson)
       there was no(vidispineCommunicator).streamFileContent(any,any)
       there was one(mockProxyUploader).copyFileToS3(any, org.mockito.ArgumentMatchers.eq(Some("path/to/uploaded/file_prox.mp4")))
       there was no(mockProxyUploader).uploadStreamNoChecks(any,any,any,any,any)
@@ -926,7 +931,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
       there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
-      result must beRight(mockArchivedRecord
+      result must beRight
+      result.right.get.content mustEqual (mockArchivedRecord
         .copy(
           proxyBucket = Some("proxyBucket"),
           metadataXML = Some("/uploaded/file/path"),
@@ -1006,7 +1012,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         there was one(mockProxyUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
         there was no(mockMediaUploader).uploadAkkaStream(any, any, any, any ,any, any)(any, any)
-        result must beRight(mockArchivedRecord
+        result must beRight
+        result.right.get.content mustEqual (mockArchivedRecord
           .copy(
             proxyBucket = Some("proxyBucket"),
             metadataXML = Some("/uploaded/file/path"),

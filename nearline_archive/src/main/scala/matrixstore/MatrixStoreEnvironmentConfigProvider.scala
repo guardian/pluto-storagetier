@@ -6,11 +6,15 @@ class MatrixStoreEnvironmentConfigProvider extends MatrixStoreConfigProvider {
   }
 
   override def get(): Either[String, MatrixStoreConfig] = {
-    (sys.env.get("MATRIX_STORE_ACCESS_KEY_ID"), sys.env.get("MATRIX_STORE_ACCESS_KEY_SECRET"),
-      sys.env.get("MATRIX_STORE_HOSTS").map(stringToArray)) match {
-      case (Some(accessKeyId), Some(accessKeySecret), Some(hosts))=>
-        Right(MatrixStoreConfig(hosts, accessKeyId, accessKeySecret))
-      case (_,_,_)=>
+    (sys.env.get("MATRIX_STORE_ACCESS_KEY_ID"),
+      sys.env.get("MATRIX_STORE_ACCESS_KEY_SECRET"),
+      sys.env.get("MATRIX_STORE_CLUSTER_ID"),
+      sys.env.get("MATRIX_STORE_HOSTS").map(stringToArray),
+      sys.env.get("NEARLINE_VAULT_ID")
+    ) match {
+      case (Some(accessKeyId), Some(accessKeySecret), Some(clusterId), Some(hosts), Some(vaultId))=>
+        Right(MatrixStoreConfig(hosts, clusterId, accessKeyId, accessKeySecret, vaultId))
+      case (_,_,_,_, _)=>
         Left("You must specify MATRIX_STORE_ACCESS_KEY_ID, MATRIX_STORE_ACCESS_KEY_SECRET and MATRIX_STORE_HOSTS (comma separated " +
           "string for several hosts)")
     }

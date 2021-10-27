@@ -7,7 +7,7 @@ import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecordDAO, F
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
 import org.slf4j.LoggerFactory
-import plutocore.PlutoCoreEnvironmentConfigProvider
+import com.gu.multimedia.storagetier.plutocore.PlutoCoreEnvironmentConfigProvider
 import plutodeliverables.PlutoDeliverablesConfig
 import sun.misc.{Signal, SignalHandler}
 import utils.TrustStoreHelper

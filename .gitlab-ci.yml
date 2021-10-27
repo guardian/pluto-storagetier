@@ -1,5 +1,42 @@
+stages:
+  - common_test
+  - build
+
+common:
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
+  stage: common_test
+  services:
+    - postgres:13-alpine
+  variables:
+    DB_HOST: postgres
+    POSTGRES_DB: storagetier-test
+    POSTGRES_PASSWORD: storagetier-test
+    POSTGRES_USER: storagetier
+    JAVA_OPTS: -Dsbt.ivy.home=./.ivy2 -Divy.home=./.ivy2
+    SBT_JUNIT_OUTPUT: ./junit-tests
+  script:
+    - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
+    - if [ -d "junit-tests" ]; then mkdir junit-tests; fi
+    - sbt 'project common; test; project mxscopy; test'
+  artifacts:
+    reports:
+      junit: junit-tests/*.xml
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-sbt
+    paths:
+      - target/
+      - .sbt/
+      - .ivy2/
+  tags:
+    - gnm
+  only:
+    - main
+    - merge_requests
+
+
 online_archive:
-  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20210928
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
+  stage: build
   services:
     - postgres:13-alpine
     - docker:19.03.11-dind
@@ -17,8 +54,7 @@ online_archive:
   script:
     - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
     - if [ -d "junit-tests" ]; then mkdir junit-tests; fi
-    - sbt test:compile
-    - sbt test
+    - sbt 'project online_archive; test'
     - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
     - docker version
     - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt 'project online_archive; docker:publishLocal'
@@ -59,50 +95,63 @@ online_archive:
     - main
     - merge_requests
 
-# 'upload' block based on pluto-core, commented out until we actually have something to upload.
-# might replace this with per-subproject builds
-#
-#upload:
-#  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-core/projectlockerbuild:20210629_1
-#  stage: deploy
-#  services:
-#    - docker:19.03.11-dind
-#  variables:
-#    DOCKER_TLS_CERTDIR: "/certs" #this is mounted by the gitlab CI system so is populated from the dind service
-#    DOCKER_HOST: tcp://docker:2376
-#    DOCKER_DRIVER: overlay2
-#    DOCKER_TLS_VERIFY: 1
-#    JAVA_OPTS: -Dsbt.ivy.home=./.ivy2 -Divy.home=./.ivy2
-#  script:
-#    - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
-#    - ls -lhd /certs
-#    - ls -lh /certs/*
-#    - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
-#    - docker version
-#    - docker login -u "${DOCKER_USER}" -p "${DOCKER_PAT}"
-#    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID} -Ddocker.username=guardianmultimedia" sbt docker:publish
-#    - "echo ci_commit_branch: ${CI_COMMIT_BRANCH} >> build-info.yaml"
-#    - "echo ci_commit_ref_name: ${CI_COMMIT_REF_NAME} >> build-info.yaml"
-#    - "echo ci_commit_sha: ${CI_COMMIT_SHA} >> build-info.yaml"
-#    - "echo ci_commit_timestamp: ${CI_COMMIT_TIMESTAMP} >> build-info.yaml"
-#    - "echo ci_commit_title: \\\"${CI_COMMIT_TITLE}\\\" >> build-info.yaml"
-#    - "echo ci_job_url: ${CI_JOB_URL} >> build-info.yaml"
-#    - "echo ci_project_name: \\\"${CI_PROJECT_NAME}\\\" >> build-info.yaml"
-#    - "echo ci_merge_request_project_url: ${CI_MERGE_REQUEST_PROJECT_URL} >> build-info.yaml"
-#    - "echo ci_merge_request_title: \\\"${CI_MERGE_REQUEST_TITLE}\\\" >> build-info.yaml"
-#    - "echo ci_pipeline_iid: ${CI_PIPELINE_IID} >> build-info.yaml"
-#    - "echo built_image: guardianmultimedia/pluto-storagetier:$CI_PIPELINE_IID >> build-info.yaml"
-#  artifacts:
-#    paths:
-#      - build-info.yaml
-#  cache:
-#    key: ${CI_COMMIT_REF_SLUG}-sbt
-#    policy: pull
-#    paths:
-#      - target/
-#  tags:
-#    - gnm
-#    - docker
-#  only:
-#    - master
-#    - merge_requests
+nearline_archive:
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
+  stage: build
+  services:
+    - postgres:13-alpine
+    - docker:19.03.11-dind
+  variables:
+    DB_HOST: postgres
+    POSTGRES_DB: storagetier-test
+    POSTGRES_PASSWORD: storagetier-test
+    POSTGRES_USER: storagetier
+    JAVA_OPTS: -Dsbt.ivy.home=./.ivy2 -Divy.home=./.ivy2
+    SBT_JUNIT_OUTPUT: ./junit-tests
+    DOCKER_TLS_CERTDIR: "/certs" #this is mounted by the gitlab CI system so is populated from the dind service
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_VERIFY: 1
+  script:
+    - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
+    - if [ -d "junit-tests" ]; then mkdir junit-tests; fi
+    - sbt 'project nearline_archive; test'
+    - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
+    - docker version
+    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt 'project nearline_archive; docker:publishLocal'
+    - mv ${HOME}/.sbt .sbt || true
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker tag guardianmultimedia/storagetier-online-nearline:$CI_PIPELINE_IID $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+    - docker push $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID
+    - if [ "${AWS_ACCESS_KEY_ID}" == "" ]; then echo Cannot upload to ECR without aws credential; exit 0; fi
+    - aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 855023211239.dkr.ecr.eu-west-1.amazonaws.com
+    - docker tag guardianmultimedia/storagetier-online-nearline:$CI_PIPELINE_IID 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-nearline:$CI_PIPELINE_IID
+    - docker push 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-nearline:$CI_PIPELINE_IID
+    - "echo ci_commit_branch: ${CI_COMMIT_BRANCH} >> build-info.yaml"
+    - "echo ci_commit_ref_name: ${CI_COMMIT_REF_NAME} >> build-info.yaml"
+    - "echo ci_commit_sha: ${CI_COMMIT_SHA} >> build-info.yaml"
+    - "echo ci_commit_timestamp: ${CI_COMMIT_TIMESTAMP} >> build-info.yaml"
+    - "echo ci_commit_title: \\\"${CI_COMMIT_TITLE}\\\" >> build-info.yaml"
+    - "echo ci_job_url: ${CI_JOB_URL} >> build-info.yaml"
+    - "echo ci_project_name: \\\"${CI_PROJECT_NAME}\\\" >> build-info.yaml"
+    - "echo ci_merge_request_project_url: ${CI_MERGE_REQUEST_PROJECT_URL} >> build-info.yaml"
+    - "echo ci_merge_request_title: \\\"${CI_MERGE_REQUEST_TITLE}\\\" >> build-info.yaml"
+    - "echo ci_pipeline_iid: ${CI_PIPELINE_IID} >> build-info.yaml"
+    - "echo built_image: 855023211239.dkr.ecr.eu-west-1.amazonaws.com/storagetier-online-nearline:$CI_PIPELINE_IID >> build-info.yaml"
+  artifacts:
+    reports:
+      junit: junit-tests/*.xml
+    paths:
+      - build-info.yaml
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-sbt
+    paths:
+      - target/
+      - .sbt/
+      - .ivy2/
+  tags:
+    - gnm
+    - docker
+  only:
+    - main
+    - merge_requests
