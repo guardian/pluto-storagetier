@@ -67,8 +67,8 @@ object Main {
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
-        "storagetier.nearline.newfile.success",
-        "storagetier.nearline.metadata",
+        Seq("storagetier.nearline.newfile.success", "storagetier.nearline.metadata.success"),
+        Seq("storagetier.nearline.metadata", "storagetier.nearline.vsupdate"),
         new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
       )
     )

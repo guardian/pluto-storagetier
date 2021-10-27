@@ -4,8 +4,9 @@ import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, RMQDestination}
-import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
+import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
@@ -18,7 +19,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
 
-class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLookup, ownExchangeName:String)(implicit mat:Materializer, ec:ExecutionContext, actorSystem:ActorSystem, mxsConnectionBuilder: MXSConnectionBuilder) extends MessageProcessor {
+class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLookup, ownExchangeName:String)
+                         (implicit mat:Materializer,
+                          ec:ExecutionContext,
+                          actorSystem:ActorSystem,
+                          mxsConnectionBuilder: MXSConnectionBuilder,
+                          vsCommunicator:VidispineCommunicator,
+                          nearlineRecordDAO: NearlineRecordDAO) extends MessageProcessor {
   import com.gu.multimedia.storagetier.plutocore.ProjectRecordEncoder._
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -124,6 +131,49 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
   }
 
   /**
+   * once we have written the metadata, we need to update Vidispine to say where the file is on the nearline
+   * @param msg circe Json object representing the (potentially outdated) NearlineRecord
+   * @return a failed Future if a non-retryable error occurred, a LEft with a descriptive string if a retryable error
+   *         occurred or a Right with a Json object (automatically upcast to MessageProcessorReturnValue) containing
+   *         the updated NearlineRecord if successful
+   */
+  def handleSuccessfulMetadataWrite(msg: Json) = msg.as[NearlineRecord] match {
+    case Left(err)=>
+      Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
+    case Right(rec)=>
+      import cats.implicits._
+      //because this message might arrive _before_ the vidispine item id has been set, we need to get the _current_
+      //state of the item from the datastore and not rely on the state from the message
+      //".sequence" here is a bit of cats magic that converts Option[Future[Option[A]]] into Future[Option[Option[A]]]
+      rec.id
+        .map(recId=>nearlineRecordDAO.getRecord(recId))
+        .sequence
+        .map(_.flatten)
+        .flatMap({
+          case None=>
+            logger.error(s"Can't update vidispine record for item ${rec.originalFilePath} " +
+              s"because the record ${rec.id} does not exist in the storagetier nearline records")
+            Future.failed(new RuntimeException(s"Record ${rec.id} does not exist in nearline records"))
+          case Some(updatedNearlineRecord)=>
+            updatedNearlineRecord.vidispineItemId match {
+              case Some(itemId)=>
+                logger.info(s"Updating metadata on $itemId to set nearline object id ${updatedNearlineRecord.objectId}")
+                vsCommunicator.setMetadataValue(itemId, "gnm_nearline_id", updatedNearlineRecord.objectId).map({
+                  case None=>
+                    logger.error(s"Item $itemId does not exist in vidispine! (got a 404 trying to update metadata)")
+                    throw new RuntimeException(s"Item $itemId does not exist in Vidispine")
+                  case Some(_)=>
+                    logger.info(s"Successfully updated metadata on $itemId")
+                    Right(updatedNearlineRecord.asJson)
+                })
+              case None=>
+                logger.info(s"The nearline record for ${rec.originalFilePath} does not have a vidispine id (yet)")
+                Future(Left("No vidispine id yet"))
+            }
+        })
+  }
+
+  /**
    * @param routingKey the routing key of the message as received from the broker.
    * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
    *                   using msg.as[CaseClassFormat]
@@ -134,5 +184,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = routingKey match {
     case "storagetier.nearline.newfile.success"=>  //notification of successful media copy = GP-598
       handleSuccessfulMediaCopy(msg)
+    case "storagetier.nearline.metadata.success"=>  //notification that objectmatrix metadata has been written = GP-627
+      handleSuccessfulMetadataWrite(msg)
   }
 }
