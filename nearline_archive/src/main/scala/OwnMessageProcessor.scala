@@ -79,16 +79,26 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
       maybeCommission <- asLookup.optionCommissionLookup(maybeProject.flatMap(_.commissionId))
       maybeWg <- asLookup.optionWGLookup(maybeCommission.map(_.workingGroupId))
       mxsData <- Future(generateMetadata(maybeProject, maybeCommission, maybeWg, rec.originalFilePath))
-    } yield mxsData.toAttributes(MxsMetadata.empty)
+    } yield (mxsData.toAttributes(MxsMetadata.empty), maybeProject.flatMap(_.sensitive))
 
     //write the attributes onto the file, if successful
-    mdFuture.map(md=>{
+    mdFuture.map(result=>{
+      val md = result._1
+      val maybeSensitive = result._2
       Try { vault.getObject(rec.objectId) } match {
         case Failure(err)=>
           logger.error(s"Could not get object with ID ${rec.objectId} for correlation id ${rec.id}: $err", err)
           Left(err.getMessage)
         case Success(mxsObject)=>
           writeMetadataToObject(mxsObject, md, rec)
+            .map(rec=>{
+              val extraSendLocations = if(maybeSensitive.contains(true)) {
+                Seq(RMQDestination(ownExchangeName, "storagetier.nearline.internalarchive.required"))
+              } else {
+                Seq()
+              }
+              MessageProcessorReturnValue(rec.asJson, extraSendLocations)
+            })
       }
     }).recover({
       case err:Throwable=>
@@ -123,12 +133,6 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = routingKey match {
     case "storagetier.nearline.newfile.success"=>  //notification of successful media copy = GP-598
-      handleSuccessfulMediaCopy(msg).map(_.map(rec=>
-        MessageProcessorReturnValue(rec.asJson,
-          Seq(
-            RMQDestination(ownExchangeName, "storagetier.nearline.internalarchive.required")
-          )
-        )
-      ))
+      handleSuccessfulMediaCopy(msg)
   }
 }
