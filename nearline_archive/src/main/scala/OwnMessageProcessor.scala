@@ -1,9 +1,9 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
-import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.mxscopy.models.MxsMetadata
-import com.gu.multimedia.storagetier.framework.MessageProcessor
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, RMQDestination}
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
 import com.om.mxs.client.japi.{MxsObject, Vault}
@@ -18,7 +18,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
 
-class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLookup)(implicit mat:Materializer, ec:ExecutionContext, actorSystem:ActorSystem, mxsConnectionBuilder: MXSConnectionBuilder) extends MessageProcessor {
+class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLookup, ownExchangeName:String)(implicit mat:Materializer, ec:ExecutionContext, actorSystem:ActorSystem, mxsConnectionBuilder: MXSConnectionBuilder) extends MessageProcessor {
   import com.gu.multimedia.storagetier.plutocore.ProjectRecordEncoder._
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -121,8 +121,14 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = routingKey match {
-    case "storagetier.nearlinearchive.newfile.success"=>  //notification of successful media copy = GP-598
-      handleSuccessfulMediaCopy(msg).map(_.map(_.asJson))
+  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = routingKey match {
+    case "storagetier.nearline.newfile.success"=>  //notification of successful media copy = GP-598
+      handleSuccessfulMediaCopy(msg).map(_.map(rec=>
+        MessageProcessorReturnValue(rec.asJson,
+          Seq(
+            RMQDestination(ownExchangeName, "storagetier.nearline.internalarchive.required")
+          )
+        )
+      ))
   }
 }

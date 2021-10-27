@@ -203,8 +203,8 @@ class MessageProcessingFramework (ingest_queue_name:String,
    * @param confirmationData a circe Json body of content to send out onto our exchange
    * @return
    */
-  private def confirmMessage(deliveryTag: Long, routingKeyForSend:String, previousMessageId:Option[String], confirmationData:Json, newMessageId:Option[UUID]=None) = Try {
-    val stringContent = confirmationData.noSpaces
+  private def confirmMessage(deliveryTag: Long, routingKeyForSend:String, previousMessageId:Option[String], confirmationData:MessageProcessorReturnValue, newMessageId:Option[UUID]=None) = Try {
+    val stringContent = confirmationData.content.noSpaces
 
     channel.basicAck(deliveryTag, false)
     val msgProps = new AMQP.BasicProperties.Builder()
@@ -214,9 +214,21 @@ class MessageProcessingFramework (ingest_queue_name:String,
       .headers(Map("x-in-response-to"->previousMessageId.orNull.asInstanceOf[AnyRef]).asJava)
       .build()
 
+    confirmationData.additionalDestinations.foreach(dest=>{
+      channel.basicPublish(dest.outputExchange, dest.routingKey, msgProps, stringContent.getBytes(cs))
+    })
     channel.basicPublish(output_exchange_name, routingKeyForSend + ".success", msgProps, stringContent.getBytes(cs))
   }
 
+  /**
+   * internal method.  Handle a permanent failure by forwarding the message onto the dead-letter queue with updated headers
+   * to indicate where the message came from and why it was rejected.  No-ack it from the original queue without a re-send.
+   * @param envelope Envelope object from the server
+   * @param properties AMQP.BasicProperties from the server
+   * @param body raw message content, as a byte array
+   * @param err descriptive error string, which is set as the "error" header in the rejected message
+   * @return a Try with no value if the operation worked or an exception if it failed.
+   */
   private def permanentlyRejectMessage(envelope: Envelope, properties:AMQP.BasicProperties, body:Array[Byte], err:String) = {
     //drop the dodgy message and send it directly to the DLX
     channel.basicNack(envelope.getDeliveryTag, false, false)

@@ -37,7 +37,7 @@ trait MessageProcessor {
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  def handleMessage(routingKey:String, msg:Json):Future[Either[String,Json]]
+  def handleMessage(routingKey:String, msg:Json):Future[Either[String,MessageProcessorReturnValue]]
 
   /**
    * The retry attempt number should be set in the message diagnostic context (MDC) by the framework.

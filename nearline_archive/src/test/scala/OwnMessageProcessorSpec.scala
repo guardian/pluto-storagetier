@@ -51,7 +51,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
-      val toTest = new OwnMessageProcessor(mxsConfig, mockLookup) {
+      val toTest = new OwnMessageProcessor(mxsConfig, mockLookup, "fake-output-exchange") {
         override protected def writeMetadataToObject(mxsObject: MxsObject, md: MxsMetadata, rec: NearlineRecord): Either[String, NearlineRecord] = mockWriteMetadata(mxsObject, md, rec)
       }
 
@@ -111,7 +111,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
-      val toTest = new OwnMessageProcessor(mxsConfig, mockLookup) {
+      val toTest = new OwnMessageProcessor(mxsConfig, mockLookup, "fake-output-exchange") {
         override protected def writeMetadataToObject(mxsObject: MxsObject, md: MxsMetadata, rec: NearlineRecord): Either[String, NearlineRecord] = mockWriteMetadata(mxsObject, md, rec)
       }
 

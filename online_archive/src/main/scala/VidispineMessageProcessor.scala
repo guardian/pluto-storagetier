@@ -1,10 +1,8 @@
-import Main.logger
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.{ContentType, ContentTypes, MediaTypes}
 import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, SilentDropMessage}
-import akka.stream.alpakka.s3.scaladsl.S3
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
@@ -101,7 +99,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   }
 
   private def addOrUpdateArchiveRecord(archivedRecord: Option[ArchivedRecord], filePath: String, uploadedPath: String, fileSize: Long,
-                               itemId: Option[String], essenceVersion: Option[Int]) = {
+                               itemId: Option[String], essenceVersion: Option[Int]):Future[Either[String, MessageProcessorReturnValue]] = {
     val record = archivedRecord match {
       case Some(rec) =>
         logger.debug(s"actual archivehunter ID for $filePath is ${rec.archiveHunterID}")
@@ -139,7 +137,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
   }
 
   private def uploadCreateOrUpdateRecord(filePath:String, relativePath:String, mediaIngested: VidispineMediaIngested,
-                                         archivedRecord: Option[ArchivedRecord]) = {
+                                         archivedRecord: Option[ArchivedRecord]):Future[Either[String, MessageProcessorReturnValue]] = {
     logger.info(s"Archiving file '$filePath' to s3://${mediaFileUploader.bucketName}/$relativePath")
     Future.fromTry(
       mediaFileUploader.copyFileToS3(new File(filePath), Some(relativePath))
@@ -181,7 +179,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
    */
   def uploadIfRequiredAndNotExists(filePath: String,
                                    relativePath: String,
-                                   mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
+                                   mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = {
     logger.debug(s"uploadIfRequiredAndNotExists: Original file is $filePath, target path is $relativePath")
     for {
       maybeArchivedRecord <- archivedRecordDAO.findBySourceFilename(filePath)
@@ -208,7 +206,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
                 logger.info(s"Updating record for ${record.originalFilePath} with vidispine ID ${mediaIngested.itemId} and version ${mediaIngested.essenceVersion}")
                 archivedRecordDAO
                   .writeRecord(record)
-                  .map(recId=>Right(record.copy(id=Some(recId)).asJson))
+                  .map(recId=>Right(MessageProcessorReturnValue(record.copy(id=Some(recId)).asJson)))
               } else {
                 logger.warn(s"Filepath $filePath does not exist in S3, re-uploading")
                 uploadCreateOrUpdateRecord(filePath, relativePath, mediaIngested, Some(archivedRecord))
@@ -229,7 +227,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
    *
    * @return String explaining which action took place
    */
-  def handleIngestedMedia(mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
+  def handleIngestedMedia(mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = {
     val status = mediaIngested.status
     val itemId = mediaIngested.itemId
 
@@ -297,7 +295,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     }
   }
 
-  def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,Json]] = {
+  def uploadShapeIfRequired(itemId: String, shapeId: String, shapeTag:String, archivedRecord: ArchivedRecord):Future[Either[String,MessageProcessorReturnValue]] = {
     ArchiveHunter.shapeTagToProxyTypeMap.get(shapeTag) match {
       case None=>
         logger.info(s"Shape $shapeTag for item $itemId is not required for ArchiveHunter, dropping the message")
@@ -317,7 +315,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
                   _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, uploadResult._1, proxyFileUploader.bucketName, destinationProxyType)
                   updatedRecord <- Future(archivedRecord.copy(proxyBucket = Some(proxyFileUploader.bucketName), proxyPath = Some(uploadResult._1)))
                   _ <- archivedRecordDAO.writeRecord(updatedRecord)
-                } yield Right(updatedRecord.asJson)
+                } yield Right(MessageProcessorReturnValue(updatedRecord.asJson))
 
                 //the future will fail if we can't upload to S3, but treat this as a retryable failure
                 uploadedFut.recover({
@@ -347,14 +345,14 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     })
   }
 
-  def handleShapeUpdate(shapeId:String, shapeTag:String, itemId:String): Future[Either[String, Json]] = {
+  def handleShapeUpdate(shapeId:String, shapeTag:String, itemId:String): Future[Either[String, MessageProcessorReturnValue]] = {
     for {
       maybeArchivedItem <- archivedRecordDAO.findByVidispineId(itemId)
       maybeIgnoredItem <- ignoredRecordDAO.findByVidispineId(itemId)
       result <- (maybeArchivedItem, maybeIgnoredItem) match {
         case (_, Some(ignoredItem))=>
           logger.info(s"Item $itemId is ignored because ${ignoredItem.ignoreReason}, leaving alone")
-          Future(Right(ignoredItem.asJson))
+          Future(Right(MessageProcessorReturnValue(ignoredItem.asJson)))
         case (Some(archivedItem), None)=>
           if(archivedItem.archiveHunterIDValidated) {
             for {
@@ -372,7 +370,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     } yield result
   }
 
-  def uploadMetadataToS3(itemId: String, essenceVersion: Option[Int], archivedRecord: ArchivedRecord): Future[Either[String, Json]] = {
+  def uploadMetadataToS3(itemId: String, essenceVersion: Option[Int], archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] = {
     vidispineCommunicator.akkaStreamXMLMetadataDocument(itemId).flatMap({
       case None=>
         logger.error(s"No metadata present on $itemId")
@@ -391,7 +389,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
             metadataVersion = essenceVersion
           ))
           _ <- archivedRecordDAO.writeRecord(updatedRecord)
-        } yield Right(updatedRecord.asJson)
+        } yield Right(MessageProcessorReturnValue(updatedRecord.asJson))
     }).recoverWith(err=>{
           val attemptCount = attemptCountFromMDC() match {
             case Some(count)=>count
@@ -410,7 +408,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
     })
   }
 
-  def handleMetadataUpdate(msg: Json, mediaIngested: VidispineMediaIngested): Future[Either[String, Json]] = {
+  def handleMetadataUpdate(msg: Json, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = {
     mediaIngested.itemId match {
       case Some(itemId) =>
         for {
@@ -448,7 +446,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, Json]] = {
+  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     logger.info(s"Received message from vidispine with routing key $routingKey")
     (msg.as[VidispineMediaIngested], routingKey) match {
       case (Left(err), _) =>

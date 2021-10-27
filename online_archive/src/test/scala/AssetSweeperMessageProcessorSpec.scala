@@ -48,7 +48,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
-      result.map(_.noSpaces) must beRight(expectedJson)
+      result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).writeRecord(any)
       there was no(ignoredRecordDAO).writeRecord(any)
       there was no(failureRecordDAO).writeRecord(any)
@@ -89,7 +89,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson =
         """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDptZWRpYS9hc3NldHMvcGF0aC90by9maWxlLmV4dA==","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"media/assets/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}""".stripMargin
-      result.map(_.noSpaces) must beRight(expectedJson)
+      result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).writeRecord(any)
       there was no(ignoredRecordDAO).writeRecord(any)
       there was no(failureRecordDAO).writeRecord(any)
@@ -114,7 +114,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), None), 2.seconds)
       val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
-      result.map(_.noSpaces) must beRight(expectedJson)
+      result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).writeRecord(any)
       there was one(uploader).copyFileToS3(new File("/media/assets/path/to/file.ext"),Some("path/to/file.ext"))
     }
@@ -152,7 +152,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson = """{"id":345,"originalFilePath":"/media/assets/path/to/file.ext","ignoreReason":"project 3333 is deletable","vidispineItemId":null,"vidispineVersionId":null}"""
-      result.map(_.noSpaces) must beRight(expectedJson)
+      result.map(_.content.noSpaces) must beRight(expectedJson)
       there was no(archivedRecordDAO).writeRecord(any)
       there was one(ignoredRecordDAO).writeRecord(any)
 
@@ -192,7 +192,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson = """{"id":345,"originalFilePath":"/media/assets/path/to/file.ext","ignoreReason":"project 3333 is sensitive","vidispineItemId":null,"vidispineVersionId":null}"""
-      result.map(_.noSpaces) must beRight(expectedJson)
+      result.map(_.content.noSpaces) must beRight(expectedJson)
       there was no(archivedRecordDAO).writeRecord(any)
       there was one(ignoredRecordDAO).writeRecord(any)
 
@@ -231,7 +231,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
-      result.map(_.noSpaces) must beLeft("My hovercraft is full of eels")
+      result.map(_.content.noSpaces) must beLeft("My hovercraft is full of eels")
       there was no(archivedRecordDAO).writeRecord(any)
       there was no(ignoredRecordDAO).writeRecord(any)
       there was one(failureRecordDAO).writeRecord(any)

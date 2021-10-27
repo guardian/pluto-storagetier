@@ -62,24 +62,24 @@ object Main {
       ProcessorConfiguration(
         "assetsweeper",
         "assetsweeper.asset_folder_importer.file.#",
-        "storagetier.nearlinearchive.newfile",
+        "storagetier.nearline.newfile",
         new AssetSweeperMessageProcessor()
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
-        "storagetier.nearlinearchive.newfile.success",
-        "storagetier.nearlinearchive.metadata",
-        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup)
+        "storagetier.nearline.newfile.success",
+        "storagetier.nearline.metadata",
+        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
       )
     )
 
     MessageProcessingFramework(
       "storagetier-nearline-archive",
       OUTPUT_EXCHANGE_NAME,
-      "pluto.storagetier.nearline-archive",
-      "storagetier-nearline-archive-retry",
-      "storagetier-nearline-archive-fail",
-      "storagetier-nearline-archive-dlq",
+      "pluto.storagetier.online-nearline",
+      "storagetier-online-nearline-retry",
+      "storagetier-online-nearline-fail",
+      "storagetier-online-nearline-dlq",
       config
     ) match {
       case Left(err) =>
