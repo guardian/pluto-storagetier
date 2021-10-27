@@ -1,5 +1,42 @@
+stages:
+  - common_test
+  - build
+
+common:
+  image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
+  stage: common_test
+  services:
+    - postgres:13-alpine
+  variables:
+    DB_HOST: postgres
+    POSTGRES_DB: storagetier-test
+    POSTGRES_PASSWORD: storagetier-test
+    POSTGRES_USER: storagetier
+    JAVA_OPTS: -Dsbt.ivy.home=./.ivy2 -Divy.home=./.ivy2
+    SBT_JUNIT_OUTPUT: ./junit-tests
+  script:
+    - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
+    - if [ -d "junit-tests" ]; then mkdir junit-tests; fi
+    - sbt 'project common; test; project mxscopy; test'
+  artifacts:
+    reports:
+      junit: junit-tests/*.xml
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}-sbt
+    paths:
+      - target/
+      - .sbt/
+      - .ivy2/
+  tags:
+    - gnm
+  only:
+    - main
+    - merge_requests
+
+
 online_archive:
   image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
+  stage: build
   services:
     - postgres:13-alpine
     - docker:19.03.11-dind
@@ -60,6 +97,7 @@ online_archive:
 
 nearline_archive:
   image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
+  stage: build
   services:
     - postgres:13-alpine
     - docker:19.03.11-dind
