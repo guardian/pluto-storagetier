@@ -89,10 +89,14 @@ class AssetSweeperMessageProcessor()
               // File exist in ObjectMatrix check size and md5
               val metadata = MetadataHelper.getMxfsMetadata(msxFile)
 
-              val checksumMatchFut = for {
-                fileChecksum <- FileIO.fromPath(fullPath).runWith(ChecksumSink.apply)
-                applianceChecksum <- MatrixStoreHelper.getOMFileMd5(msxFile)
-              } yield fileChecksum == applianceChecksum.toOption
+              val checksumMatchFut = Future.sequence(Seq(
+                FileIO.fromPath(fullPath).runWith(ChecksumSink.apply),
+                MatrixStoreHelper.getOMFileMd5(msxFile)
+              )).map(results=>{
+                val fileChecksum      = results.head.asInstanceOf[Option[String]]
+                val applianceChecksum = results(1).asInstanceOf[Try[String]]
+                fileChecksum == applianceChecksum.toOption
+              })
 
               checksumMatchFut.flatMap({
                 case true => //checksums match
