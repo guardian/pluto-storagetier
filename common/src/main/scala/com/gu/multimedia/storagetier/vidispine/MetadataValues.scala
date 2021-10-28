@@ -5,8 +5,8 @@ data models for constructing metadata updates that go to Vidispine.
 These "write" variants contain only the fields you need to _push_ data, not the extra fields that come back
 when you read it
  */
-case class MetadataValuesWrite(value:Seq[String])
-case class MetadataFieldWrite(name:String, value:MetadataValuesWrite)
+case class MetadataValuesWrite(value:String)
+case class MetadataFieldWrite(name:String, value:Seq[MetadataValuesWrite])
 case class MetadataFieldGroupWrite(name:String, field:Seq[MetadataFieldWrite])
 case class Timespan(field:Seq[MetadataFieldWrite],  group:Seq[MetadataFieldGroupWrite], start:String="-INF", end:String="+INF")
 case class MetadataWrite(timespan:Seq[Timespan])
@@ -22,7 +22,7 @@ object MetadataWrite {
     Seq(
       Timespan(
         field = Seq(
-          MetadataFieldWrite(field, value=MetadataValuesWrite(Seq(value)))
+          MetadataFieldWrite(field, value=Seq(MetadataValuesWrite(value)))
         ),
         group = Seq()
       )
@@ -39,7 +39,7 @@ object MetadataWrite {
     Seq(
       Timespan(
         field = Seq(
-          MetadataFieldWrite(field, value=MetadataValuesWrite(values))
+          MetadataFieldWrite(field, value=values.map(MetadataValuesWrite.apply))
         ),
         group = Seq()
       )
