@@ -24,7 +24,7 @@ object Main {
       Executors.newWorkStealingPool(10)
     )
   )
-  private val OUTPUT_EXCHANGE_NAME = "storagetier-nearline-archive"
+  private val OUTPUT_EXCHANGE_NAME = "storagetier-online-nearline"
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
   private lazy val db = DatabaseProvider.get()
@@ -36,7 +36,7 @@ object Main {
     case Right(config)=>config
   }
 
-  private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-nearlinearchive", defaultExecutionContext=Some
+  private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-onlinenearline", defaultExecutionContext=Some
   (executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
 
@@ -74,7 +74,7 @@ object Main {
     )
 
     MessageProcessingFramework(
-      "storagetier-nearline-archive",
+      "storagetier-online-nearline",
       OUTPUT_EXCHANGE_NAME,
       "pluto.storagetier.online-nearline",
       "storagetier-online-nearline-retry",

@@ -75,9 +75,10 @@ class AssetSweeperMessageProcessor()
     })
   }
 
-  def processFile(file: AssetSweeperNewFile, vault: Vault): Future[Either[String, Json]] = {
-    nearlineRecordDAO.findBySourceFilename(file.filepath).flatMap(record => {
-      record match {
+  def processFile(file: AssetSweeperNewFile, vault: Vault): Future[Either[String, Json]] =
+    nearlineRecordDAO
+      .findBySourceFilename(file.filepath)
+      .flatMap({
         case Some(rec) =>
           val fileChecksum =  FileIO.fromPath(Paths.get(file.filepath)).runWith(ChecksumSink.apply)
 
@@ -105,9 +106,7 @@ class AssetSweeperMessageProcessor()
           }
         case None =>
           copyFile(vault, file, None)
-      }
-    })
-  }
+      })
 
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
@@ -120,14 +119,8 @@ class AssetSweeperMessageProcessor()
           logger.warn("Received an update message, these are not implemented yet")
           Future(Left("Not implemented yet"))
         } else {
-          matrixStoreBuilder.build() match {
-            case Success(mxs) =>
-              MXSConnectionBuilder.withVaultFuture(mxs, mxsConfig.nearlineVaultId) { vault =>
-                processFile(file, vault)
-              }
-            case Failure(err) =>
-              logger.error(s"Could not connect to MatrixStore: $err")
-              Future(Left("Could not connect to MatrixStore"))
+          matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+            processFile(file, vault)
           }
         }
     }
