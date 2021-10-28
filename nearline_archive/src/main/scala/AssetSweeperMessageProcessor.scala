@@ -33,10 +33,9 @@ class AssetSweeperMessageProcessor()
   import AssetSweeperNewFile.Decoder._
 
   protected def copyUsingHelper(vault: Vault, file: AssetSweeperNewFile) = {
-    val fromFile = new File(file.filepath)
+    val fromFile = Paths.get(file.filepath, file.filename).toFile
 
-    Copier
-      .doCopyTo(vault, Some(file.filename), fromFile, 2*1024*1024, "md5", true, true)
+    Copier.doCopyTo(vault, Some(file.filename), fromFile, 2*1024*1024, "md5")
   }
 
   def copyFile(vault: Vault, file: AssetSweeperNewFile, maybeNearlineRecord: Option[NearlineRecord]): Future[Either[String, Json]] = {
