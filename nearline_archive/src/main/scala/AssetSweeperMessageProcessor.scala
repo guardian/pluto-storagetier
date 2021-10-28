@@ -17,7 +17,7 @@ import matrixstore.MatrixStoreConfig
 import org.slf4j.{LoggerFactory, MDC}
 
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Files, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -85,12 +85,12 @@ class AssetSweeperMessageProcessor()
           copyFile(vault, file, None)
         case Some(rec) =>             //a record already exists in the nearline table - check if the file state is ok on destination before copying
           Future.fromTry(Try { vault.getObject(rec.objectId) })
-            .flatMap({ msxFile =>
+            .flatMap({ mxsFile =>
               // File exist in ObjectMatrix check size and md5
               val savedContext = MDC.getCopyOfContextMap  //need to save the debug context for when we go in and out of akka
               val checksumMatchFut = Future.sequence(Seq(
                 FileIO.fromPath(fullPath).runWith(ChecksumSink.apply),
-                MatrixStoreHelper.getOMFileMd5(msxFile)
+                MatrixStoreHelper.getOMFileMd5(mxsFile)
               )).map(results=>{
                 MDC.setContextMap(savedContext)
                 val fileChecksum      = results.head.asInstanceOf[Option[String]]
@@ -103,7 +103,12 @@ class AssetSweeperMessageProcessor()
               checksumMatchFut.flatMap({
                 case true => //checksums match
                   MDC.setContextMap(savedContext)
-                  if (MetadataHelper.getFileSize(msxFile) == file.size) { //file size and checksums match, no copy required
+                  val localFileSize = Files.size(fullPath)
+                  if(localFileSize != file.size) {
+                    logger.warn(s"Asset sweeper message for $fullPath shows size of ${file.size} but actual on-disk size is $localFileSize. Using the on-disk one.")
+                  }
+
+                  if (MetadataHelper.getFileSize(mxsFile) == localFileSize) { //file size and checksums match, no copy required
                     logger.info(s"Object with object id ${rec.objectId} and filepath ${fullPath} already exists")
                     Future(Right(rec.asJson))
                   } else {                            //checksum matches but size does not (unlikely but possible), new copy required
