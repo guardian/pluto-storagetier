@@ -42,7 +42,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
           mockCopyUsingHelper(vault, file)
       }
       val mockFile = mock[AssetSweeperNewFile]
-      mockFile.filepath returns "/path/to/Assets/project/original-file.mov"
+      mockFile.filepath returns "/path/to/Assets/project"
+      mockFile.filename returns "original-file.mov"
 
       val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
 
@@ -81,8 +82,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilder]
 
       val mockVault = mock[Vault]
-      val mockExc = new RuntimeException("java.io.IOException: Invalid object, it does not exist (error 306)")
-      mockVault.getObject(any) throws mockExc
+      //workaround from https://stackoverflow.com/questions/3762047/throw-checked-exceptions-from-mocks-with-mockito
+      mockVault.getObject(any) answers( (x:Any)=> throw new IOException("Invalid object, it does not exist (error 306)"))
 
       val mockCopyUsingHelper = mock[(Vault, AssetSweeperNewFile)=> Future[(String, Option[String])]]
       mockCopyUsingHelper.apply(any,any) returns Future(("some-object-id", Some("checksum")))
@@ -92,7 +93,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
           mockCopyUsingHelper(vault, file)
       }
       val mockFile = mock[AssetSweeperNewFile]
-      mockFile.filepath returns "/path/to/Assets/project/original-file.mov"
+      mockFile.filepath returns "/path/to/Assets/project"
+      mockFile.filename returns "original-file.mov"
 
       val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
 
@@ -132,11 +134,12 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
           mockCopyUsingHelper(vault, file)
       }
       val mockFile = mock[AssetSweeperNewFile]
-      mockFile.filepath returns "/path/to/Assets/project/original-file.mov"
+      mockFile.filepath returns "/path/to/Assets/project"
+      mockFile.filename returns "original-file.mov"
 
       val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
 
-      result must beLeft("Failed to get object from vault /path/to/Assets/project/original-file.mov, will retry")
+      result must beLeft("ObjectMatrix error: ObjectMatrix out of office right now!!")
     }
   }
 }

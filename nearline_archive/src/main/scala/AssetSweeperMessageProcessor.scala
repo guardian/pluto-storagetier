@@ -39,13 +39,14 @@ class AssetSweeperMessageProcessor()
   }
 
   def copyFile(vault: Vault, file: AssetSweeperNewFile, maybeNearlineRecord: Option[NearlineRecord]): Future[Either[String, Json]] = {
+    val fullPath = Paths.get(file.filepath, file.filename)
     copyUsingHelper(vault, file)
       .flatMap((result) => {
         val (objectId, _) = result
 
         val record = maybeNearlineRecord match {
           case Some(rec) => rec
-          case None => NearlineRecord(objectId, file.filepath)
+          case None => NearlineRecord(objectId, fullPath.toString)
         }
 
         nearlineRecordDAO
@@ -53,7 +54,7 @@ class AssetSweeperMessageProcessor()
           .map(recId=>
             Right(
               record
-                .copy(id=Some(recId), originalFilePath = file.filepath)
+                .copy(id=Some(recId), originalFilePath = fullPath.toString)
                 .asJson
             )
           )
@@ -66,7 +67,7 @@ class AssetSweeperMessageProcessor()
         }
 
         val rec = FailureRecord(id = None,
-          originalFilePath = file.filepath,
+          originalFilePath = fullPath.toString,
           attempt = attemptCount,
           errorMessage = err.getMessage,
           errorComponent = ErrorComponents.Internal,
@@ -79,33 +80,47 @@ class AssetSweeperMessageProcessor()
     nearlineRecordDAO
       .findBySourceFilename(file.filepath)
       .flatMap({
-        case Some(rec) =>
-          val fileChecksum =  FileIO.fromPath(Paths.get(file.filepath)).runWith(ChecksumSink.apply)
-
-          Try { vault.getObject(rec.objectId) } match {
-            case Success(msxFile) =>
+        case None =>                  //no record exists in the nearline table yet => we have not processed this file. Proceed to copy.
+          copyFile(vault, file, None)
+        case Some(rec) =>             //a record already exists in the nearline table - check if the file state is ok on destination before copying
+          Future.fromTry(Try { vault.getObject(rec.objectId) })
+            .flatMap({ msxFile =>
+              val fullPath = Paths.get(file.filepath, file.filename)
               // File exist in ObjectMatrix check size and md5
               val metadata = MetadataHelper.getMxfsMetadata(msxFile)
-              val checksum = MatrixStoreHelper.getOMFileMd5(msxFile)
 
-              if (metadata.size() == file.size && checksum == fileChecksum) {
-                logger.info(s"Object with object id ${rec.objectId} and filepath ${file.filepath} already exists")
-                Future(Right(rec.asJson))
-              }
+              val checksumMatchFut = for {
+                fileChecksum <- FileIO.fromPath(fullPath).runWith(ChecksumSink.apply)
+                applianceChecksum <- MatrixStoreHelper.getOMFileMd5(msxFile)
+              } yield fileChecksum == applianceChecksum.toOption
 
-              copyFile(vault, file, Some(rec))
-            case Failure(err) =>
-              err.getMessage match {
-                case "java.io.IOException: Invalid object, it does not exist (error 306)" =>
+              checksumMatchFut.flatMap({
+                case true => //checksums match
+                  if (metadata.size() == file.size) { //file size and checksums match, no copy required
+                    logger.info(s"Object with object id ${rec.objectId} and filepath ${fullPath} already exists")
+                    Future(Right(rec.asJson))
+                  } else {                            //checksum matches but size does not (unlikely but possible), new copy required
+                    logger.info(s"Object with object id ${rec.objectId} and filepath $fullPath exists but size does not match, copying fresh version")
+                    copyFile(vault, file, Some(rec))
+                  }
+                case false =>                         //checksums don't match, size match undetermined, new copy required
+                  logger.info(s"Object with object id ${rec.objectId} and filepath $fullPath exists but checksum does not match, copying fresh version")
                   copyFile(vault, file, Some(rec))
-                case _ =>
-                  // Error contacting ObjectMatrix
-                  logger.info(s"Failed to get object from vault ${file.filepath}, will retry")
-                  Future(Left(s"Failed to get object from vault ${file.filepath}, will retry"))
-              }
-          }
-        case None =>
-          copyFile(vault, file, None)
+              })
+            }).recoverWith({
+              case err:java.io.IOException =>
+                if(err.getMessage.contains("does not exist (error 306)")) {
+                  copyFile(vault, file, Some(rec))
+                } else {
+                  logger.error(s"Error getting destination for objectmatrix: ${err.getMessage}", err)
+                  Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
+                }
+              case err:Throwable =>
+                val fullPath = Paths.get(file.filepath, file.filename)
+                // Error contacting ObjectMatrix, log it and retry via the queue
+                logger.info(s"Failed to get object from vault $fullPath: ${err.getMessage}, will retry")
+                Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
+            })
       })
 
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
