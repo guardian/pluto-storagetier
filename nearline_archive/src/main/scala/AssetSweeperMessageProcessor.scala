@@ -30,6 +30,7 @@ class AssetSweeperMessageProcessor()
                                    matrixStoreBuilder: MXSConnectionBuilder,
                                    mxsConfig: MatrixStoreConfig) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
+  import AssetSweeperNewFile.Decoder._
 
   protected def copyUsingHelper(vault: Vault, file: AssetSweeperNewFile) = {
     val fromFile = new File(file.filepath)
