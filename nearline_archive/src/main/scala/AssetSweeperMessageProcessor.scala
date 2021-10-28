@@ -62,7 +62,7 @@ class AssetSweeperMessageProcessor()
         val attemptCount = attemptCountFromMDC() match {
           case Some(count)=>count
           case None=>
-            logger.warn(s"Could not get attempt count from logging context for ${file.filepath}, creating failure report with attempt 1")
+            logger.warn(s"Could not get attempt count from logging context for $fullPath, creating failure report with attempt 1")
             1
         }
 
@@ -76,20 +76,20 @@ class AssetSweeperMessageProcessor()
     })
   }
 
-  def processFile(file: AssetSweeperNewFile, vault: Vault): Future[Either[String, Json]] =
+  def processFile(file: AssetSweeperNewFile, vault: Vault): Future[Either[String, Json]] = {
+    val fullPath = Paths.get(file.filepath, file.filename)
     nearlineRecordDAO
-      .findBySourceFilename(file.filepath)
+      .findBySourceFilename(fullPath.toString)
       .flatMap({
         case None =>                  //no record exists in the nearline table yet => we have not processed this file. Proceed to copy.
           copyFile(vault, file, None)
         case Some(rec) =>             //a record already exists in the nearline table - check if the file state is ok on destination before copying
           Future.fromTry(Try { vault.getObject(rec.objectId) })
             .flatMap({ msxFile =>
-              val fullPath = Paths.get(file.filepath, file.filename)
               // File exist in ObjectMatrix check size and md5
               val metadata = MetadataHelper.getMxfsMetadata(msxFile)
 
-              val savedContext = MDC.getCopyOfContextMap
+              val savedContext = MDC.getCopyOfContextMap  //need to save the debug context for when we go in and out of akka
               val checksumMatchFut = Future.sequence(Seq(
                 FileIO.fromPath(fullPath).runWith(ChecksumSink.apply),
                 MatrixStoreHelper.getOMFileMd5(msxFile)
@@ -129,12 +129,12 @@ class AssetSweeperMessageProcessor()
                   Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
                 }
               case err:Throwable =>
-                val fullPath = Paths.get(file.filepath, file.filename)
                 // Error contacting ObjectMatrix, log it and retry via the queue
                 logger.info(s"Failed to get object from vault $fullPath: ${err.getMessage} for checksum, will retry")
                 Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
             })
       })
+  }
 
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
