@@ -34,6 +34,11 @@ class ChecksumSink(algorithm:String="md5") extends GraphStageWithMaterializedVal
           md5Instance.update(elem.toArray)
           pull(in)
         }
+
+        override def onUpstreamFailure(ex: Throwable): Unit = {
+          logger.warn(s"Upstream failed with error ${ex.getMessage}, not returning a checksum")
+          completionPromise.failure(ex)
+        }
       })
 
       override def preStart(): Unit = {
@@ -42,8 +47,12 @@ class ChecksumSink(algorithm:String="md5") extends GraphStageWithMaterializedVal
       }
 
       override def postStop(): Unit = {
-        val str = Hex.encodeHexString(md5Instance.digest())
-        completionPromise.success(Some(str))
+        //we are called here even if we previously failed, so don't try to complete the promise twice.
+        //akka rules on graph stages mean that this is concurrently safe.
+        if(!completionPromise.isCompleted) {
+          val str = Hex.encodeHexString(md5Instance.digest())
+          completionPromise.success(Some(str))
+        }
       }
     }
     (logic, completionPromise.future)
