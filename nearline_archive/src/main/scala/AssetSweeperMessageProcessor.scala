@@ -87,8 +87,6 @@ class AssetSweeperMessageProcessor()
           Future.fromTry(Try { vault.getObject(rec.objectId) })
             .flatMap({ msxFile =>
               // File exist in ObjectMatrix check size and md5
-              val metadata = MetadataHelper.getMxfsMetadata(msxFile)
-
               val savedContext = MDC.getCopyOfContextMap  //need to save the debug context for when we go in and out of akka
               val checksumMatchFut = Future.sequence(Seq(
                 FileIO.fromPath(fullPath).runWith(ChecksumSink.apply),
@@ -105,7 +103,7 @@ class AssetSweeperMessageProcessor()
               checksumMatchFut.flatMap({
                 case true => //checksums match
                   MDC.setContextMap(savedContext)
-                  if (metadata.size() == file.size) { //file size and checksums match, no copy required
+                  if (MetadataHelper.getFileSize(msxFile) == file.size) { //file size and checksums match, no copy required
                     logger.info(s"Object with object id ${rec.objectId} and filepath ${fullPath} already exists")
                     Future(Right(rec.asJson))
                   } else {                            //checksum matches but size does not (unlikely but possible), new copy required
