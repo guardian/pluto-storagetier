@@ -40,6 +40,15 @@ class MatrixStoreFileSink(mxsFile:MxsObject) extends GraphStageWithMaterializedV
           channel.write(buffer)
           pull(in)
         }
+
+        override def onUpstreamFailure(ex: Throwable): Unit = {
+          logger.error(s"Copy source failed with error ${ex.getMessage}, aborting copy")
+          if(channel!=null) {
+            logger.debug("Closing write channel")
+            channel.close()
+          }
+          completionPromise.failure(ex)
+        }
       })
 
       override def preStart(): Unit = {

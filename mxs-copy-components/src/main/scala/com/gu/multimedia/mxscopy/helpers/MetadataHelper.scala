@@ -1,16 +1,16 @@
 package com.gu.multimedia.mxscopy.helpers
 
 import java.nio.ByteBuffer
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.om.mxs.client.japi.MxsObject
+import com.om.mxs.client.japi.{AttributeView, MxsObject, ObjectTypedAttributeView}
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
 
 object MetadataHelper {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -62,5 +62,52 @@ object MetadataHelper {
     newMetadata.longValues.foreach(entry=>view.writeLong(entry._1, entry._2))
     newMetadata.intValues.foreach(entry=>view.writeInt(entry._1,entry._2))
     newMetadata.boolValues.foreach(entry=>view.writeBoolean(entry._1, entry._2))
+  }
+
+  def safeReadLong(view:ObjectTypedAttributeView, key:String):Option[Long] = {
+    Try { Option(view.readLong(key)) }.toOption.flatten
+  }
+  def safeReadString(view:ObjectTypedAttributeView, key:String):Option[String] = {
+    Try { Option(view.readString(key)) }.toOption.flatten
+  }
+
+  /**
+   * exhaustive determination of file size.  Tries __mxs__length and DPSP_SIZE (both as a Long and a String) from the metadata first.
+   * If nothing is found, then falls back to using MxfsAttributeView
+   * @param obj
+   * @return
+   */
+  def getFileSize(obj:MxsObject) = {
+    val view = obj.getAttributeView
+    val metaValue = (safeReadLong(view, "__mxs__length"), safeReadLong(view, "DPSP_SIZE"), safeReadString(view, "DPSP_SIZE")) match {
+      case (Some(size), _, _) => //__mxs__length _should_ always be set
+        logger.debug(s"getting size of ${obj.getId} from __mxs__length")
+        Some(size)
+      case (_, Some(size), _) => //DPSP_SIZE is set by Dropspot and some GNM tools
+        logger.debug(s"getting size of ${obj.getId} from DPSP_SIZE (long)")
+        Some(size)
+      case (_, _, Some(sizeString)) => //one of our tools mischaracterised DPSP_SIZE as a string
+        logger.debug(s"getting size of ${obj.getId} from DPSP_SIZE (string)")
+        Try {
+          sizeString.toLong
+        } match {
+          case Success(size) => Some(size)
+          case Failure(err) =>
+            logger.error(s"Invalid DPSP_SIZE value '$sizeString' on ${obj.getId} could not be converted from string to number: ${err.getMessage}")
+            None
+        }
+      case (_, _, _) =>
+        None
+    }
+
+    metaValue match {
+      case Some(size)=>size
+      case None=>
+        //MXFSAttributeView seems unreliable for some reason
+        logger.debug(s"Could not find any file size for ${obj.getId} in metadata, falling back to MXFSAttributeView")
+        val mxfsMeta = obj.getMXFSFileAttributeView
+        val attrs = mxfsMeta.readAttributes()
+        attrs.size()
+    }
   }
 }
