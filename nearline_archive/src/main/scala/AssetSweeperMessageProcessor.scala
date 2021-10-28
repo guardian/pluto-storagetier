@@ -150,8 +150,14 @@ class AssetSweeperMessageProcessor()
           logger.warn("Received an update message, these are not implemented yet")
           Future(Left("Not implemented yet"))
         } else {
-          matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
-            processFile(file, vault)
+          val fullPath = Paths.get(file.filepath, file.filename)
+          if(!Files.exists(fullPath) || !Files.isRegularFile(fullPath)) {
+            logger.error(s"File $fullPath does not exist, or it's not a regular file. Can't continue.")
+            Future.failed(new RuntimeException("Invalid file"))
+          } else {
+            matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+              processFile(file, vault)
+            }
           }
         }
     }
