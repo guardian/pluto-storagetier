@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, MediaRange, MediaRanges, MediaTypes}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, MediaRange, MediaRanges, MediaTypes}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
@@ -205,7 +205,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     callToVidispine[ItemResponseSimplified](HttpRequest(
       uri = s"${config.baseUri}/API/item/$itemId/metadata",
       method = HttpMethods.PUT,
-      entity = HttpEntity(doc.asJson.noSpaces)
+      entity = HttpEntity(ContentTypes.`application/json`, doc.asJson.noSpaces)
     ))
   }
 }
