@@ -72,16 +72,16 @@ object MetadataHelper {
   }
 
   /**
-   * exhaustive determination of file size.  Tries __length and DPSP_SIZE (both as a Long and a String) from the metadata first.
+   * exhaustive determination of file size.  Tries __mxs__length and DPSP_SIZE (both as a Long and a String) from the metadata first.
    * If nothing is found, then falls back to using MxfsAttributeView
    * @param obj
    * @return
    */
   def getFileSize(obj:MxsObject) = {
     val view = obj.getAttributeView
-    val metaValue = (safeReadLong(view, "__length"), safeReadLong(view, "DPSP_SIZE"), safeReadString(view, "DPSP_SIZE")) match {
-      case (Some(size), _, _) => //__length _should_ always be set
-        logger.debug(s"getting size of ${obj.getId} from __length")
+    val metaValue = (safeReadLong(view, "__mxs__length"), safeReadLong(view, "DPSP_SIZE"), safeReadString(view, "DPSP_SIZE")) match {
+      case (Some(size), _, _) => //__mxs__length _should_ always be set
+        logger.debug(s"getting size of ${obj.getId} from __mxs__length")
         Some(size)
       case (_, Some(size), _) => //DPSP_SIZE is set by Dropspot and some GNM tools
         logger.debug(s"getting size of ${obj.getId} from DPSP_SIZE (long)")
