@@ -14,7 +14,7 @@ import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.io.File
 import java.nio.file.Paths
@@ -89,17 +89,22 @@ class AssetSweeperMessageProcessor()
               // File exist in ObjectMatrix check size and md5
               val metadata = MetadataHelper.getMxfsMetadata(msxFile)
 
+              val savedContext = MDC.getCopyOfContextMap
               val checksumMatchFut = Future.sequence(Seq(
                 FileIO.fromPath(fullPath).runWith(ChecksumSink.apply),
                 MatrixStoreHelper.getOMFileMd5(msxFile)
               )).map(results=>{
+                MDC.setContextMap(savedContext)
                 val fileChecksum      = results.head.asInstanceOf[Option[String]]
                 val applianceChecksum = results(1).asInstanceOf[Try[String]]
+                logger.debug(s"fileChecksum is $fileChecksum")
+                logger.debug(s"applianceChecksum is $applianceChecksum")
                 fileChecksum == applianceChecksum.toOption
               })
 
               checksumMatchFut.flatMap({
                 case true => //checksums match
+                  MDC.setContextMap(savedContext)
                   if (metadata.size() == file.size) { //file size and checksums match, no copy required
                     logger.info(s"Object with object id ${rec.objectId} and filepath ${fullPath} already exists")
                     Future(Right(rec.asJson))
@@ -107,7 +112,9 @@ class AssetSweeperMessageProcessor()
                     logger.info(s"Object with object id ${rec.objectId} and filepath $fullPath exists but size does not match, copying fresh version")
                     copyFile(vault, file, Some(rec))
                   }
-                case false =>                         //checksums don't match, size match undetermined, new copy required
+                case false =>
+                  MDC.setContextMap(savedContext)
+                  //checksums don't match, size match undetermined, new copy required
                   logger.info(s"Object with object id ${rec.objectId} and filepath $fullPath exists but checksum does not match, copying fresh version")
                   copyFile(vault, file, Some(rec))
               })
@@ -116,13 +123,15 @@ class AssetSweeperMessageProcessor()
                 if(err.getMessage.contains("does not exist (error 306)")) {
                   copyFile(vault, file, Some(rec))
                 } else {
-                  logger.error(s"Error getting destination for objectmatrix: ${err.getMessage}", err)
+                  //the most likely cause of this is that the sdk threw because the appliance is under heavy load and
+                  //can't do the checksum at this time
+                  logger.error(s"Error validating objectmatrix checksum: ${err.getMessage}", err)
                   Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
                 }
               case err:Throwable =>
                 val fullPath = Paths.get(file.filepath, file.filename)
                 // Error contacting ObjectMatrix, log it and retry via the queue
-                logger.info(s"Failed to get object from vault $fullPath: ${err.getMessage}, will retry")
+                logger.info(s"Failed to get object from vault $fullPath: ${err.getMessage} for checksum, will retry")
                 Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
             })
       })
