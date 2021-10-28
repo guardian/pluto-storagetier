@@ -40,7 +40,7 @@ object Main {
   (executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
 
-  private lazy val matrixStoreConfig = new MatrixStoreEnvironmentConfigProvider().get() match {
+  private implicit lazy val matrixStoreConfig = new MatrixStoreEnvironmentConfigProvider().get() match {
     case Left(err)=>
       logger.error(s"Could not initialise due to incorrect matrix-store config: $err")
       sys.exit(1)
