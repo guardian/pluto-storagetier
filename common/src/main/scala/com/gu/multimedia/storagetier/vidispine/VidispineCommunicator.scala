@@ -208,6 +208,17 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       entity = HttpEntity(ContentTypes.`application/json`, doc.asJson.noSpaces)
     ))
   }
+
+  def setGroupedMetadataValue(itemId:String, groupName:String, field:String, value:String) = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
+    val doc = MetadataWrite.groupedKeyValue(groupName, field, value)
+    callToVidispine[ItemResponseSimplified](HttpRequest(
+      uri = s"${config.baseUri}/API/item/$itemId/metadata",
+      method = HttpMethods.PUT,
+      entity = HttpEntity(ContentTypes.`application/json`, doc.asJson.noSpaces)
+    ))
+  }
 }
 
 object VidispineCommunicator {

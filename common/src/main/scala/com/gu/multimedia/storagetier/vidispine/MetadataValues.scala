@@ -29,6 +29,19 @@ object MetadataWrite {
     )
   )
 
+  def groupedKeyValue(groupName:String, field:String, value:String):MetadataWrite = MetadataWrite(
+    Seq(
+      Timespan(
+        group = Seq(
+          MetadataFieldGroupWrite(groupName, field=Seq(
+            MetadataFieldWrite(field, value=Seq(MetadataValuesWrite(value)))
+          ))
+        ),
+        field = Seq()
+      )
+    )
+  )
+
   /**
    * convenience method that builds a serializable object to write a  number of values to the same field in item metadata
    * @param field field name to set

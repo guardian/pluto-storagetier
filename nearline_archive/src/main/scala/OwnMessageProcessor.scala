@@ -159,7 +159,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
             updatedNearlineRecord.vidispineItemId match {
               case Some(itemId)=>
                 logger.info(s"Updating metadata on $itemId to set nearline object id ${updatedNearlineRecord.objectId}")
-                vsCommunicator.setMetadataValue(itemId, "gnm_nearline_id", updatedNearlineRecord.objectId).map({
+                vsCommunicator.setGroupedMetadataValue(itemId, "Asset", "gnm_nearline_id", updatedNearlineRecord.objectId).map({
                   case None=>
                     logger.error(s"Item $itemId does not exist in vidispine! (got a 404 trying to update metadata)")
                     throw new RuntimeException(s"Item $itemId does not exist in Vidispine")
