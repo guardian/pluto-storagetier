@@ -48,5 +48,5 @@ object MetadataWrite {
 }
 
 case class ItemMetadataSimplified(revision:String, timespan:Seq[Timespan])
-case class ItemResponseContentSimplified(metadata:Seq[ItemMetadataSimplified])
-case class ItemResponseSimplified(item:Seq[ItemResponseSimplified])
+case class ItemResponseContentSimplified(metadata:ItemMetadataSimplified)
+case class ItemResponseSimplified(item:Seq[ItemResponseContentSimplified])
