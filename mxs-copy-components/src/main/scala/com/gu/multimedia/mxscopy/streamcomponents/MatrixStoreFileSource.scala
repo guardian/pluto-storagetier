@@ -17,7 +17,7 @@ import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
-class MatrixStoreFileSource(userInfo:UserInfo,
+class MatrixStoreFileSource(vault:Vault,
                             sourceId:String,
                             bufferSize:Int=2*1024*1024,
                             timeout:FiniteDuration=5.seconds,
@@ -28,13 +28,6 @@ class MatrixStoreFileSource(userInfo:UserInfo,
 
   override def shape: SourceShape[ByteString] = SourceShape.of(out)
 
-  /**
-   * get a connection to the required vault. Included as a seperate method so that it can be mocked in testing
-   * @param userInfo
-   * @return
-   */
-  protected def openVault(userInfo:UserInfo) = VaultExtensions.openVaultWithTimeout(userInfo, timeout)
-
   protected def tryToGetStream(vault:Vault)(implicit ec:ExecutionContext) = for {
     mxsFile <- vault.getObjectWithTimeout(sourceId, timeout)
     stream <- if(mxsFile.exists()) Future { mxsFile.newInputStream() } else Future.failed(new RuntimeException(s"File ${mxsFile.getId} does not exist on ${mxsFile.getVault.getId}"))
@@ -44,7 +37,6 @@ class MatrixStoreFileSource(userInfo:UserInfo,
     private val logger = LoggerFactory.getLogger(getClass)
     private var stream:InputStream = _
     private var mxsFile:MxsObject = _
-    private var vault:Vault = _
 
     setHandler(out, new AbstractOutHandler {
       override def onPull(): Unit = {
@@ -72,20 +64,13 @@ class MatrixStoreFileSource(userInfo:UserInfo,
 
     override def preStart(): Unit = {
       implicit val ec:ExecutionContext = actorSystem.dispatcher
-      vault = Try { Await.result(openVault(userInfo), maxTimeout) } match {
-        case Failure(err)=>
-          logger.error(s"Could not get vault connection: ${err.getMessage}", err)
-          failStage(err)
-          return
-        case Success(vault)=>vault
-      }
 
       Try { Await.result(tryToGetStream(vault), maxTimeout) } match {
         case Success((newFile,newStream))=>
           mxsFile = newFile
           stream = newStream
         case Failure(exception)=>
-          logger.error(s"Unable to start streaming object $sourceId from ${userInfo.getVault}: ${exception.getMessage}", exception)
+          logger.error(s"Unable to start streaming object $sourceId from ${vault.getId}: ${exception.getMessage}", exception)
           failStage(exception)
       }
     }
