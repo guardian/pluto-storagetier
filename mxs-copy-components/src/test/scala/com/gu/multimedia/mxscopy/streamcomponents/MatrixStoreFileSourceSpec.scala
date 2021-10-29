@@ -32,8 +32,6 @@ class MatrixStoreFileSourceSpec extends Specification with Mockito {
 
       val result = Try { Await.result(RunnableGraph.fromGraph(graph).run(), 2.seconds)}
 
-      there was one(mockedVault).dispose()
-
       result must beFailedTry
       result.failed.get.getMessage mustEqual "test fault"
     }
