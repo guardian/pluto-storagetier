@@ -209,7 +209,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val mat = mock[Materializer]
       implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
       implicit val vsCommunicator = mock[VidispineCommunicator]
-      vsCommunicator.setMetadataValue(any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
+      vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
       val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
       nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
@@ -219,7 +219,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
 
       there was one(nearlineRecordDAO).getRecord(1234)
-      there was one(vsCommunicator).setMetadataValue("VX-123", "gnm_nearline_id","some-object-id")
+      there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id","some-object-id")
       result must beRight
     }
 
@@ -228,7 +228,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val mat = mock[Materializer]
       implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
       implicit val vsCommunicator = mock[VidispineCommunicator]
-      vsCommunicator.setMetadataValue(any,any,any) returns Future.failed(new RuntimeException("something broke"))
+      vsCommunicator.setGroupedMetadataValue(any,any,any,any) returns Future.failed(new RuntimeException("something broke"))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
       val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
       nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
@@ -238,7 +238,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
 
       there was one(nearlineRecordDAO).getRecord(1234)
-      there was one(vsCommunicator).setMetadataValue("VX-123", "gnm_nearline_id","some-object-id")
+      there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset","gnm_nearline_id","some-object-id")
       result must beLeft
     }
 
@@ -247,7 +247,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val mat = mock[Materializer]
       implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
       implicit val vsCommunicator = mock[VidispineCommunicator]
-      vsCommunicator.setMetadataValue(any,any,any) returns Future(None)
+      vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(None)
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
       val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
       nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
@@ -257,7 +257,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
 
       there was one(nearlineRecordDAO).getRecord(1234)
-      there was one(vsCommunicator).setMetadataValue("VX-123", "gnm_nearline_id","some-object-id")
+      there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id","some-object-id")
       result must beLeft
     }
 
@@ -294,7 +294,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val result = Try { Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds) }
 
       there was one(nearlineRecordDAO).getRecord(1234)
-      there was no(vsCommunicator).setMetadataValue(any,any,any)
+      there was no(vsCommunicator).setGroupedMetadataValue(any,any,any,any)
       result must beFailedTry
     }
   }
