@@ -8,7 +8,7 @@ import akka.util.ByteString
 import com.om.mxs.client.japi.{AccessOption, MxsObject, SeekableByteChannel}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.{Future, Promise}
 
 /**

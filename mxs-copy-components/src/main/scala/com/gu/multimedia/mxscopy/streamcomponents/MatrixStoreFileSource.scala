@@ -76,8 +76,7 @@ class MatrixStoreFileSource(vault:Vault,
     }
 
     override def postStop(): Unit = {
-      //implicit val ec:ExecutionContext = actorSystem.dispatcher
-      logger.debug("post-stop, terminating vault connection")
+      logger.debug("post-stop, terminating stream")
       try {
         if(stream!=null){
           logger.debug("closing stream")
@@ -88,18 +87,6 @@ class MatrixStoreFileSource(vault:Vault,
       } catch {
         case err:Throwable=>
           logger.error("could not close stream: ", err)
-      }
-
-      try {
-        if(vault!=null) {
-          logger.debug("terminating vault connection")
-          vault.dispose()
-        } else {
-          logger.debug("no vault connection to terminate")
-        }
-      } catch {
-        case err:Throwable=>
-          logger.error("could not dispose vault: ", err)
       }
     }
   }
