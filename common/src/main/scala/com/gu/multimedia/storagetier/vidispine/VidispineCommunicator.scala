@@ -2,7 +2,7 @@ package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpEntity, HttpRequest, MediaRange, MediaRanges, MediaTypes}
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, MediaRange, MediaRanges, MediaTypes}
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
@@ -196,6 +196,28 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
    */
   def findItemShape(itemId:String, shapeId:String) = {
     callToVidispine[ShapeDocument](HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/shape/$shapeId"))
+  }
+
+  def setMetadataValue(itemId:String, field:String, value:String) = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
+    val doc = MetadataWrite.simpleKeyValue(field, value)
+    callToVidispine[ItemResponseSimplified](HttpRequest(
+      uri = s"${config.baseUri}/API/item/$itemId/metadata",
+      method = HttpMethods.PUT,
+      entity = HttpEntity(ContentTypes.`application/json`, doc.asJson.noSpaces)
+    ))
+  }
+
+  def setGroupedMetadataValue(itemId:String, groupName:String, field:String, value:String) = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
+    val doc = MetadataWrite.groupedKeyValue(groupName, field, value)
+    callToVidispine[ItemResponseSimplified](HttpRequest(
+      uri = s"${config.baseUri}/API/item/$itemId/metadata",
+      method = HttpMethods.PUT,
+      entity = HttpEntity(ContentTypes.`application/json`, doc.asJson.noSpaces)
+    ))
   }
 }
 

@@ -3,8 +3,9 @@ import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, RMQDestination}
-import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
+import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
+import com.gu.multimedia.storagetier.vidispine.{ItemResponseSimplified, VidispineCommunicator}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import matrixstore.MatrixStoreConfig
 import org.mockito.ArgumentMatcher
@@ -17,6 +18,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.nio.file.Paths
 import scala.concurrent.{Await, Future}
+import scala.util.Try
 
 class OwnMessageProcessorSpec extends Specification with Mockito {
   val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id")
@@ -50,6 +52,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       mockLookup.assetFolderProjectLookup(any) returns Future(Some(fakeProject))
       mockLookup.optionCommissionLookup(any) returns Future(Some(fakeComm))
       mockLookup.optionWGLookup(any) returns Future(Some(fakeWg))
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -115,6 +119,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       mockLookup.assetFolderProjectLookup(any) returns Future(Some(fakeProject))
       mockLookup.optionCommissionLookup(any) returns Future(Some(fakeComm))
       mockLookup.optionWGLookup(any) returns Future(Some(fakeWg))
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -175,6 +181,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       mockLookup.assetFolderProjectLookup(any) returns Future(Some(fakeProject))
       mockLookup.optionCommissionLookup(any) returns Future.failed(new RuntimeException("kaboom"))
       mockLookup.optionWGLookup(any) returns Future(Some(fakeWg))
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -192,6 +200,102 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       there was no(mockLookup).optionWGLookup(any)
       there was no(mockWriteMetadata).apply(any,any,any)
       result must beLeft
+    }
+  }
+
+  "OwnMessageProcessor.handleSuccessfulMetadataWrite" should {
+    "look up the record in the datastore by id, call VidispineCommunicator to write it to the item and return a Right" in {
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
+      nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
+      val asLookup = mock[AssetFolderLookup]
+
+      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+
+      there was one(nearlineRecordDAO).getRecord(1234)
+      there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id","some-object-id")
+      result must beRight
+    }
+
+    "return a Left if VidispineCommunicator fails" in {
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.setGroupedMetadataValue(any,any,any,any) returns Future.failed(new RuntimeException("something broke"))
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
+      nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
+      val asLookup = mock[AssetFolderLookup]
+
+      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+
+      there was one(nearlineRecordDAO).getRecord(1234)
+      there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset","gnm_nearline_id","some-object-id")
+      result must beLeft
+    }
+
+    "return a Left if the item does not exist in VS" in {
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(None)
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
+      nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
+      val asLookup = mock[AssetFolderLookup]
+
+      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+
+      there was one(nearlineRecordDAO).getRecord(1234)
+      there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id","some-object-id")
+      result must beLeft
+    }
+
+    "return a Left if the vidispine ID is not yet present" in {
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.setMetadataValue(any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234))
+      nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
+      val asLookup = mock[AssetFolderLookup]
+
+      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+
+      there was one(nearlineRecordDAO).getRecord(1234)
+      there was no(vsCommunicator).setMetadataValue(any,any,any)
+      result must beLeft
+    }
+
+    "return a failed Future if the record does not exist in the datastore" in {
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+      vsCommunicator.setMetadataValue(any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.getRecord(any) returns Future(None)
+      val asLookup = mock[AssetFolderLookup]
+
+      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
+      val result = Try { Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds) }
+
+      there was one(nearlineRecordDAO).getRecord(1234)
+      there was no(vsCommunicator).setGroupedMetadataValue(any,any,any,any)
+      result must beFailedTry
     }
   }
 }
