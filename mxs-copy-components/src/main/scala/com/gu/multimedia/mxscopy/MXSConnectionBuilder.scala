@@ -36,6 +36,25 @@ case class MXSConnectionBuilder(hosts: Array[String], clusterId:String, accessKe
         .andThen(_=>mxs.dispose())
     })
   }
+
+  /**
+   * Exactly the same as [[withVaultFuture()]] but takes in multiple vault IDs and opens a connection to each of them.
+   * The sequence of Vault instances passed to the callback should be in the same order as the vault IDs passed to the
+   * function.
+   * @param vaultIds sequence of strings representing the vault IDs to open. A failure is returned if any of these fail.
+   * @param cb callback function, which needs to take a sequence of Vault objects representing the open vaults and return a Future of some type
+   * @param ec implicitly provided execution context
+   * @tparam T data type returned in the Future of the callback
+   * @return the result of the callback, or a failure if we were not able to establish the connection
+   */
+  def withVaultsFuture[T](vaultIds:Seq[String])(cb: Seq[Vault]=>Future[T])(implicit ec:ExecutionContext) = {
+    Future.fromTry(build()).flatMap(mxs=>{
+      Future
+        .sequence(vaultIds.map(vid=>Future.fromTry(Try{mxs.openVault(vid)})))
+        .flatMap(cb)
+        .andThen(_=>mxs.dispose())
+    })
+  }
 }
 
 object MXSConnectionBuilder {
