@@ -1,8 +1,9 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.helpers.Copier
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.mxscopy.models.MxsMetadata
+import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, RMQDestination}
 import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
@@ -178,6 +179,54 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
   }
 
   /**
+   * calls out to copier to perform an appliance-to-appliance copy.
+   * included as a seperate method to make test mocking easier.
+   * @param nearlineVault vault to copy from
+   * @param entry ObjectMatrixEntry representing the entry to copy
+   * @param destVault vault to copy to
+   * @return a Future, containing a tuple of the written object ID and an optional MD5 checksum
+   */
+  protected def callCrossCopy(nearlineVault:Vault, entry: ObjectMatrixEntry, destVault:Vault) = Copier
+    .doCrossCopy(nearlineVault, entry, destVault)
+
+  def handleInternalArchiveRequested(msg: Json):Future[Either[String, MessageProcessorReturnValue]] = msg.as[NearlineRecord] match {
+    case Left(err)=>
+      Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
+    case Right(rec)=>
+      mxsConfig.internalArchiveVaultId match {
+        case Some(internalArchiveVaultId) =>
+          //this message has been output by `applyCustomMetadata` above. So we can assume that (a) the source object ID in the message is
+          //valid, and (b) that it has the right metadata to copy from. All we need to do is to kick off the copy.
+          mxsConnectionBuilder.withVaultsFuture(Seq(mxsConfig.nearlineVaultId, internalArchiveVaultId)) { vaults =>
+            val nearlineVault = vaults.head
+            val internalArchiveVault = vaults(1)
+
+            val entry = ObjectMatrixEntry(rec.objectId, None, None)
+            callCrossCopy(nearlineVault, entry, internalArchiveVault)
+              .flatMap(writtenOid=> {
+                logger.info(s"Copied from ${rec.objectId} to $writtenOid for ${rec.originalFilePath}")
+                nearlineRecordDAO
+                  .setInternallyArchived(rec.id.get, true)
+                  .map({
+                    case Some(updatedRec)=>
+                      Right(updatedRec.asJson)
+                    case None=>
+                      throw new RuntimeException(s"Record id ${rec.id} is not valid!")
+                  })
+              })
+              .recover({
+                case err: Throwable => //handle a copy error as a retryable failure, likelihood is that it's to do with appliance load.
+                  logger.error(s"Could not copy entry ${rec.objectId} onto vault $internalArchiveVaultId: ${err.getMessage}", err)
+                  Left(err.getMessage)
+              })
+          }
+        case None=>
+          logger.error(s"The internal archive vault ID has not been configured, so it's not possible to send an item to internal archive.")
+          Future.failed(new RuntimeException(s"Internal archive vault not configured"))
+      }
+  }
+
+  /**
    * @param routingKey the routing key of the message as received from the broker.
    * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
    *                   using msg.as[CaseClassFormat]
@@ -186,9 +235,13 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = routingKey match {
-    case "storagetier.nearline.newfile.success"=>  //notification of successful media copy = GP-598
+    case "storagetier.nearline.newfile.success"=>           //notification of successful media copy = GP-598
       handleSuccessfulMediaCopy(msg)
-    case "storagetier.nearline.metadata.success"=>  //notification that objectmatrix metadata has been written = GP-627
+    case "storagetier.nearline.metadata.success"=>          //notification that objectmatrix metadata has been written = GP-627
       handleSuccessfulMetadataWrite(msg)
+    case "storagetier.nearline.internalarchive.required"=>  //notification that a (now existing file) needs internal archive = GP-599
+      handleInternalArchiveRequested(msg)
+    case _=>
+      Future(Left(s"Unrecognised routing key: $routingKey"))
   }
 }
