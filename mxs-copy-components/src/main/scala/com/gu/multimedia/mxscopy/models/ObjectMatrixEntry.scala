@@ -36,16 +36,20 @@ case class ObjectMatrixEntry(oid:String, attributes:Option[MxsMetadata], fileAtt
   def maybeGetPath() = stringAttribute("MXFS_PATH")
   def maybeGetFilename() = stringAttribute("MXFS_FILENAME")
 
-  def maybeGetSize() = fileAttribues match {
-    case Some(fileAttributes) =>
-      Some(fileAttributes.size)
-    case None =>
-      longAttribute("DPSP_SIZE") match {
-        case result@Some(_) => result
-        case None =>
-          stringAttribute("DPSP_SIZE").flatMap(_.toLongOption)
-      }
+  def maybeGetSize() = {
+  (longAttribute("__mxs_length"), stringAttribute("__mxs_length"), longAttribute("DPSP_SIZE"), stringAttribute("DPSP_SIZE"), fileAttribues) match {
+    case (Some(size),_,_,_,_)=>
+      Some(size)
+    case (_, Some(sizeString), _, _, _)=>
+      sizeString.toLongOption
+    case (_,_,Some(size), _, _)=>
+      Some(size)
+    case (_,_,_,Some(sizeString), _)=>
+      sizeString.toLongOption
+    case (_,_,_,_, attrs)=>
+      Some(attrs.size)
   }
+}
 
   def pathOrFilename = maybeGetPath() match {
     case Some(p)=>Some(p)

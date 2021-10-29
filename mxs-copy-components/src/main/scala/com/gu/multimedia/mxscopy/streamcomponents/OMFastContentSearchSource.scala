@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success}
 
-class OMFastContentSearchSource(userInfo:UserInfo, contentSearchString:String, keywords:Array[String], atOnce:Int=100) extends GraphStage[SourceShape[ObjectMatrixEntry]] {
+class OMFastContentSearchSource(vault:Vault, contentSearchString:String, keywords:Array[String], atOnce:Int=100) extends GraphStage[SourceShape[ObjectMatrixEntry]] {
   private final val out:Outlet[ObjectMatrixEntry] = Outlet.create("OMFastSearchSource.out")
 
   override def shape: SourceShape[ObjectMatrixEntry] = SourceShape.of(out)
@@ -31,7 +31,6 @@ class OMFastContentSearchSource(userInfo:UserInfo, contentSearchString:String, k
       ObjectMatrixEntry(parts.head,attributes = Some(mxsMeta), fileAttribues = None)
     }
 
-    var vault: Option[Vault] = None
     var iterator: Option[Iterator[String]] = None
 
     setHandler(out, new AbstractOutHandler {
@@ -59,8 +58,7 @@ class OMFastContentSearchSource(userInfo:UserInfo, contentSearchString:String, k
       //establish connection to OM
       try {
         logger.debug("OMFastSearchSource starting up")
-        logger.info(s"Establishing connection to ${userInfo.getVault} on ${userInfo.getAddresses} as ${userInfo.getUser}")
-        vault = Some(MatrixStore.openVault(userInfo))
+        logger.info(s"Establishing connection to ${vault.getId}")
 
         val searchTermString = if(keywords.nonEmpty) {
           contentSearchString + "\n" + "keywords: " + keywords.mkString(",")
@@ -68,9 +66,8 @@ class OMFastContentSearchSource(userInfo:UserInfo, contentSearchString:String, k
           contentSearchString
         }
         logger.debug(s"search string is '$searchTermString'")
-        iterator = vault.map(_.searchObjectsIterator(SearchTerm.createSimpleTerm(Constants.CONTENT, searchTermString), atOnce).asScala)
+        iterator = Some(vault.searchObjectsIterator(SearchTerm.createSimpleTerm(Constants.CONTENT, searchTermString), atOnce).asScala)
         logger.info("Connection established")
-
       } catch {
         case ex: Throwable =>
           logger.error(s"Could not establish connection: ", ex)
@@ -78,10 +75,6 @@ class OMFastContentSearchSource(userInfo:UserInfo, contentSearchString:String, k
       }
     }
 
-    override def postStop(): Unit = {
-      logger.info("Search stream stopped")
-      vault.map(_.dispose())
-    }
   }
 }
 

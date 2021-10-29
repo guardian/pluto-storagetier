@@ -1,10 +1,12 @@
 import akka.actor.ActorSystem
-import akka.stream.Materializer
+import akka.stream.{ClosedShape, Materializer}
+import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
-import com.gu.multimedia.mxscopy.helpers.Copier
+import com.gu.multimedia.mxscopy.helpers.{Copier, MatrixStoreHelper, MetadataHelper}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, RMQDestination}
+import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
@@ -179,6 +181,47 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
   }
 
   /**
+   * Looks for all files that match the given filepath in MXFS_PATH and file size in _mxs_length or DPSP_SIZE
+   * @param vault Vault object indicating the vault to query
+   * @param completeFilePath file path to the original item
+   * @param targetLength length of the original item
+   * @return a Future, with a sequence of matching ObjectMatrixEntry instances for each matching file
+   */
+  def matchingFiles(vault:Vault, completeFilePath:String, targetLength:Long) = {
+    val interestingFields = Array("MXFS_PATH, __mxs_length, DPSP_SIZE")
+
+    val graph = GraphDSL.createGraph(Sink.seq[ObjectMatrixEntry]) { implicit builder=> sink=>
+      import akka.stream.scaladsl.GraphDSL.Implicits._
+      val src = builder.add(new OMFastContentSearchSource(vault, s"MXFS_PATH:\"$completeFilePath\"", interestingFields))
+      src.out.filter(_.maybeGetSize().contains(targetLength)) ~> sink
+      ClosedShape
+    }
+
+    RunnableGraph
+      .fromGraph(graph)
+      .run()
+      .map(matches=>{
+        logger.info(s"There are ${matches.length} files with the file name $completeFilePath and length $targetLength in vault ${vault.getId}")
+        matches
+      })
+  }
+
+  /**
+   * Queries the destination vault to see if we already have at least one entry of the given name and of the file size
+   * of the given object in the source vault
+   * @param nearlineVault source vault, the vault corresponding to the objectId in `rec`
+   * @param destVault destination vault, the vault to query for matching files
+   * @param rec NearlineRecord that indicates the file we are going to copy
+   * @return a Future, containing True if we need to copy and False if we don't.
+   */
+  def isCopyNeeded(nearlineVault:Vault, destVault:Vault, rec:NearlineRecord) = {
+    for {
+      fileSize <- Future.fromTry(Try { nearlineVault.getObject(rec.objectId) }.map(MetadataHelper.getFileSize))
+      destFiles <- matchingFiles(destVault, rec.originalFilePath, fileSize)
+    } yield destFiles.isEmpty //if there are no files matching this name and size then we _do_ want to copy
+  }
+
+  /**
    * calls out to copier to perform an appliance-to-appliance copy.
    * included as a seperate method to make test mocking easier.
    * @param nearlineVault vault to copy from
@@ -186,8 +229,8 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    * @param destVault vault to copy to
    * @return a Future, containing a tuple of the written object ID and an optional MD5 checksum
    */
-  protected def callCrossCopy(nearlineVault:Vault, entry: ObjectMatrixEntry, destVault:Vault) = Copier
-    .doCrossCopy(nearlineVault, entry, destVault)
+  protected def callCrossCopy(nearlineVault:Vault, sourceOID:String, destVault:Vault) = Copier
+    .doCrossCopy(nearlineVault, sourceOID, destVault)
 
   def handleInternalArchiveRequested(msg: Json):Future[Either[String, MessageProcessorReturnValue]] = msg.as[NearlineRecord] match {
     case Left(err)=>
@@ -201,24 +244,29 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
             val nearlineVault = vaults.head
             val internalArchiveVault = vaults(1)
 
-            val entry = ObjectMatrixEntry(rec.objectId, None, None)
-            callCrossCopy(nearlineVault, entry, internalArchiveVault)
-              .flatMap(writtenOid=> {
-                logger.info(s"Copied from ${rec.objectId} to $writtenOid for ${rec.originalFilePath}")
-                nearlineRecordDAO
-                  .setInternallyArchived(rec.id.get, true)
-                  .map({
-                    case Some(updatedRec)=>
-                      Right(updatedRec.asJson)
-                    case None=>
-                      throw new RuntimeException(s"Record id ${rec.id} is not valid!")
+            isCopyNeeded(nearlineVault, internalArchiveVault, rec).flatMap({
+              case true =>
+                callCrossCopy(nearlineVault, rec.objectId, internalArchiveVault)
+                  .flatMap(writtenOid => {
+                    logger.info(s"Copied from ${rec.objectId} to $writtenOid for ${rec.originalFilePath}")
+                    nearlineRecordDAO
+                      .setInternallyArchived(rec.id.get, true)
+                      .map({
+                        case Some(updatedRec) =>
+                          Right(updatedRec.asJson)
+                        case None =>
+                          throw new RuntimeException(s"Record id ${rec.id} is not valid!")
+                      })
                   })
-              })
-              .recover({
-                case err: Throwable => //handle a copy error as a retryable failure, likelihood is that it's to do with appliance load.
-                  logger.error(s"Could not copy entry ${rec.objectId} onto vault $internalArchiveVaultId: ${err.getMessage}", err)
-                  Left(err.getMessage)
-              })
+                  .recover({
+                    case err: Throwable => //handle a copy error as a retryable failure, likelihood is that it's to do with appliance load.
+                      logger.error(s"Could not copy entry ${rec.objectId} onto vault $internalArchiveVaultId: ${err.getMessage}", err)
+                      Left(err.getMessage)
+                  })
+              case false=>
+                logger.info(s"${rec.originalFilePath} already exists in the archive vault, no copy is needed")
+                Future.failed(SilentDropMessage(Some(s"${rec.originalFilePath} is already archived")))
+            })
           }
         case None=>
           logger.error(s"The internal archive vault ID has not been configured, so it's not possible to send an item to internal archive.")
