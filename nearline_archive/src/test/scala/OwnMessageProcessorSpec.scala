@@ -2,7 +2,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
-import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, RMQDestination}
+import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
 import com.gu.multimedia.storagetier.vidispine.{ItemResponseSimplified, VidispineCommunicator}
@@ -320,20 +320,59 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.setInternallyArchived(any,any) returns Future(Some(rec.copy(internallyArchived = Some(true))))
       val asLookup = mock[AssetFolderLookup]
 
-      val mockCrossCopy = mock[(Vault, ObjectMatrixEntry, Vault)=>Future[(String, Option[String])]]
+      val mockCrossCopy = mock[(Vault, String, Vault)=>Future[(String, Option[String])]]
       mockCrossCopy.apply(any,any,any) returns Future(("destination-oid", None))
 
       val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name") {
-        override protected def callCrossCopy(nearlineVault: Vault, entry: ObjectMatrixEntry, destVault: Vault): Future[(String, Option[String])] = mockCrossCopy(nearlineVault, entry, destVault)
+        override protected def callCrossCopy(nearlineVault: Vault, sourceOID:String, destVault: Vault): Future[(String, Option[String])] = mockCrossCopy(nearlineVault, sourceOID, destVault)
+
+        override def isCopyNeeded(nearlineVault: Vault, destVault: Vault, rec: NearlineRecord): Future[Boolean] = Future(true)
       }
 
       val result = Await.result(toTest.handleInternalArchiveRequested(rec.asJson), 2.seconds)
 
       result must beRight
       result.flatMap(_.content.as[NearlineRecord]) must beRight(NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234), internallyArchived = Some(true)))
-      there was one(mockCrossCopy).apply(mockSourceVault, ObjectMatrixEntry("source-object-id", None,None), mockDestVault)
+      there was one(mockCrossCopy).apply(mockSourceVault, "source-object-id", mockDestVault)
       there was one(mxsConnectionBuilder).withVaultsFuture(org.mockito.ArgumentMatchers.eq(Seq("vault-id", "internal-archive-vault")))(any)(any)
       there was one(nearlineRecordDAO).setInternallyArchived(1234, true)
+    }
+
+    "not try to copy a file if isCopyNeeded is false" in {
+      implicit val actorSystem = mock[ActorSystem]
+      implicit val mat = mock[Materializer]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      val mockSourceVault = mock[Vault]
+      val mockDestVault = mock[Vault]
+
+      mxsConnectionBuilder.withVaultsFuture(any[Seq[String]])(any[Seq[Vault]=>Future[Any]])(any[ExecutionContext]) answers((args:Array[AnyRef])=>{
+        val requestedVaultIds = args.head.asInstanceOf[Seq[String]]
+        val callback = args(1).asInstanceOf[Seq[Vault]=>Future[Any]]
+        callback(Seq(mockSourceVault, mockDestVault))
+      })
+
+      implicit val vsCommunicator = mock[VidispineCommunicator]
+
+      val rec = NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234))
+      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.setInternallyArchived(any,any) returns Future(Some(rec.copy(internallyArchived = Some(true))))
+      val asLookup = mock[AssetFolderLookup]
+
+      val mockCrossCopy = mock[(Vault, String, Vault)=>Future[(String, Option[String])]]
+      mockCrossCopy.apply(any,any,any) returns Future(("destination-oid", None))
+
+      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name") {
+        override protected def callCrossCopy(nearlineVault: Vault, sourceOID:String, destVault: Vault): Future[(String, Option[String])] = mockCrossCopy(nearlineVault, sourceOID, destVault)
+
+        override def isCopyNeeded(nearlineVault: Vault, destVault: Vault, rec: NearlineRecord): Future[Boolean] = Future(false)
+      }
+
+      val result = Try { Await.result(toTest.handleInternalArchiveRequested(rec.asJson), 2.seconds) }
+
+      result must beAFailedTry(SilentDropMessage(Some("/path/to/original-file is already archived")))
+      there was no(mockCrossCopy).apply(mockSourceVault, "source-object-id", mockDestVault)
+      there was one(mxsConnectionBuilder).withVaultsFuture(org.mockito.ArgumentMatchers.eq(Seq("vault-id", "internal-archive-vault")))(any)(any)
+      there was no(nearlineRecordDAO).setInternallyArchived(1234, true)
     }
 
     "return a Left if the copy fails" in {
@@ -353,18 +392,20 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
       val asLookup = mock[AssetFolderLookup]
 
-      val mockCrossCopy = mock[(Vault, ObjectMatrixEntry, Vault)=>Future[(String, Option[String])]]
+      val mockCrossCopy = mock[(Vault, String, Vault)=>Future[(String, Option[String])]]
       mockCrossCopy.apply(any,any,any) returns Future.failed(new RuntimeException("Kaboom"))
 
       val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name") {
-        override protected def callCrossCopy(nearlineVault: Vault, entry: ObjectMatrixEntry, destVault: Vault): Future[(String, Option[String])] = mockCrossCopy(nearlineVault, entry, destVault)
+        override protected def callCrossCopy(nearlineVault: Vault, sourceOID:String, destVault: Vault): Future[(String, Option[String])] = mockCrossCopy(nearlineVault, sourceOID, destVault)
+
+        override def isCopyNeeded(nearlineVault: Vault, destVault: Vault, rec: NearlineRecord): Future[Boolean] = Future(true)
       }
 
       val rec = NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234))
       val result = Await.result(toTest.handleInternalArchiveRequested(rec.asJson), 2.seconds)
 
       result must beLeft("Kaboom")
-      there was one(mockCrossCopy).apply(mockSourceVault, ObjectMatrixEntry("source-object-id", None,None), mockDestVault)
+      there was one(mockCrossCopy).apply(mockSourceVault, "source-object-id", mockDestVault)
       there was one(mxsConnectionBuilder).withVaultsFuture(org.mockito.ArgumentMatchers.eq(Seq("vault-id", "internal-archive-vault")))(any)(any)
     }
   }

@@ -31,7 +31,7 @@ object Copier {
    * @param ec
    * @param mat
    */
-  def doCrossCopy(sourceVault:Vault, source:ObjectMatrixEntry, destVault:Vault, keepOnFailure:Boolean=false, retryOnFailure:Boolean=true)
+  def doCrossCopy(sourceVault:Vault, sourceOID:String, destVault:Vault, keepOnFailure:Boolean=false, retryOnFailure:Boolean=true)
                  (implicit actorSystem:ActorSystem, ec:ExecutionContext,mat:Materializer):Future[(String,Option[String])] = {
 
     /**
@@ -44,7 +44,7 @@ object Copier {
       val streamBytesGraph = GraphDSL.createGraph(sinkFac) { implicit builder=> sink=>
         import akka.stream.scaladsl.GraphDSL.Implicits._
 
-        val src = builder.add(new MatrixStoreFileSource(sourceVault, source.oid))
+        val src = builder.add(new MatrixStoreFileSource(sourceVault, sourceOID))
         src ~> sink
         ClosedShape
       }
@@ -65,16 +65,18 @@ object Copier {
      * @return a failed Future if either of the checksums is a Failure or if they are both successful but do not match.
      *         Otherwise, a successful Future containing the valid checksum
      */
-    def validateChecksum(sourceDestChecksum:Seq[Try[String]]) = {
+    def validateChecksum(sourceDestChecksum:Seq[Try[String]], destFile:MxsObject) = {
       val failures = sourceDestChecksum.collect({case Failure(err)=>err})
       if(failures.nonEmpty) {
         logger.error(s"${failures.length} checksums from the appliance failed:")
         failures.foreach(err=>logger.error(s"\t${err.getMessage}"))
+        destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
         Future.failed(new RuntimeException("Could not validate checksums"))
       } else {
         val successes = sourceDestChecksum.collect({case Success(cs)=>cs})
         if(successes.head != successes(1)) {
           logger.warn(s"Appliance copy failed: Source checksum was ${successes.head} and destination checksum was ${successes(1)}")
+          destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
           Future.failed(new RuntimeException("Checksums did not match"))
         } else {
           Future(successes.head)
@@ -83,14 +85,15 @@ object Copier {
     }
 
     for {
-      sourceMetadata <- MetadataHelper.getAttributeMetadata(source.getMxsObject(sourceVault))
+      sourceObject <- Future.fromTry(Try { sourceVault.getObject(sourceOID)})
+      sourceMetadata <- MetadataHelper.getAttributeMetadata(sourceObject)
       destFile <- Future.fromTry(Try { destVault.createObject(sourceMetadata.toAttributes.toArray)} )
       writtenLength <- streamBytes(destFile)
       sourceDestChecksum <- Future.sequence(Seq(
-        MatrixStoreHelper.getOMFileMd5(source.getMxsObject(sourceVault)),
+        MatrixStoreHelper.getOMFileMd5(sourceObject),
         MatrixStoreHelper.getOMFileMd5(destFile)
       ))
-      validatedChecksum <- validateChecksum(sourceDestChecksum) //this will fail the Future if the checksums don't match
+      validatedChecksum <- validateChecksum(sourceDestChecksum, destFile) //this will fail the Future if the checksums don't match
     } yield (destFile.getId, Some(validatedChecksum))
 
   }
