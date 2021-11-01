@@ -1,6 +1,5 @@
-package messages
+package com.gu.multimedia.storagetier.messages
 
-import java.time.ZonedDateTime
 import scala.util.Try
 /*
 {

@@ -14,6 +14,7 @@
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
     <logger name="com.gu.multimedia.storagetier.plutocore" level="INFO"/>
     <logger name="AssetSweeperMessageProcessor" level="DEBUG"/>
+    <logger name="FileCopier" level="DEBUG"/>
     <logger name="OwnMessageProcessor" level="DEBUG"/>
     <logger name="Main$" level="INFO"/>
 

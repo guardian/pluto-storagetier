@@ -29,18 +29,14 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val fileCopier = mock[FileCopier]
+      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
-      val mockCopyUsingHelper = mock[(Vault, AssetSweeperNewFile)=> Future[(String, Option[String])]]
-      mockCopyUsingHelper.apply(any,any) returns Future(("some-object-id", Some("checksum")))
-
-      val toTest = new AssetSweeperMessageProcessor() {
-        override protected def copyUsingHelper(vault: Vault, file: AssetSweeperNewFile): Future[(String, Option[String])] =
-          mockCopyUsingHelper(vault, file)
-      }
+      val toTest = new AssetSweeperMessageProcessor()
       val mockFile = mock[AssetSweeperNewFile]
       mockFile.filepath returns "/path/to/Assets/project"
       mockFile.filename returns "original-file.mov"
@@ -60,7 +56,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       result.map(value=>value) must beRight(rec.asJson)
     }
 
-    "perform an upload and record success if record exist but the same file doesn't already exist in ObjectMatrix" in {
+    "perform an upload and record success if record with objectId doesn't exist in ObjectMatrix" in {
       implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
       val rec: NearlineRecord = NearlineRecord(
         id = Some(123),
@@ -80,28 +76,24 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val fileCopier = mock[FileCopier]
+      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
 
       val mockVault = mock[Vault]
       //workaround from https://stackoverflow.com/questions/3762047/throw-checked-exceptions-from-mocks-with-mockito
       mockVault.getObject(any) answers( (x:Any)=> throw new IOException("Invalid object, it does not exist (error 306)"))
 
-      val mockCopyUsingHelper = mock[(Vault, AssetSweeperNewFile)=> Future[(String, Option[String])]]
-      mockCopyUsingHelper.apply(any,any) returns Future(("some-object-id", Some("checksum")))
-
-      val toTest = new AssetSweeperMessageProcessor() {
-        override protected def copyUsingHelper(vault: Vault, file: AssetSweeperNewFile): Future[(String, Option[String])] =
-          mockCopyUsingHelper(vault, file)
-      }
+      val toTest = new AssetSweeperMessageProcessor()
       val mockFile = mock[AssetSweeperNewFile]
       mockFile.filepath returns "/path/to/Assets/project"
       mockFile.filename returns "original-file.mov"
 
       val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
 
-      result.map(value=>value) must beRight(rec.asJson)
+      result must beRight(rec.asJson)
     }
 
-    "return Left if unknown error is thrown when checking if file already exist in ObjectMatrix" in {
+    "return Failure if Left is returned when trying to copy file ObjectMatrix" in {
       implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
       val rec: NearlineRecord = NearlineRecord(
         id = Some(123),
@@ -121,18 +113,15 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val fileCopier = mock[FileCopier]
+
+      val mockExc = new RuntimeException("ObjectMatrix out of office right now!!")
+      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left(s"ObjectMatrix error: ${mockExc.getMessage}"))
 
       val mockVault = mock[Vault]
-      val mockExc = new RuntimeException("ObjectMatrix out of office right now!!")
       mockVault.getObject(any) throws mockExc
 
-      val mockCopyUsingHelper = mock[(Vault, AssetSweeperNewFile)=> Future[(String, Option[String])]]
-      mockCopyUsingHelper.apply(any,any) returns Future(("some-object-id", Some("checksum")))
-
-      val toTest = new AssetSweeperMessageProcessor() {
-        override protected def copyUsingHelper(vault: Vault, file: AssetSweeperNewFile): Future[(String, Option[String])] =
-          mockCopyUsingHelper(vault, file)
-      }
+      val toTest = new AssetSweeperMessageProcessor()
       val mockFile = mock[AssetSweeperNewFile]
       mockFile.filepath returns "/path/to/Assets/project"
       mockFile.filename returns "original-file.mov"
