@@ -66,6 +66,7 @@ object Main {
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
+    implicit lazy val fileCopier = new FileCopier()
 
     val config = Seq(
       ProcessorConfiguration(

@@ -3,6 +3,7 @@ import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import com.gu.multimedia.storagetier.messages.VidispineMediaIngested
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
@@ -10,7 +11,6 @@ import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, Vidi
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import messages.VidispineMediaIngested
 import org.slf4j.LoggerFactory
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig}
 import plutodeliverables.PlutoDeliverablesConfig

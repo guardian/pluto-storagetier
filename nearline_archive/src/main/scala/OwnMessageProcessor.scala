@@ -13,7 +13,6 @@ import io.circe.generic.auto._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import org.slf4j.LoggerFactory
 import io.circe.syntax._
-import jdk.nashorn.internal.runtime.Context.ThrowErrorManager
 
 import java.nio.file.Paths
 import scala.concurrent.{ExecutionContext, Future}

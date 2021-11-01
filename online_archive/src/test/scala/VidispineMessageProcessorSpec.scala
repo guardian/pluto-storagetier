@@ -13,13 +13,14 @@ import com.gu.multimedia.storagetier.vidispine.{FileDocument, ShapeDocument, Sim
 import io.circe.Json
 import io.circe.syntax._
 import io.circe.generic.auto._
-import messages.{VidispineField, VidispineMediaIngested}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import com.gu.multimedia.storagetier.plutocore.PlutoCoreConfig
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import com.gu.multimedia.storagetier.messages.{VidispineField, VidispineMediaIngested}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
 import java.nio.file.{Path, Paths}
