@@ -80,6 +80,12 @@ object Main {
         Seq("storagetier.nearline.newfile.success", "storagetier.nearline.metadata.success", "storagetier.nearline.internalarchive.required"),
         Seq("storagetier.nearline.metadata", "storagetier.nearline.vsupdate", "storagetier.nearline.internalarchive"),
         new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
+      ),
+      ProcessorConfiguration(
+        "vidispine-events",
+        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop"),
+        Seq("storagetier.nearline.newfile"),
+        new VidispineMessageProcessor()
       )
     )
 
