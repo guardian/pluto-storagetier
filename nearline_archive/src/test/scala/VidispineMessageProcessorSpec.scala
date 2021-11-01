@@ -18,7 +18,7 @@ import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
-  implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id")
+  implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
 
   "VidispineMessageProcessor.handleIngestedMedia" should {
     "fail request when job status includes FAIL" in {
