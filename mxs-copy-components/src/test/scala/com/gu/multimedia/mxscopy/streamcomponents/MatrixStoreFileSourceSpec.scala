@@ -15,18 +15,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class MatrixStoreFileSourceSpec extends Specification with Mockito {
   "MatrixStoreFileSource" should {
     "fail the stream with an error if getObject throws an exception" in new AkkaTestkitSpecs2Support {
-      implicit val mat:Materializer = ActorMaterializer.create(system)
+      implicit val mat:Materializer = Materializer.matFromSystem
 
-      val mockedUserInfo = mock[UserInfo]
       val mockedVault = mock[Vault]
       mockedVault.getObject(any) throws new RuntimeException("test fault")
       mockedVault.getId returns "test-vault-id"
-      val toTest = new MatrixStoreFileSource(mockedUserInfo, "some-source-id") {
-        override def openVault(userInfo: UserInfo): Future[Vault] = Future(mockedVault)
-      }
-
+      val toTest = new MatrixStoreFileSource(mockedVault, "some-source-id")
       val sinkFac = Sink.ignore
-      val graph = GraphDSL.create(sinkFac) { implicit builder=> sink=>
+      val graph = GraphDSL.createGraph(sinkFac) { implicit builder=> sink=>
         import akka.stream.scaladsl.GraphDSL.Implicits._
 
         val src = builder.add(toTest)
@@ -36,8 +32,6 @@ class MatrixStoreFileSourceSpec extends Specification with Mockito {
 
       val result = Try { Await.result(RunnableGraph.fromGraph(graph).run(), 2.seconds)}
 
-      there was one(mockedVault).dispose()
-
       result must beFailedTry
       result.failed.get.getMessage mustEqual "test fault"
     }
@@ -45,7 +39,6 @@ class MatrixStoreFileSourceSpec extends Specification with Mockito {
 
   "MatrixStoreFileSource.tryToGetStream" should {
     "not try to get a stream if the file does not exist" in new AkkaTestkitSpecs2Support {
-      val mockedUserInfo = mock[UserInfo]
       val mockedVault = mock[Vault]
       val mockedObject = mock[MxsObject]
       mockedVault.getObject(any) returns mockedObject
@@ -53,8 +46,7 @@ class MatrixStoreFileSourceSpec extends Specification with Mockito {
       mockedObject.newInputStream() returns mock[MxsInputStream]
       mockedObject.getVault returns mockedVault
 
-      val toTest = new MatrixStoreFileSource(mockedUserInfo, "some-source-id") {
-        override protected def openVault(userInfo: UserInfo): Future[Vault] = Future(mockedVault)
+      val toTest = new MatrixStoreFileSource(mockedVault, "some-source-id") {
         def callTryToGetStream(vault:Vault)(implicit ec:ExecutionContext) = tryToGetStream(vault)(ec)
       }
 

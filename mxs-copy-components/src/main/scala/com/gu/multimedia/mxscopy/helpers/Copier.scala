@@ -8,9 +8,9 @@ import java.time.Instant
 import akka.stream.{ClosedShape, Materializer}
 import akka.stream.scaladsl.{Broadcast, FileIO, GraphDSL, RunnableGraph, Sink}
 import akka.util.ByteString
-import com.om.mxs.client.japi.{MatrixStore, UserInfo, Vault}
-import com.gu.multimedia.mxscopy.models.{CopyProblem, ObjectMatrixEntry}
-import org.slf4j.LoggerFactory
+import com.om.mxs.client.japi.{MatrixStore, MxsObject, UserInfo, Vault}
+import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
+import org.slf4j.{LoggerFactory, MDC}
 import com.gu.multimedia.mxscopy.streamcomponents.{ChecksumSink, MMappedFileSource, MatrixStoreFileSink, MatrixStoreFileSource}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -21,28 +21,81 @@ object Copier {
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
-    * stream the file to a local filepath
-    * @param entry [[ObjectMatrixEntry]] object representing the file to read from
-    * @param toPath java.nio.Path object representing the file to write to. This will be over-written if it exists already.
-    * @return a Future, containing a String of the checksum of the read data. If the stream fails then the future will fail, use .recover to handle this.
-    */
-  def doCopy(userInfo:UserInfo, entry:ObjectMatrixEntry, toPath:Path)(implicit ec:ExecutionContext,mat:Materializer,s:ActorSystem) = {
-    val checksumSinkFactory = new ChecksumSink()
+   * stream a file from one ObjectMatrix vault to another
+   * @param sourceVault Vault instance giving the vault to copy _from_
+   * @param source [[ObjectMatrixEntry]] instance giving the source file to copy
+   * @param destVault Vault instance giving the vault to copy _to_
+   * @param keepOnFailure
+   * @param retryOnFailure
+   * @param actorSystem
+   * @param ec
+   * @param mat
+   */
+  def doCrossCopy(sourceVault:Vault, sourceOID:String, destVault:Vault, keepOnFailure:Boolean=false, retryOnFailure:Boolean=true)
+                 (implicit actorSystem:ActorSystem, ec:ExecutionContext,mat:Materializer):Future[(String,Option[String])] = {
 
-    logger.info("starting doCopy")
-    val graph = GraphDSL.create(checksumSinkFactory) { implicit builder=> checksumSink=>
-      import akka.stream.scaladsl.GraphDSL.Implicits._
+    /**
+     * composable function that performs a streaming copy from one objectmatrix entity to another
+     * @param destFile MxsObject representing the file to be streamed to
+     * @return a Future, containing a Long of the number of bytes written
+     */
+    def streamBytes(destFile:MxsObject) = {
+      val sinkFac = new MatrixStoreFileSink(destFile)
+      val streamBytesGraph = GraphDSL.createGraph(sinkFac) { implicit builder=> sink=>
+        import akka.stream.scaladsl.GraphDSL.Implicits._
 
-      val src = builder.add(new MatrixStoreFileSource(userInfo, entry.oid))
-      val bcast = builder.add(new Broadcast[ByteString](2,true))
-      val fileSink = builder.add(FileIO.toPath(toPath))
+        val src = builder.add(new MatrixStoreFileSource(sourceVault, sourceOID))
+        src ~> sink
+        ClosedShape
+      }
 
-      src.out.log("copyStream") ~> bcast ~> fileSink
-      bcast.out(1) ~> checksumSink
-      ClosedShape
+      val debugContext = MDC.getCopyOfContextMap  //save the logger's debug context and make sure it is re-applied at the end.
+      RunnableGraph
+        .fromGraph(streamBytesGraph)
+        .run()
+        .map(result=>{
+          MDC.setContextMap(debugContext)
+          result
+        })
     }
 
-    RunnableGraph.fromGraph(graph).run()
+    /**
+     * composable function that checks if the given checksums match
+     * @param sourceDestChecksum a sequence of exactly two Try[String] representing the checksum operations.
+     * @return a failed Future if either of the checksums is a Failure or if they are both successful but do not match.
+     *         Otherwise, a successful Future containing the valid checksum
+     */
+    def validateChecksum(sourceDestChecksum:Seq[Try[String]], destFile:MxsObject) = {
+      val failures = sourceDestChecksum.collect({case Failure(err)=>err})
+      if(failures.nonEmpty) {
+        logger.error(s"${failures.length} checksums from the appliance failed:")
+        failures.foreach(err=>logger.error(s"\t${err.getMessage}"))
+        destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
+        Future.failed(new RuntimeException("Could not validate checksums"))
+      } else {
+        val successes = sourceDestChecksum.collect({case Success(cs)=>cs})
+        if(successes.head != successes(1)) {
+          logger.warn(s"Appliance copy failed: Source checksum was ${successes.head} and destination checksum was ${successes(1)}")
+          destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
+          Future.failed(new RuntimeException("Checksums did not match"))
+        } else {
+          Future(successes.head)
+        }
+      }
+    }
+
+    for {
+      sourceObject <- Future.fromTry(Try { sourceVault.getObject(sourceOID)})
+      sourceMetadata <- MetadataHelper.getAttributeMetadata(sourceObject)
+      destFile <- Future.fromTry(Try { destVault.createObject(sourceMetadata.toAttributes.toArray)} )
+      writtenLength <- streamBytes(destFile)
+      sourceDestChecksum <- Future.sequence(Seq(
+        MatrixStoreHelper.getOMFileMd5(sourceObject),
+        MatrixStoreHelper.getOMFileMd5(destFile)
+      ))
+      validatedChecksum <- validateChecksum(sourceDestChecksum, destFile) //this will fail the Future if the checksums don't match
+    } yield (destFile.getId, Some(validatedChecksum))
+
   }
 
   /**
@@ -146,22 +199,6 @@ object Copier {
     }
   }
 
-  def copyFromLocal(userInfo: UserInfo, vault: Vault, destFileName: Option[String], localFile: String, chunkSize:Int, checksumType:String)(implicit ec:ExecutionContext, mat:Materializer) = {
-    logger.debug("in copyFromLocal")
-    val check = Try { destFileName.flatMap(actualFileame=>MatrixStoreHelper.findByFilename(vault, actualFileame).map(_.headOption).get) }
-
-    check match {
-      case Failure(err)=>
-        logger.error(s"Could not check for existence of remote file at ${destFileName.getOrElse("(none)")}", err)
-        Future.failed(err)
-      case Success(Some(existingFile))=>
-        logger.error(s"Won't over-write pre-existing file: $existingFile")
-        Future(Left(CopyProblem(existingFile, "File already existed")))
-      case Success(None)=>
-        logger.debug("Initiating copy")
-        doCopyTo(vault, destFileName, new File(localFile), chunkSize, checksumType).map(Right(_))
-    }
-  }
 
   def ensurePathExists(pathName:String) = {
     val pathPart = new File(FilenameUtils.getPathNoEndSeparator(pathName))
@@ -191,67 +228,4 @@ object Copier {
       from
     }
   }
-
-  def copyFromRemote(userInfo: UserInfo, vault:Vault, destFileName: Option[String], remoteFile:ObjectMatrixEntry, chunkSize:Int, checksumType:String)(implicit ec:ExecutionContext, mat:Materializer, s:ActorSystem) = {
-    logger.debug("in copyFromRemote")
-
-    val alternativePathLocations = List("MXFS_PATH","MXFS_FILENAME")
-
-    def tryNextLocation(list:List[String]):Option[String] = {
-      if(list.isEmpty) return None
-
-      val current = list.head
-      remoteFile.stringAttribute(current) match {
-        case Some(str)=>Some(str)
-        case None=>tryNextLocation(list.tail)
-      }
-    }
-
-    val maybeFilePath = destFileName match {
-      case None=> tryNextLocation(alternativePathLocations)
-      case ok @Some(_)=>ok
-    }
-
-
-    maybeFilePath.map(removeLeadingSlash) match {
-      case None=>
-        logger.error(s"Could not find any file path to copy file to")
-        Future(Left(CopyProblem(remoteFile,"Could not find any file path to copy file to")))
-      case Some(actualFilePath)=>
-        logger.info(s"Copying to $actualFilePath")
-        if(!isAbsentOrZerolength(actualFilePath)){
-          logger.warn("File already exists, not overwriting")
-          Future(Left(CopyProblem(remoteFile,"File already exists locally, not overwriting")))
-        } else {
-          ensurePathExists(actualFilePath)
-          doCopy(userInfo, remoteFile, new File(actualFilePath).toPath).map(maybeCs => Right((actualFilePath, maybeCs)))
-        }
-    }
-  }
-
-  def lookupFileName(userInfo:UserInfo, vault:Vault, fileName: String, copyTo:Option[String])(implicit ec:ExecutionContext, mat:Materializer) = {
-    val result = MatrixStoreHelper.findByFilename(vault, fileName).map(_.map(_.getMetadata(vault))).map(futureResults=>{
-
-      Future.sequence(futureResults).map(results=> {
-        println(s"Found ${results.length} files: ")
-
-        Future.sequence(results.map(entry => {
-          println(entry)
-          val f = vault.getObject(entry.oid)
-          MatrixStoreHelper.getOMFileMd5(f).map({
-            case Success(md5) =>
-              println(s"File checksum is $md5")
-            case Failure(err) =>
-              println(s"Could not get checksum: $err")
-          })
-        }))
-      })
-    })
-
-    result match {
-      case Failure(err)=>Future.failed(err)
-      case Success(futures)=>Future.successful( () )
-    }
-  }
-
 }

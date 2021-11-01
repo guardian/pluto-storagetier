@@ -1,14 +1,12 @@
 package com.gu.multimedia.mxscopy.streamcomponents
 
-import akka.stream.scaladsl.{Keep, RunnableGraph, Sink, Source}
-import akka.stream.{ActorMaterializer, Attributes, FlowShape, Inlet, Materializer, Outlet}
 import akka.stream.stage.{AbstractInHandler, AbstractOutHandler, GraphStage, GraphStageLogic}
-import com.om.mxs.client.japi.{MXFSFileAttributes, MatrixStore, MxsObject, UserInfo, Vault}
+import akka.stream._
 import com.gu.multimedia.mxscopy.helpers.MetadataHelper
 import com.gu.multimedia.mxscopy.models.{FileAttributes, MxsMetadata, ObjectMatrixEntry}
+import com.om.mxs.client.japi.{MXFSFileAttributes, MatrixStore, UserInfo, Vault}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success}
 

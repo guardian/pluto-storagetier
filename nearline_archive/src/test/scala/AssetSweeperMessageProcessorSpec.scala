@@ -16,7 +16,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
-  implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id")
+  implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
 
   "AssetSweeperMessageProcessor.processFile" should {
     "perform an upload and record success if record doesn't already exist" in {
