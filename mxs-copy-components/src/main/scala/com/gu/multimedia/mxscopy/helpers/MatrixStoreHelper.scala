@@ -227,32 +227,32 @@ object MatrixStoreHelper {
     * @param ec implicitly provided execution context
     * @return a Future, which resolves to a Try containing a String of the checksum.
     */
-  def getOMFileMd5(f:MxsObject, maxAttempts:Int=10)(implicit ec:ExecutionContext):Future[Try[String]] = {
+  def getOMFileMd5(f:MxsObject, maxAttempts:Int=50)(implicit ec:ExecutionContext):Future[Try[String]] = {
 
     def lookup(attempt:Int=1):Try[String] = {
       if(attempt>maxAttempts) return Failure(new RuntimeException(s"Could not get valid checksum after $attempt tries"))
+      logger.info(s"Requesting appliance-side MD5 checksum for ${f.getId} on attempt $attempt")
       val view = f.getAttributeView
       val result = Try {
-        logger.debug(s"getting result for ${f.getId}...")
         val buf = ByteBuffer.allocate(16)
         view.read("__mxs__calc_md5", buf)
-        logger.debug(s"Got buffer of length ${buf.array().length}")
+        logger.debug(s"Appliance checksum request got buffer of length ${buf.array().length}")
         buf
       }
 
       result match {
         case Failure(err:TaggedIOException)=>
           if(err.getError==302){
-            logger.warn(s"Got 302 (server busy) from appliance, retrying after delay")
-            Thread.sleep(500)
+            logger.warn(s"Got 302 (server busy) from appliance when requesting checksum, retrying after delay")
+            Thread.sleep(30000*attempt) //we don't want to time out on a large file.Each retry takes 15s to time out, so add 30s per retry.
             lookup(attempt+1)
           } else {
             Failure(err)
           }
         case Failure(err:java.io.IOException)=>
           if(err.getMessage.contains("error 302")){
-            logger.warn(s"Got an error containing 302 string, retrying after delay")
-            Thread.sleep(500)
+            logger.warn(s"Appliance side checksum request got an error containing 302 string, retrying after delay")
+            Thread.sleep(30000*attempt)
             lookup(attempt+1)
           } else {
             Failure(err)
@@ -261,18 +261,18 @@ object MatrixStoreHelper {
         case Success(buffer)=>
           val arr = buffer.array()
           if(arr.isEmpty) {
-            logger.info(s"Empty string returned for file MD5 on attempt $attempt, assuming still calculating. Will retry...")
-            Thread.sleep(1000) //this feels nasty but without resorting to actors i can't think of an elegant way
+            logger.info(s"Empty string returned for file appliance-side checksum on attempt $attempt, assuming still calculating. Will retry...")
+            Thread.sleep(30000*attempt) //this feels nasty but without resorting to actors i can't think of an elegant way
             //to delay and re-call in a non-blocking way
             lookup(attempt + 1)
           } else {
-            logger.debug(s"byte string length was ${arr.length}")
+            logger.debug(s"Appliance-side checksum - byte string length was ${arr.length}")
             val converted = Hex.encodeHexString(arr)
-            logger.debug(s"converted string was $converted")
+            logger.debug(s"Appliance-side checksum - converted string was $converted")
             if (converted.length == 32)
               Success(converted)
             else {
-              logger.warn(s"Returned checksum $converted is wrong length (${converted.length}; should be 32).")
+              logger.warn(s"Returned appliance-side checksum $converted is wrong length (${converted.length}; should be 32).")
               Thread.sleep(1500)
               lookup(attempt + 1)
             }
