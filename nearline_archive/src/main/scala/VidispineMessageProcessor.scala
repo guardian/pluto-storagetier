@@ -193,16 +193,16 @@ class VidispineMessageProcessor()
           Copier.doStreamCopy(httpEntity.dataBytes,
             vault,
             updatedMetadata.toAttributes(MxsMetadata.empty).toAttributes.toArray
-          ).map({
-            case (copiedId, maybeChecksum)=>
-
-              Right("".asJson)
-          })
+          )
+            .map(Right.apply)
             .recover({
               case err:Throwable=>
                 logger.error(s"Could not copy metadata for item $itemId to vault ${vault.getId}: ${err.getMessage}", err)
                 Left(s"Could not copy metadata for item $itemId")
             })
+        case None=>
+          logger.error(s"Vidispine item $itemId does not appear to have any metadata")
+          Future.failed(new RuntimeException(s"No metadata on $itemId"))  //this is a permanent failure, no point in retrying
       })
 
   def handleMetadataUpdate(metadataUpdated:VidispineMediaIngested):Future[Either[String, MessageProcessorReturnValue]] = {
@@ -211,15 +211,24 @@ class VidispineMessageProcessor()
         nearlineRecordDAO.findByVidispineId(itemId).flatMap({
           case None=>
             logger.info(s"No record of vidispine item $itemId yet.")
-            Future(Left(s"No record of vidispine item $itemId yet."))
+            Future(Left(s"No record of vidispine item $itemId yet.")) //this is retryable, assume that the item has not finished importing yet
           case Some(nearlineRecord: NearlineRecord)=>
             matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
               buildMetaForXML(vault, nearlineRecord).flatMap({
                 case None=>
                   logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
-                  Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata"))
+                  Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure
                 case Some(updatedMetadata)=>
-                  streamVidispineMeta(vault, itemId, updatedMetadata)
+                  streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
+                    case Right((copiedId, maybeChecksum))=>
+                      logger.info(s"Metadata xml for $itemId is copied to file $copiedId with checksum ${maybeChecksum.getOrElse("(none)")}")
+                      val updatedRec = nearlineRecord.copy(metadataXMLObjectId = Some(copiedId))
+                      nearlineRecordDAO
+                        .writeRecord(updatedRec)
+                        .map(_=>Right(updatedRec.asJson))
+                    case Left(err)=>Future(Left(err))
+                  })
+
               })
             }
         })
