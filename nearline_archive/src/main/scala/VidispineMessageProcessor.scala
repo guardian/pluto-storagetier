@@ -1,6 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper.{categoryForMimetype, getFileExt}
+import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl}
 import com.gu.multimedia.mxscopy.helpers.{Copier, MetadataHelper}
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.auth.HMAC.logger
@@ -15,7 +16,10 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import java.nio.file.Paths
+
+import java.nio.file.{Path, Paths}
+import java.nio.file.attribute.FileTime
+import java.time.{Instant, ZonedDateTime}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
@@ -95,12 +99,13 @@ class VidispineMessageProcessor()
             nearlineRecordDAO
               .writeRecord(record)
               .map(recId=>
-                Right(record.copy(id=Some(recId)).asJson)
+                //for some reason using the implicit conversion causes a compilation error here - https://github.com/scala/bug/issues/6317
+                Right(MessageProcessorReturnValue(record.copy(id=Some(recId)).asJson))
               )
 
           case Left(error) => Future(Left(error))
         })
-    }).recoverWith(err => {
+    }).recoverWith(err=>{
       val attemptCount = attemptCountFromMDC() match {
         case Some(count)=>count
         case None=>
@@ -177,22 +182,62 @@ class VidispineMessageProcessor()
    * @param rec NearlineRecord indicating the file being worked with
    * @return a Future, cotnaining either the updated CustomMXSMetadata or None
    */
-  protected def buildMetaForXML(vault:Vault, rec:NearlineRecord) = {
-    getOriginalMediaMeta(vault, rec.objectId).map(
-      _.map(
-        _.copy(itemType = CustomMXSMetadata.TYPE_META)
+  protected def buildMetaForXML(vault:Vault, rec:NearlineRecord, itemId:String) = {
+    val nowTime = ZonedDateTime.now()
+    def makeBaseMeta(basePath:Path) = {
+      val filePath = basePath.resolve(s"$itemId.XML")
+      MxsMetadata(
+        stringValues = Map(
+          "MXFS_FILENAME_UPPER" -> filePath.toString.toUpperCase,
+          "MXFS_FILENAME"-> s"$itemId.xml",
+          "MXFS_PATH"-> filePath.toString,
+          "MXFS_MIMETYPE"-> "application/xml",
+          "MXFS_DESCRIPTION"->s"Vidispine metadata for $itemId",
+          "MXFS_PARENTOID"->"",
+          "MXFS_FILEEXT"->".xml"
+        ),
+        boolValues = Map(
+          "MXFS_INTRASH"->false,
+        ),
+        longValues = Map(
+          "MXFS_MODIFICATION_TIME"->Instant.now().toEpochMilli,
+          "MXFS_CREATION_TIME"->Instant.now().toEpochMilli,
+          "MXFS_ACCESS_TIME"->Instant.now().toEpochMilli,
+        ),
+        intValues = Map(
+          "MXFS_CREATIONDAY"->nowTime.getDayOfMonth,
+          "MXFS_COMPATIBLE"->1,
+          "MXFS_CREATIONMONTH"->nowTime.getMonthValue,
+          "MXFS_CREATIONYEAR"->nowTime.getYear,
+          "MXFS_CATEGORY"->4, //"document"
+        )
       )
-    )
+    }
+
+    getOriginalMediaMeta(vault, rec.objectId).map(maybeMeta=>{
+      for {
+        updatedMeta <- maybeMeta.map(_.copy(itemType = CustomMXSMetadata.TYPE_META))
+        baseMeta <- Some(makeBaseMeta(Paths.get(rec.originalFilePath).getParent))
+        mxsMeta <- Some(updatedMeta.toAttributes(baseMeta))
+      } yield mxsMeta
+    })
   }
 
-  private def streamVidispineMeta(vault:Vault, itemId:String, updatedMetadata:CustomMXSMetadata) =
+  protected def streamVidispineMeta(vault:Vault, itemId:String, objectMetadata:MxsMetadata) =
     vidispineCommunicator
       .akkaStreamXMLMetadataDocument(itemId)
       .flatMap({
         case Some(httpEntity)=>
+          val updatedMetadata = httpEntity.contentLengthOption match {
+            case Some(length)=>objectMetadata.withValue("DPSP_SIZE",length)
+            case None=>
+              logger.warn(s"Metadata response for $itemId has no content-length header, DPSP_SIZE will not be set")
+              objectMetadata
+          }
+
           Copier.doStreamCopy(httpEntity.dataBytes,
             vault,
-            updatedMetadata.toAttributes(MxsMetadata.empty).toAttributes.toArray
+            updatedMetadata.toAttributes.toArray
           )
             .map(Right.apply)
             .recover({
@@ -207,6 +252,9 @@ class VidispineMessageProcessor()
 
   def handleMetadataUpdate(metadataUpdated:VidispineMediaIngested):Future[Either[String, MessageProcessorReturnValue]] = {
     metadataUpdated.itemId match {
+      case None=>
+        logger.error(s"Incoming vidispine message $metadataUpdated has no itemId")
+        Future.failed(new RuntimeException("no vidispine item id provided"))
       case Some(itemId)=>
         nearlineRecordDAO.findByVidispineId(itemId).flatMap({
           case None=>
@@ -214,7 +262,7 @@ class VidispineMessageProcessor()
             Future(Left(s"No record of vidispine item $itemId yet.")) //this is retryable, assume that the item has not finished importing yet
           case Some(nearlineRecord: NearlineRecord)=>
             matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
-              buildMetaForXML(vault, nearlineRecord).flatMap({
+              buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
                 case None=>
                   logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
                   Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure

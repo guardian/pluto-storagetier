@@ -7,8 +7,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
-class MXSConnectionBuilderSpec extends Specification with Mockito {
-  "MXSConnectionBuilder.withVault" should {
+class MXSConnectionBuilderImplSpec extends Specification with Mockito {
+  "MXSConnectionBuilderImpl.withVault" should {
     "call the provided function and dispose the vault afterwards" in {
       val mockVault = mock[Vault]
 
@@ -17,7 +17,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVault(mxs, "some-vault") { v=>
+      MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
         checker(v)
         Success("Hooray")
       }
@@ -35,7 +35,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVault(mxs, "some-vault") { v=>
+      MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
         checker(v)
         Failure(new RuntimeException("boo"))
       }
@@ -46,7 +46,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
     }
   }
 
-  "MXSConnectionBuilder.withVaultFuture" should {
+  "MXSConnectionBuilderImpl.withVaultFuture" should {
     "call the provided function and dispose the vault afterwards" in {
       val mockVault = mock[Vault]
 
@@ -55,7 +55,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVaultFuture(mxs, "some-vault") { v=>
+      MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
         Future("Hooray")
       }
@@ -73,7 +73,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVaultFuture(mxs, "some-vault") { v=>
+      MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
         Future.failed(new RuntimeException("boo"))
       }

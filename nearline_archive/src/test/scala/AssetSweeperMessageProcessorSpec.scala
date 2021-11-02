@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.om.mxs.client.japi.{MxsObject, Vault}
@@ -28,7 +28,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
-      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
       fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
 
@@ -75,7 +75,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
-      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
       fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
 
@@ -112,7 +112,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
-      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
 
       val mockExc = new RuntimeException("ObjectMatrix out of office right now!!")

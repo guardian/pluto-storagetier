@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
@@ -22,7 +22,7 @@ class AssetSweeperMessageProcessor()
                                    ec:ExecutionContext,
                                    mat:Materializer,
                                    system:ActorSystem,
-                                   matrixStoreBuilder: MXSConnectionBuilder,
+                                   matrixStoreBuilder: MXSConnectionBuilderImpl,
                                    mxsConfig: MatrixStoreConfig,
                                    fileCopier: FileCopier) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)

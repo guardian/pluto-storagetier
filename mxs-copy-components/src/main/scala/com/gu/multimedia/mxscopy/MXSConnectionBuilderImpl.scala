@@ -7,7 +7,23 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-case class MXSConnectionBuilder(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String) {
+/**
+ * describes the interface of MXSConnectionBuilder, which safely creates and disposes MatrixStore connections
+ */
+trait MXSConnectionBuilder {
+  def build():Try[MatrixStore]
+
+  def withVaultFuture[T](vaultId:String)(cb:Vault=>Future[T])(implicit ec:ExecutionContext):Future[T]
+}
+
+/**
+ * Real implementation of MXSConnectionBuilder.  This will call out to the appliance to retrieve vault references
+ * @param hosts appliance hostnames/IP addresses as an array of strings
+ * @param clusterId cluster ID
+ * @param accessKeyId access key ID for the service account to use to connect
+ * @param accessKeySecret access key secret for the service account to use to connect
+ */
+case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String) extends MXSConnectionBuilder {
   def build() = Try {
     val credentials = Credentials.newAccessKeyCredentials(accessKeyId, accessKeySecret)
 
@@ -31,14 +47,14 @@ case class MXSConnectionBuilder(hosts: Array[String], clusterId:String, accessKe
    */
   def withVaultFuture[T](vaultId:String)(cb: Vault => Future[T])(implicit ec:ExecutionContext) = {
     Future.fromTry(build()).flatMap(mxs=>{
-      MXSConnectionBuilder
+      MXSConnectionBuilderImpl
         .withVaultFuture(mxs, vaultId)(cb)
         .andThen(_=>mxs.dispose())
     })
   }
 
   /**
-   * Exactly the same as [[withVaultFuture()]] but takes in multiple vault IDs and opens a connection to each of them.
+   * Exactly the same as [[withVaultFuture]] but takes in multiple vault IDs and opens a connection to each of them.
    * The sequence of Vault instances passed to the callback should be in the same order as the vault IDs passed to the
    * function.
    * @param vaultIds sequence of strings representing the vault IDs to open. A failure is returned if any of these fail.
@@ -57,7 +73,7 @@ case class MXSConnectionBuilder(hosts: Array[String], clusterId:String, accessKe
   }
 }
 
-object MXSConnectionBuilder {
+object MXSConnectionBuilderImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def withVault[T](mxs: MatrixStore, vaultId: String)(cb: (Vault) => Try[T]) = {
