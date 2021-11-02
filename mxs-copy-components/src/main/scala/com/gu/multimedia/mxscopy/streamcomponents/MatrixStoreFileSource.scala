@@ -1,10 +1,11 @@
 package com.gu.multimedia.mxscopy.streamcomponents
 
 import akka.actor.ActorSystem
+import akka.stream.scaladsl.{FileIO, GraphDSL, Source}
 
 import java.io.InputStream
 import java.nio.ByteBuffer
-import akka.stream.{Attributes, Outlet, SourceShape}
+import akka.stream.{Attributes, Materializer, Outlet, SourceShape}
 import akka.stream.stage.{AbstractOutHandler, GraphStage, GraphStageLogic}
 import akka.util.ByteString
 import com.om.mxs.client.japi.{AccessOption, MatrixStore, MxsObject, SeekableByteChannel, UserInfo, Vault}
@@ -90,4 +91,21 @@ class MatrixStoreFileSource(vault:Vault,
       }
     }
   }
+}
+
+object MatrixStoreFileSource {
+  /**
+   * convenience builder that generates a Source[ByteString, NotUsed] for the given vault and object ID
+   * @param sourceVault vault to read
+   * @param sourceOID object ID to read
+   * @param sys implicitly provided actor system
+   * @param mat implicitly provided materializer
+   * @return a Source, suitable for simplified akka chaining
+   */
+  def apply(sourceVault:Vault, sourceOID:String)(implicit sys:ActorSystem, mat:Materializer) = Source.fromGraph(
+    GraphDSL.create() { implicit builder=>
+      val s = builder.add(new MatrixStoreFileSource(sourceVault, sourceOID))
+      SourceShape(s.out)
+    }
+  )
 }
