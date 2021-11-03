@@ -1,5 +1,8 @@
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.stream.Materializer
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilderImpl, MXSConnectionBuilderMock}
 import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
@@ -623,6 +626,189 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.callBuildMeta(mockVault, mockNearlineRecord, "VX-12345", fakeNow), 2.seconds)
       result must beNone
       there was one(mockGetOriginalMediaMeta).apply(mockVault, "object-id")
+    }
+  }
+
+  "VidispineMessageProcessor.streamVidispineMeta" should {
+    "call out to Copier to stream the xml content onto the appliance" in {
+      val fakeContent = ByteString("xml goes here")
+      val fakeContentSource = Source.single(fakeContent)
+
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(Some(HttpEntity(ContentTypes.`text/xml(UTF-8)`, fakeContent.length.toLong, fakeContentSource)))
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-12345"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      implicit val mockBuilder = MXSConnectionBuilderMock(mockVault)
+      val mockStreamCopy = mock[(Source[ByteString, Any], Vault, MxsMetadata) => Future[(String, Some[String])]]
+      mockStreamCopy.apply(any, any, any) returns Future(("written-oid", Some("checksum-here")))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def callStreamCopy(source: Source[ByteString, Any], vault: Vault, updatedMetadata: MxsMetadata): Future[(String, Some[String])] = mockStreamCopy(source, vault, updatedMetadata)
+
+        def callStreamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata) = streamVidispineMeta(vault, itemId, objectMetadata)
+      }
+
+      val result = Await.result(toTest.callStreamVidispineMeta(mockVault, "VX-12345", MxsMetadata.empty), 2.seconds)
+      result must beRight(("written-oid", Some("checksum-here")))
+
+      there was one(mockStreamCopy).apply(fakeContentSource, mockVault, MxsMetadata.empty.withValue("DPSP_SIZE", fakeContent.length.toLong))
+    }
+
+    "return a permanent failure if the item has no metadata" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(None)
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-12345"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      implicit val mockBuilder = MXSConnectionBuilderMock(mockVault)
+      val mockStreamCopy = mock[(Source[ByteString, Any], Vault, MxsMetadata) => Future[(String, Some[String])]]
+      mockStreamCopy.apply(any, any, any) returns Future(("written-oid", Some("checksum-here")))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def callStreamCopy(source: Source[ByteString, Any], vault: Vault, updatedMetadata: MxsMetadata): Future[(String, Some[String])] = mockStreamCopy(source, vault, updatedMetadata)
+
+        def callStreamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata) = streamVidispineMeta(vault, itemId, objectMetadata)
+      }
+
+      val result = Try { Await.result(toTest.callStreamVidispineMeta(mockVault, "VX-12345", MxsMetadata.empty), 2.seconds) }
+      result must beAFailedTry
+
+      there was no(mockStreamCopy).apply(any,any,any)
+    }
+
+    "return a retryable failure if the copy fails" in {
+      val fakeContent = ByteString("xml goes here")
+      val fakeContentSource = Source.single(fakeContent)
+
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(Some(HttpEntity(ContentTypes.`text/xml(UTF-8)`, fakeContent.length.toLong, fakeContentSource)))
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-12345"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      implicit val mockBuilder = MXSConnectionBuilderMock(mockVault)
+      val mockStreamCopy = mock[(Source[ByteString, Any], Vault, MxsMetadata) => Future[(String, Some[String])]]
+      mockStreamCopy.apply(any, any, any) returns Future.failed(new RuntimeException("kaboom"))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def callStreamCopy(source: Source[ByteString, Any], vault: Vault, updatedMetadata: MxsMetadata): Future[(String, Some[String])] = mockStreamCopy(source, vault, updatedMetadata)
+
+        def callStreamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata) = streamVidispineMeta(vault, itemId, objectMetadata)
+      }
+
+      val result = Await.result(toTest.callStreamVidispineMeta(mockVault, "VX-12345", MxsMetadata.empty), 2.seconds)
+      result must beLeft("Could not copy metadata for item VX-12345")
+
+      there was one(mockStreamCopy).apply(fakeContentSource, mockVault, MxsMetadata.empty.withValue("DPSP_SIZE", fakeContent.length.toLong))
+    }
+
+    "not set DPSP_SIZE if there is no size in the HttpEntity" in {
+      val fakeContent = ByteString("xml goes here")
+      val fakeContentSource = Source.single(fakeContent)
+
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.akkaStreamXMLMetadataDocument(any, any) returns Future(Some(HttpEntity(ContentTypes.`text/xml(UTF-8)`, fakeContentSource)))
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-12345"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      implicit val mockBuilder = MXSConnectionBuilderMock(mockVault)
+      val mockStreamCopy = mock[(Source[ByteString, Any], Vault, MxsMetadata) => Future[(String, Some[String])]]
+      mockStreamCopy.apply(any, any, any) returns Future(("written-oid", Some("checksum-here")))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def callStreamCopy(source: Source[ByteString, Any], vault: Vault, updatedMetadata: MxsMetadata): Future[(String, Some[String])] = mockStreamCopy(source, vault, updatedMetadata)
+
+        def callStreamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata) = streamVidispineMeta(vault, itemId, objectMetadata)
+      }
+
+      val result = Await.result(toTest.callStreamVidispineMeta(mockVault, "VX-12345", MxsMetadata.empty), 2.seconds)
+      result must beRight(("written-oid", Some("checksum-here")))
+
+      there was one(mockStreamCopy).apply(any, org.mockito.ArgumentMatchers.eq(mockVault), org.mockito.ArgumentMatchers.eq(MxsMetadata.empty))
     }
   }
 }

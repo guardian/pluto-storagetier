@@ -283,10 +283,6 @@ class VidispineMessageProcessor()
                         .map(_=>Right(updatedRec.asJson))
                     case Left(err)=>Future(Left(err))
                   })
-              }).recover({
-                case err:Throwable=>
-                  logger.error(s"Could not look up and build metadata for vidispine item $itemId (${nearlineRecord.originalFilePath}): ${err.getMessage}", err)
-                  Left(err.getMessage)
               })
             }
         })
