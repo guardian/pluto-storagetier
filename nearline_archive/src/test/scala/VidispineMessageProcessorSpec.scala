@@ -13,6 +13,7 @@ import org.specs2.mutable.Specification
 import io.circe.syntax._
 import io.circe.generic.auto._
 
+import java.time.{ZoneId, ZonedDateTime}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -294,7 +295,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockStreamVidispineMeta.apply(any,any,any) returns Future(Right(("dest-object-id",Some("checksum-here"))))
 
       val toTest = new VidispineMessageProcessor() {
-        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
+        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String, nowTime:ZonedDateTime=ZonedDateTime.now()): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
       }
@@ -348,7 +349,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockStreamVidispineMeta.apply(any,any,any) returns Future(Right(("dest-object-id",Some("checksum-here"))))
 
       val toTest = new VidispineMessageProcessor() {
-        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
+        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String, nowTime:ZonedDateTime=ZonedDateTime.now()): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
       }
@@ -417,7 +418,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockStreamVidispineMeta.apply(any,any,any) returns Future(Left("some problem"))
 
       val toTest = new VidispineMessageProcessor() {
-        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
+        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String, nowTime:ZonedDateTime=ZonedDateTime.now()): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
       }
@@ -485,7 +486,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockStreamVidispineMeta.apply(any,any,any) returns Future.failed(new RuntimeException("kaboom"))
 
       val toTest = new VidispineMessageProcessor() {
-        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
+        override protected def buildMetaForXML(vault: Vault, rec: NearlineRecord, itemId:String, nowTime:ZonedDateTime=ZonedDateTime.now()): Future[Option[MxsMetadata]] = mockBuildMetaForXML(vault, rec, itemId)
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
       }
@@ -499,5 +500,129 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       there was one(mockStreamVidispineMeta).apply(mockVault, "VX-12345", customMeta.copy(itemType = CustomMXSMetadata.TYPE_META).toAttributes(MxsMetadata.empty))
     }
 
+  }
+
+  "VidispineMessageProcessor.buildMetaForXML" should {
+    "return an MxsMetadata object populated from the original source media and filesystem specifics" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-12345"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      implicit val mockBuilder = MXSConnectionBuilderMock(mockVault)
+
+      val mockGetOriginalMediaMeta = mock[(Vault, String)=>Future[Option[CustomMXSMetadata]]]
+      mockGetOriginalMediaMeta(any,any) returns Future(Some(CustomMXSMetadata(
+        CustomMXSMetadata.TYPE_RUSHES,
+        Some("12345"),
+        Some("34"),
+        None,
+        None,
+        None,
+        Some("Test project"),
+        Some("Test commission"),
+        Some("Test WG"),
+        None,
+        None,
+        None,
+        None
+      )))
+
+      val fakeNow = ZonedDateTime.of(2021,2,3,4,5,6,0,ZoneId.of("UTC"))
+
+      val toTest = new VidispineMessageProcessor() {
+        def callBuildMeta(vault:Vault, rec:NearlineRecord, itemId:String, nowTime:ZonedDateTime) = buildMetaForXML(vault, rec, itemId, nowTime)
+        override protected def getOriginalMediaMeta(vault:Vault, mediaOID:String) = mockGetOriginalMediaMeta(vault, mediaOID)
+      }
+
+      val result = Await.result(toTest.callBuildMeta(mockVault, mockNearlineRecord, "VX-12345", fakeNow), 2.seconds)
+      result must beSome
+
+      result.get.intValues mustEqual Map[String,Int]("MXFS_CREATIONDAY" -> 3, "MXFS_CATEGORY" -> 4, "MXFS_COMPATIBLE" -> 1, "MXFS_CREATIONMONTH" -> 2, "MXFS_CREATIONYEAR" -> 2021)
+      result.get.longValues mustEqual Map("MXFS_MODIFICATION_TIME" -> 1612325106000L, "MXFS_CREATION_TIME" -> 1612325106000L, "MXFS_ACCESS_TIME" -> 1612325106000L)
+      result.get.boolValues mustEqual Map("MXFS_INTRASH"->false, "GNM_HIDDEN_FILE"->false)
+      result.get.stringValues mustEqual Map(
+        "MXFS_FILENAME_UPPER" -> "/ABSOLUTE/PATH/TO/VX-12345.XML",
+        "GNM_PROJECT_ID" -> "12345",
+        "MXFS_PARENTOID" -> "",
+        "GNM_TYPE" -> "metadata",
+        "MXFS_PATH" -> "/absolute/path/to/VX-12345.XML",
+        "GNM_COMMISSION_ID" -> "34",
+        "MXFS_FILENAME" -> "VX-12345.xml",
+        "GNM_WORKING_GROUP_NAME" -> "Test WG",
+        "GNM_PROJECT_NAME" -> "Test project",
+        "MXFS_MIMETYPE" -> "application/xml",
+        "MXFS_DESCRIPTION" -> "Vidispine metadata for VX-12345",
+        "GNM_COMMISSION_NAME" -> "Test commission",
+        "MXFS_FILEEXT" -> ".xml"
+      )
+
+      there was one(mockGetOriginalMediaMeta).apply(mockVault, "object-id")
+    }
+
+    "return None if the original media does not have custom metadata on it" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-12345"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      implicit val mockBuilder = MXSConnectionBuilderMock(mockVault)
+
+      val mockGetOriginalMediaMeta = mock[(Vault, String)=>Future[Option[CustomMXSMetadata]]]
+      mockGetOriginalMediaMeta(any,any) returns Future(None)
+
+      val fakeNow = ZonedDateTime.of(2021,2,3,4,5,6,0,ZoneId.of("UTC"))
+
+      val toTest = new VidispineMessageProcessor() {
+        def callBuildMeta(vault:Vault, rec:NearlineRecord, itemId:String, nowTime:ZonedDateTime) = buildMetaForXML(vault, rec, itemId, nowTime)
+        override protected def getOriginalMediaMeta(vault:Vault, mediaOID:String) = mockGetOriginalMediaMeta(vault, mediaOID)
+      }
+
+      val result = Await.result(toTest.callBuildMeta(mockVault, mockNearlineRecord, "VX-12345", fakeNow), 2.seconds)
+      result must beNone
+      there was one(mockGetOriginalMediaMeta).apply(mockVault, "object-id")
+    }
   }
 }

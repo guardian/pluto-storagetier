@@ -3,8 +3,9 @@ package com.gu.multimedia.mxscopy
 import com.om.mxs.client.japi.{MatrixStore, Vault}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 class MXSConnectionBuilderImplSpec extends Specification with Mockito {
@@ -55,10 +56,10 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
+      Await.ready(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
         Future("Hooray")
-      }
+      },2.seconds)
 
       there was one(checker).apply(mockVault)
       there was one(mockVault).dispose()
@@ -73,10 +74,10 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
+      Await.ready(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
         Future.failed(new RuntimeException("boo"))
-      }
+      }, 2.seconds)
 
       there was one(checker).apply(mockVault)
       there was one(mockVault).dispose()

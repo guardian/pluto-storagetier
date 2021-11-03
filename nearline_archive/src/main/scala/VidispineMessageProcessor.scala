@@ -1,7 +1,8 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper.{categoryForMimetype, getFileExt}
-import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl}
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
+import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.helpers.{Copier, MetadataHelper}
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.auth.HMAC.logger
@@ -18,10 +19,10 @@ import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
 import java.nio.file.{Path, Paths}
-import java.nio.file.attribute.FileTime
 import java.time.{Instant, ZonedDateTime}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
+
 
 class VidispineMessageProcessor()
                                (implicit nearlineRecordDAO: NearlineRecordDAO,
@@ -182,8 +183,7 @@ class VidispineMessageProcessor()
    * @param rec NearlineRecord indicating the file being worked with
    * @return a Future, cotnaining either the updated CustomMXSMetadata or None
    */
-  protected def buildMetaForXML(vault:Vault, rec:NearlineRecord, itemId:String) = {
-    val nowTime = ZonedDateTime.now()
+  protected def buildMetaForXML(vault:Vault, rec:NearlineRecord, itemId:String, nowTime:ZonedDateTime=ZonedDateTime.now()) = {
     def makeBaseMeta(basePath:Path) = {
       val filePath = basePath.resolve(s"$itemId.XML")
       MxsMetadata(
@@ -200,9 +200,9 @@ class VidispineMessageProcessor()
           "MXFS_INTRASH"->false,
         ),
         longValues = Map(
-          "MXFS_MODIFICATION_TIME"->Instant.now().toEpochMilli,
-          "MXFS_CREATION_TIME"->Instant.now().toEpochMilli,
-          "MXFS_ACCESS_TIME"->Instant.now().toEpochMilli,
+          "MXFS_MODIFICATION_TIME"->nowTime.toInstant.toEpochMilli,
+          "MXFS_CREATION_TIME"->nowTime.toInstant.toEpochMilli,
+          "MXFS_ACCESS_TIME"->nowTime.toInstant.toEpochMilli,
         ),
         intValues = Map(
           "MXFS_CREATIONDAY"->nowTime.getDayOfMonth,
@@ -223,6 +223,16 @@ class VidispineMessageProcessor()
     })
   }
 
+  /**
+   * helper method to call Copier.doStreamCopy. Included like this to make test mocking easier.
+   */
+  protected def callStreamCopy(source:Source[ByteString, Any], vault:Vault, updatedMetadata:MxsMetadata) =
+    Copier.doStreamCopy(
+      source,
+      vault,
+      updatedMetadata.toAttributes.toArray
+    )
+
   protected def streamVidispineMeta(vault:Vault, itemId:String, objectMetadata:MxsMetadata) =
     vidispineCommunicator
       .akkaStreamXMLMetadataDocument(itemId)
@@ -235,10 +245,7 @@ class VidispineMessageProcessor()
               objectMetadata
           }
 
-          Copier.doStreamCopy(httpEntity.dataBytes,
-            vault,
-            updatedMetadata.toAttributes.toArray
-          )
+          callStreamCopy(httpEntity.dataBytes, vault, updatedMetadata)
             .map(Right.apply)
             .recover({
               case err:Throwable=>
@@ -276,12 +283,16 @@ class VidispineMessageProcessor()
                         .map(_=>Right(updatedRec.asJson))
                     case Left(err)=>Future(Left(err))
                   })
-
+              }).recover({
+                case err:Throwable=>
+                  logger.error(s"Could not look up and build metadata for vidispine item $itemId (${nearlineRecord.originalFilePath}): ${err.getMessage}", err)
+                  Left(err.getMessage)
               })
             }
         })
     }
   }
+
   /**
    * Override this method in your subclass to handle an incoming message
    *
