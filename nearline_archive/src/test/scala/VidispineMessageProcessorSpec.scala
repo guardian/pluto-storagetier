@@ -578,6 +578,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         "GNM_PROJECT_NAME" -> "Test project",
         "MXFS_MIMETYPE" -> "application/xml",
         "MXFS_DESCRIPTION" -> "Vidispine metadata for VX-12345",
+        "ATT_ORIGINAL_OID"->"object-id",
         "GNM_COMMISSION_NAME" -> "Test commission",
         "MXFS_FILEEXT" -> ".xml"
       )

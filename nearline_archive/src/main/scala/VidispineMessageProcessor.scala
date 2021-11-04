@@ -13,19 +13,18 @@ import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, Fai
 import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
-import com.om.mxs.client.japi.Vault
+import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
+import java.net.URI
 import java.nio.file.{Path, Paths}
 import java.time.{Instant, ZonedDateTime}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Try}
-
-import java.net.URI
+import scala.util.{Failure, Success, Try}
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
@@ -221,6 +220,30 @@ class VidispineMessageProcessor()
   }
 
   /**
+   * calls MetadataHelper.setAttributeMetadata. Included like this to make test mocking easier
+   * @param obj MxsObject on which to set metadata
+   * @param meta MxsMetadata object containing the metadata to set
+   */
+  protected def callUpdateMetadata(vault:Vault, objectId:String, meta:MxsMetadata) = Try {
+    val obj = vault.getObject(objectId)
+    MetadataHelper.setAttributeMetadata(obj, meta)
+  }
+
+  /**
+   * updates the given value on the objectmatrix file referenced.
+   * Intended to be used to update the attachment (ATT_PROXY_OID, ATT_THUMB_OID) fields on original media
+   * @param vault vault object representing the vault holding the file
+   * @param objectId object ID of the file
+   * @param fieldName field name to set
+   * @param fieldValue field value to set
+   * @return a Try with no value if successful, or a failure on exception
+   */
+  protected def updateParentsMetadata(vault:Vault, objectId:String, fieldName:String, fieldValue:String) = Try {
+    val obj = vault.getObject(objectId)
+    val view = obj.getAttributeView
+    view.writeString(fieldName, fieldValue)
+  }
+  /**
    * Upload ingested shape if not already exist.
    *
    * @param filePath       path to the file that has been ingested
@@ -238,8 +261,28 @@ class VidispineMessageProcessor()
 
     val proxyFileName = uploadKeyForProxy(nearlineRecord, proxyFile)
 
-    fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, Some(nearlineRecord.objectId))
-      .flatMap({
+    val copyResult = for {
+      copyResult <- fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, None)    //surely passing the original media object ID was a mistake here??
+      metadataUpdate <- buildMetadataForProxy(vault, nearlineRecord)
+      writeResult <- Future.fromTry((copyResult, metadataUpdate) match {
+        case (Left(_), _)=>Success( () ) //ignore
+        case (Right(proxyObjectId), Some(meta))=>
+          callUpdateMetadata(vault, proxyObjectId, meta)
+        case (Right(proxyObjectId), None)=>
+          logger.error(s"Could not get parent metadata for ${nearlineRecord.objectId} (${nearlineRecord.originalFilePath}). Deleting the copied proxy until we have the right metadata.")
+          Try {
+            val obj = vault.getObject(proxyObjectId)
+            obj.delete()
+          }
+      })
+      _ <- Future.fromTry(copyResult match {
+        case Left(_)=>Success( () )
+        case Right(proxyOid)=>updateParentsMetadata(vault, nearlineRecord.objectId, "ATT_PROXY_OID", proxyOid)
+      })
+    } yield copyResult
+
+    //fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, Some(nearlineRecord.objectId))
+    copyResult.flatMap({
         case Right(objectId) =>
           val record = nearlineRecord
             .copy(
@@ -296,16 +339,12 @@ class VidispineMessageProcessor()
 
   def handleShapeUpdate(vault: Vault, mediaIngested: VidispineMediaIngested, shapeId:String, itemId:String)
   : Future[Either[String, MessageProcessorReturnValue]] = {
-    nearlineRecordDAO.findByVidispineId(itemId).flatMap(maybeNearlineRecord => {
-      maybeNearlineRecord match {
+    nearlineRecordDAO.findByVidispineId(itemId).flatMap({
         case Some(nearlineRecord) =>
-          for {
-            proxyCopyResult <- copyShapeIfRequired(vault, mediaIngested, itemId, shapeId, nearlineRecord)
-          } yield proxyCopyResult
+          copyShapeIfRequired(vault, mediaIngested, itemId, shapeId, nearlineRecord)
         case None =>
           logger.info(s"No record of vidispine item $itemId retry later")
           Future(Left(s"No record of vidispine item $itemId retry later"))
-      }
     })
   }
 
@@ -321,6 +360,19 @@ class VidispineMessageProcessor()
       omFile <- Future.fromTry(Try { vault.getObject(mediaOID)})
       meta <- MetadataHelper.getAttributeMetadata(omFile)
     } yield CustomMXSMetadata.fromMxsMetadata(meta)
+  }
+
+  /**
+   * build GNM metadata for a proxy file.
+   * This is done by copying the GNM metadata for the original media and then modifiying the type and attachment fields
+   * @param vault vault containing the files
+   * @param rec NearlineRecord representing the item being processed
+   * @return a Future, containing either
+   */
+  protected def buildMetadataForProxy(vault:Vault, rec:NearlineRecord) = {
+    getOriginalMediaMeta(vault, rec.objectId)
+      .map(_.map(_.copy(itemType = CustomMXSMetadata.TYPE_PROXY, vidispineItemId = rec.vidispineItemId, proxyOID = None, thumbnailOID = None, mainMediaOID = Some(rec.objectId))))
+      .map(_.map(_.toAttributes(MxsMetadata.empty)))  //filesystem level metadata should have been added at this point
   }
 
   /**
@@ -342,7 +394,8 @@ class VidispineMessageProcessor()
           "MXFS_MIMETYPE"-> "application/xml",
           "MXFS_DESCRIPTION"->s"Vidispine metadata for $itemId",
           "MXFS_PARENTOID"->"",
-          "MXFS_FILEEXT"->".xml"
+          "MXFS_FILEEXT"->".xml",
+          "ATT_ORIGINAL_OID"->rec.objectId
         ),
         boolValues = Map(
           "MXFS_INTRASH"->false,
@@ -424,6 +477,13 @@ class VidispineMessageProcessor()
                 case Some(updatedMetadata)=>
                   streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
                     case Right((copiedId, maybeChecksum))=>
+                      updateParentsMetadata(vault, nearlineRecord.objectId, "ATT_META_OID", copiedId) match {
+                        case Success(_) =>
+                        case Failure(err)=>
+                          //this is not a fatal error.
+                          logger.warn(s"Could not update metadata on ${nearlineRecord.objectId} to set metadata attachment: ${err.getMessage}")
+                      }
+
                       logger.info(s"Metadata xml for $itemId is copied to file $copiedId with checksum ${maybeChecksum.getOrElse("(none)")}")
                       val updatedRec = nearlineRecord.copy(metadataXMLObjectId = Some(copiedId))
                       nearlineRecordDAO
