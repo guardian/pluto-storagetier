@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
@@ -27,7 +27,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "generate metadata, request to write it down onto the given item and return a Right" in {
       implicit val mockActorSystem = mock[ActorSystem]
       implicit val mockMat = mock[Materializer]
-      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
 
       val rec = NearlineRecord(
         "some-object-id",
@@ -94,7 +94,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "if the project is sensitive, output two messages" in {
       implicit val mockActorSystem = mock[ActorSystem]
       implicit val mockMat = mock[Materializer]
-      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
 
       val rec = NearlineRecord(
         "some-object-id",
@@ -161,7 +161,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "return Left for a retry if the metadata lookup fails" in {
       implicit val mockActorSystem = mock[ActorSystem]
       implicit val mockMat = mock[Materializer]
-      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
 
       val rec = NearlineRecord(
         "some-object-id",
@@ -207,7 +207,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "look up the record in the datastore by id, call VidispineCommunicator to write it to the item and return a Right" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
@@ -226,7 +226,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "return a Left if VidispineCommunicator fails" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setGroupedMetadataValue(any,any,any,any) returns Future.failed(new RuntimeException("something broke"))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
@@ -245,7 +245,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "return a Left if the item does not exist in VS" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(None)
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
@@ -264,7 +264,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "return a Left if the vidispine ID is not yet present" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setMetadataValue(any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
@@ -283,7 +283,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "return a failed Future if the record does not exist in the datastore" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setMetadataValue(any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
@@ -303,7 +303,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "initiate connection to both vaults and request data copy" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       val mockSourceVault = mock[Vault]
       val mockDestVault = mock[Vault]
 
@@ -341,7 +341,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "not try to copy a file if isCopyNeeded is false" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       val mockSourceVault = mock[Vault]
       val mockDestVault = mock[Vault]
 
@@ -378,7 +378,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     "return a Left if the copy fails" in {
       implicit val actorSystem = mock[ActorSystem]
       implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilder]
+      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
       val mockSourceVault = mock[Vault]
       val mockDestVault = mock[Vault]
 

@@ -1,7 +1,6 @@
-import Main.logger
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, DatabaseProvider, MessageProcessingFramework, ProcessorConfiguration}
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.models.nearline_archive.FailureRecordDAO
@@ -58,7 +57,7 @@ object Main {
   def main(args:Array[String]):Unit = {
     implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
-    implicit lazy val matrixStore = new MXSConnectionBuilder(
+    implicit lazy val matrixStore = new MXSConnectionBuilderImpl(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
       accessKeySecret = matrixStoreConfig.accessKeySecret,
@@ -83,8 +82,8 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop"),
-        Seq("storagetier.nearline.newfile","storagetier.nearline.newfile"),
+        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.metadata.modify"),
+        Seq("storagetier.nearline.newfile","storagetier.nearline.newfile", "storagetier.nearline.vidispineupdate"),
         new VidispineMessageProcessor()
       )
     )

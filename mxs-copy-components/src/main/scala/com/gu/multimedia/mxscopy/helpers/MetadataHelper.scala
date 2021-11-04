@@ -41,7 +41,6 @@ object MetadataHelper {
       .map(elem=>(elem.getKey, elem.getValue))
       .toMat(sink)(Keep.right)
       .run()
-      //.map()
   }
 
   /**

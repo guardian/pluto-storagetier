@@ -55,6 +55,7 @@ object CustomMXSMetadata {
   val TYPE_DELIVERABLE = "deliverables"
   val TYPE_PROJECT = "project"
   val TYPE_UNSORTED = "unsorted"
+  val TYPE_META = "metadata"
 
   def fromMxsMetadata(incoming:MxsMetadata):Option[CustomMXSMetadata] =
     incoming.stringValues.get("GNM_TYPE").map(itemType=>

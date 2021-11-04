@@ -3,12 +3,13 @@ package com.gu.multimedia.mxscopy
 import com.om.mxs.client.japi.{MatrixStore, Vault}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
-class MXSConnectionBuilderSpec extends Specification with Mockito {
-  "MXSConnectionBuilder.withVault" should {
+class MXSConnectionBuilderImplSpec extends Specification with Mockito {
+  "MXSConnectionBuilderImpl.withVault" should {
     "call the provided function and dispose the vault afterwards" in {
       val mockVault = mock[Vault]
 
@@ -17,7 +18,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVault(mxs, "some-vault") { v=>
+      MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
         checker(v)
         Success("Hooray")
       }
@@ -35,7 +36,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVault(mxs, "some-vault") { v=>
+      MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
         checker(v)
         Failure(new RuntimeException("boo"))
       }
@@ -46,7 +47,7 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
     }
   }
 
-  "MXSConnectionBuilder.withVaultFuture" should {
+  "MXSConnectionBuilderImpl.withVaultFuture" should {
     "call the provided function and dispose the vault afterwards" in {
       val mockVault = mock[Vault]
 
@@ -55,10 +56,10 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVaultFuture(mxs, "some-vault") { v=>
+      Await.ready(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
         Future("Hooray")
-      }
+      },2.seconds)
 
       there was one(checker).apply(mockVault)
       there was one(mockVault).dispose()
@@ -73,10 +74,10 @@ class MXSConnectionBuilderSpec extends Specification with Mockito {
 
       val checker = mock[Vault=>Unit]
 
-      MXSConnectionBuilder.withVaultFuture(mxs, "some-vault") { v=>
+      Await.ready(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
         Future.failed(new RuntimeException("boo"))
-      }
+      }, 2.seconds)
 
       there was one(checker).apply(mockVault)
       there was one(mockVault).dispose()

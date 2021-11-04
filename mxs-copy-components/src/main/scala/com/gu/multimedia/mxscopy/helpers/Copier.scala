@@ -1,14 +1,16 @@
 package com.gu.multimedia.mxscopy.helpers
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 
 import java.io.File
 import java.nio.file.Path
 import java.time.Instant
-import akka.stream.{ClosedShape, Materializer}
-import akka.stream.scaladsl.{Broadcast, FileIO, GraphDSL, RunnableGraph, Sink}
+import akka.stream.{ClosedShape, Materializer, SourceShape}
+import akka.stream.scaladsl.{Broadcast, FileIO, GraphDSL, RunnableGraph, Sink, Source}
+import akka.stream.stage.GraphStage
 import akka.util.ByteString
-import com.om.mxs.client.japi.{MatrixStore, MxsObject, UserInfo, Vault}
+import com.om.mxs.client.japi.{Attribute, MatrixStore, MxsObject, UserInfo, Vault}
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import org.slf4j.{LoggerFactory, MDC}
 import com.gu.multimedia.mxscopy.streamcomponents.{ChecksumSink, MMappedFileSource, MatrixStoreFileSink, MatrixStoreFileSource}
@@ -20,6 +22,99 @@ import org.apache.commons.io.FilenameUtils
 object Copier {
   private val logger = LoggerFactory.getLogger(getClass)
 
+
+  /**
+   * composable function that performs a streaming copy from one objectmatrix entity to another
+   * @param sourceFactory GraphStage object that will provide the raw file content
+   * @param destFile MxsObject representing the file to be streamed to
+   * @return a Future, containing a Long of the number of bytes written
+   */
+  private def streamBytes(source: Source[ByteString, NotUsed], destFile:MxsObject)(implicit mat:Materializer, ec:ExecutionContext) = {
+    val sinkFac = new MatrixStoreFileSink(destFile)
+    val streamBytesGraph = GraphDSL.createGraph(sinkFac) { implicit builder=> sink=>
+      import akka.stream.scaladsl.GraphDSL.Implicits._
+
+      val src = builder.add(source)
+      src ~> sink
+      ClosedShape
+    }
+
+    val debugContext = MDC.getCopyOfContextMap  //save the logger's debug context and make sure it is re-applied at the end.
+    RunnableGraph
+      .fromGraph(streamBytesGraph)
+      .run()
+      .map(result=>{
+        MDC.setContextMap(debugContext)
+        result
+      })
+  }
+
+  /**
+   * composable function that checks if the given checksums match
+   * @param sourceDestChecksum a sequence of exactly two Try[String] representing the checksum operations.
+   * @return a failed Future if either of the checksums is a Failure or if they are both successful but do not match.
+   *         Otherwise, a successful Future containing the valid checksum
+   */
+  def validateChecksum(sourceDestChecksum:Seq[Try[String]], destFile:MxsObject)(implicit ec:ExecutionContext) = {
+    val failures = sourceDestChecksum.collect({case Failure(err)=>err})
+    if(failures.nonEmpty) {
+      logger.error(s"${failures.length} checksums from the appliance failed:")
+      failures.foreach(err=>logger.error(s"\t${err.getMessage}"))
+      destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
+      Future.failed(new RuntimeException("Could not validate checksums"))
+    } else {
+      val successes = sourceDestChecksum.collect({case Success(cs)=>cs})
+      if(successes.head != successes(1)) {
+        logger.warn(s"Appliance copy failed: Source checksum was ${successes.head} and destination checksum was ${successes(1)}")
+        destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
+        Future.failed(new RuntimeException("Checksums did not match"))
+      } else {
+        Future(successes.head)
+      }
+    }
+  }
+
+  /**
+   * performs a safe copy from the given byte stream
+   * @param sourceStream source of ByteStrings representing data to be streamed into the file
+   * @param destVault vault on which to create the file
+   * @param destMeta a sequence of Attribute values to get written onto the file
+   * @param mat implicitly provided materializer
+   * @param ec implicitly provided execution context
+   * @return a Future, containing a tuple with the created objectmatrix ID and the validated checksum.
+   *         On any error (including the checksum validation failing) then the future fails.
+   */
+  def doStreamCopy(sourceStream:Source[ByteString, Any], destVault:Vault, destMeta:Array[Attribute])(implicit mat:Materializer, ec:ExecutionContext) = {
+    def option2try[A](src:Option[A], errMsg:String):Try[A] = src match {
+      case None=>
+        Failure(new RuntimeException(errMsg))
+      case Some(value)=>Success(value)
+    }
+
+    Try { destVault.createObject(destMeta) } match {
+      case Failure(err)=>
+        logger.error(s"Could not create an object on vault ${destVault.getId}: ${err.getMessage}")
+        logger.error(s"Object metadata was: ${destMeta.map(attr=>s"${attr.getKey}: ${attr.getValue}").mkString("; ")}")
+        Future.failed(new RuntimeException("Could not create output file, see logs for details"))
+      case Success(destObject) =>
+        val checksumSink = new ChecksumSink("md5")
+        val graph = GraphDSL.createGraph(checksumSink) { implicit builder => checksummer =>
+          import akka.stream.scaladsl.GraphDSL.Implicits._
+
+          val splitter = builder.add(Broadcast[ByteString](2, eagerCancel = true))
+          val writer = builder.add(new MatrixStoreFileSink(destObject))
+          sourceStream ~> splitter ~> writer
+          splitter.out(1) ~> checksummer
+          ClosedShape
+        }
+
+        for {
+          maybeChecksum <- RunnableGraph.fromGraph(graph).run()
+          destinationChecksum <- MatrixStoreHelper.getOMFileMd5(destObject)
+          validatedChecksum <- validateChecksum(Seq(option2try(maybeChecksum, "No source checksum was received"), destinationChecksum), destObject)
+        } yield (destObject.getId, Some(validatedChecksum))
+    }
+  }
   /**
    * stream a file from one ObjectMatrix vault to another
    * @param sourceVault Vault instance giving the vault to copy _from_
@@ -34,61 +129,11 @@ object Copier {
   def doCrossCopy(sourceVault:Vault, sourceOID:String, destVault:Vault, keepOnFailure:Boolean=false, retryOnFailure:Boolean=true)
                  (implicit actorSystem:ActorSystem, ec:ExecutionContext,mat:Materializer):Future[(String,Option[String])] = {
 
-    /**
-     * composable function that performs a streaming copy from one objectmatrix entity to another
-     * @param destFile MxsObject representing the file to be streamed to
-     * @return a Future, containing a Long of the number of bytes written
-     */
-    def streamBytes(destFile:MxsObject) = {
-      val sinkFac = new MatrixStoreFileSink(destFile)
-      val streamBytesGraph = GraphDSL.createGraph(sinkFac) { implicit builder=> sink=>
-        import akka.stream.scaladsl.GraphDSL.Implicits._
-
-        val src = builder.add(new MatrixStoreFileSource(sourceVault, sourceOID))
-        src ~> sink
-        ClosedShape
-      }
-
-      val debugContext = MDC.getCopyOfContextMap  //save the logger's debug context and make sure it is re-applied at the end.
-      RunnableGraph
-        .fromGraph(streamBytesGraph)
-        .run()
-        .map(result=>{
-          MDC.setContextMap(debugContext)
-          result
-        })
-    }
-
-    /**
-     * composable function that checks if the given checksums match
-     * @param sourceDestChecksum a sequence of exactly two Try[String] representing the checksum operations.
-     * @return a failed Future if either of the checksums is a Failure or if they are both successful but do not match.
-     *         Otherwise, a successful Future containing the valid checksum
-     */
-    def validateChecksum(sourceDestChecksum:Seq[Try[String]], destFile:MxsObject) = {
-      val failures = sourceDestChecksum.collect({case Failure(err)=>err})
-      if(failures.nonEmpty) {
-        logger.error(s"${failures.length} checksums from the appliance failed:")
-        failures.foreach(err=>logger.error(s"\t${err.getMessage}"))
-        destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
-        Future.failed(new RuntimeException("Could not validate checksums"))
-      } else {
-        val successes = sourceDestChecksum.collect({case Success(cs)=>cs})
-        if(successes.head != successes(1)) {
-          logger.warn(s"Appliance copy failed: Source checksum was ${successes.head} and destination checksum was ${successes(1)}")
-          destFile.delete() //delete the target file because we could not validate it. Copy will be attempted again on the next retry.
-          Future.failed(new RuntimeException("Checksums did not match"))
-        } else {
-          Future(successes.head)
-        }
-      }
-    }
-
     for {
       sourceObject <- Future.fromTry(Try { sourceVault.getObject(sourceOID)})
       sourceMetadata <- MetadataHelper.getAttributeMetadata(sourceObject)
       destFile <- Future.fromTry(Try { destVault.createObject(sourceMetadata.toAttributes.toArray)} )
-      writtenLength <- streamBytes(destFile)
+      writtenLength <- streamBytes(MatrixStoreFileSource(sourceVault, sourceOID), destFile)
       sourceDestChecksum <- Future.sequence(Seq(
         MatrixStoreHelper.getOMFileMd5(sourceObject),
         MatrixStoreHelper.getOMFileMd5(destFile)
@@ -139,7 +184,7 @@ object Copier {
         val mxsFile = vault.createObject(mdToWrite.toAttributes.toArray)
 
         logger.debug(s"mxsFile is $mxsFile")
-        val graph = GraphDSL.create(checksumSinkFactory) { implicit builder =>
+        val graph = GraphDSL.createGraph(checksumSinkFactory) { implicit builder =>
           checksumSink =>
             import akka.stream.scaladsl.GraphDSL.Implicits._
 

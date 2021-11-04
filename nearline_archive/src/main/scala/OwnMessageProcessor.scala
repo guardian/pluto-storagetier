@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.{ClosedShape, Materializer}
 import akka.stream.scaladsl.{GraphDSL, RunnableGraph, Sink}
-import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.{Copier, MatrixStoreHelper, MetadataHelper}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
@@ -26,7 +26,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
                          (implicit mat:Materializer,
                           ec:ExecutionContext,
                           actorSystem:ActorSystem,
-                          mxsConnectionBuilder: MXSConnectionBuilder,
+                          mxsConnectionBuilder: MXSConnectionBuilderImpl,
                           vsCommunicator:VidispineCommunicator,
                           nearlineRecordDAO: NearlineRecordDAO) extends MessageProcessor {
   import com.gu.multimedia.storagetier.plutocore.ProjectRecordEncoder._
