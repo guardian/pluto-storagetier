@@ -6,11 +6,13 @@ import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.helpers.{Copier, MetadataHelper}
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.auth.HMAC.logger
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue}
+import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.VidispineMediaIngested
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
+import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
+import com.gu.multimedia.storagetier.utils.FilenameSplitter
+import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto._
@@ -23,6 +25,10 @@ import java.time.{Instant, ZonedDateTime}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
+import java.net.URI
+import java.nio.file.{Files, Path, Paths}
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Try}
 
 class VidispineMessageProcessor()
                                (implicit nearlineRecordDAO: NearlineRecordDAO,
@@ -41,6 +47,13 @@ class VidispineMessageProcessor()
       logger.warn(s"This job with filepath $filePath failed previously with reason $reason")
     }
   }
+
+  /**
+   * check if a file exists. It's put into its own method so it can be over-ridden in tests
+   * @param filePath path to check
+   * @return boolean indicating if it exists
+   */
+  protected def internalCheckFile(filePath:Path) = Files.exists(filePath)
 
   /**
    * Upload ingested file if not already exist.
@@ -151,7 +164,7 @@ class VidispineMessageProcessor()
                 logger.error(s"Could not get absolute filepath for file $fileId")
                 Future.failed(new RuntimeException(s"Could not get absolute filepath for file $fileId"))
               case Some(absPath)=>
-                uploadIfRequiredAndNotExists(vault: Vault, absPath, mediaIngested)
+                uploadIfRequiredAndNotExists(vault, absPath, mediaIngested)
             }
           } yield result
         case None=>
@@ -159,6 +172,141 @@ class VidispineMessageProcessor()
           Future.failed(new RuntimeException(s"No source file ID parameter"))
       }
     }
+  }
+
+  def getFilePathForShape(shapeDoc: ShapeDocument, itemId: String, shapeId: String): Future[Either[String,Path]] = {
+    shapeDoc.getLikelyFile match {
+      case None =>
+        Future(Left(s"No file exists on shape $shapeId for item $itemId yet"))
+      case Some(fileInfo) =>
+        fileInfo.uri.headOption.flatMap(u => Try {
+          URI.create(u)
+        }.toOption) match {
+          case Some(uri) =>
+            val filePath = Paths.get(uri)
+            if (internalCheckFile(filePath)) {
+              logger.info(s"Found filePath for Vidispine shape ${filePath}")
+              Future(Right(filePath))
+            } else {
+              logger.error(s"Could not find path for URI $uri ($filePath) on-disk")
+              Future.failed(new RuntimeException(s"File $filePath for Vidispine shape could not be found"))
+            }
+          case None =>
+            logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
+            Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
+        }
+    }
+  }
+
+  /**
+   * Determines an appropriate file name to use for the proxy of the given file
+   * @param nearlineRecord NearlineRecord representing the "original" media for this content
+   * @param proxyFile VSShapeFile object representing the File portion that Vidispine returned
+   * @return a String containing the path to upload to
+   */
+  def uploadKeyForProxy(nearlineRecord: NearlineRecord, proxyFile:VSShapeFile) = {
+    val uploadedPath = Paths.get(nearlineRecord.originalFilePath)
+
+    val proxyFileParts = proxyFile.uri.headOption.flatMap(_.split("/").lastOption) match {
+      case None=>
+        logger.error("No proxy file URI in information? This is unexpected.")
+        ("", None)
+      case Some(proxyFileName)=>
+        FilenameSplitter(proxyFileName)
+    }
+
+    val uploadedFileName = FilenameSplitter(uploadedPath.getFileName.toString)
+
+    uploadedPath.getParent.toString + "/" + uploadedFileName._1 + "_prox" + proxyFileParts._2.getOrElse("")
+  }
+
+  /**
+   * Upload ingested shape if not already exist.
+   *
+   * @param filePath       path to the file that has been ingested
+   * @param mediaIngested  the media object ingested by Vidispine
+   * @param nearlineRecord the record of the existing files copied to MatrixStore
+   * @param proxyFile      VSShapeFile representing the proxy file
+   *
+   * @return
+   */
+  def uploadShapeIfRequired(vault: Vault, fullPath: Path,
+                            mediaIngested: VidispineMediaIngested,
+                            nearlineRecord: NearlineRecord,
+                            proxyFile:VSShapeFile): Future[Either[String, MessageProcessorReturnValue]] = {
+    logger.debug(s"uploadShapeIfRequired: Shape file is $fullPath")
+
+    val proxyFileName = uploadKeyForProxy(nearlineRecord, proxyFile)
+
+    fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, Some(nearlineRecord.objectId))
+      .flatMap({
+        case Right(objectId) =>
+          val record = nearlineRecord
+            .copy(
+              proxyObjectId = Some(objectId),
+              vidispineItemId = mediaIngested.itemId,
+              vidispineVersionId = mediaIngested.essenceVersion,
+            )
+
+          nearlineRecordDAO
+            .writeRecord(record)
+            .map(recId=>
+              Right(MessageProcessorReturnValue(
+                record
+                  .copy(id=Some(recId))
+                  .asJson
+              ))
+            )
+
+        case Left(error) => Future(Left(error))
+      })
+  }
+
+  def copyShapeIfRequired(vault: Vault, mediaIngested: VidispineMediaIngested,
+                          itemId: String, shapeId: String,
+                          nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] = {
+      vidispineCommunicator.findItemShape(itemId, shapeId).flatMap({
+        case None=>
+          logger.error(s"Shape $shapeId does not exist on item $itemId despite a notification informing us that it does.")
+          Future.failed(new RuntimeException(s"Shape $shapeId does not exist"))
+        case Some(shapeDoc)=>
+          shapeDoc.getLikelyFile match {
+            case None =>
+              Future(Left(s"No file exists on shape $shapeId for item $itemId yet"))
+            case Some(fileInfo) =>
+              getFilePathForShape(shapeDoc, itemId, shapeId).flatMap({
+                case Left(err) =>
+                  logger.error(s"Can't find filePath for Shape with id $shapeId - err ${err}")
+                  Future.failed(new RuntimeException(s"Shape $shapeId does not exist"))
+                case Right(filePath) =>
+                  val copyFut = for {
+                    copyResult <- uploadShapeIfRequired(vault, filePath, mediaIngested, nearlineRecord, fileInfo)
+                  } yield Right(MessageProcessorReturnValue(copyResult.asJson))
+
+                  //the future will fail if we can't copy to MatrixStore, but treat this as a retryable failure
+                  copyFut.recover({
+                    case err: Throwable =>
+                      logger.error(s"Could not copy ${filePath.toString} to MatrixStore: ${err.getMessage}", err)
+                      Left(s"Could not copy ${filePath.toString} to MatrixStore")
+                  })
+              })
+          }
+      })
+  }
+
+  def handleShapeUpdate(vault: Vault, mediaIngested: VidispineMediaIngested, shapeId:String, itemId:String)
+  : Future[Either[String, MessageProcessorReturnValue]] = {
+    nearlineRecordDAO.findByVidispineId(itemId).flatMap(maybeNearlineRecord => {
+      maybeNearlineRecord match {
+        case Some(nearlineRecord) =>
+          for {
+            proxyCopyResult <- copyShapeIfRequired(vault, mediaIngested, itemId, shapeId, nearlineRecord)
+          } yield proxyCopyResult
+        case None =>
+          logger.info(s"No record of vidispine item $itemId retry later")
+          Future(Left(s"No record of vidispine item $itemId retry later"))
+      }
+    })
   }
 
   /**
@@ -310,6 +458,25 @@ class VidispineMessageProcessor()
         }
       case (Right(mediaIngested), "vidispine.item.metadata.modify")=>
         handleMetadataUpdate(mediaIngested)
+      case (Right(shapeUpdate), "vidispine.item.shape.modify")=>
+        (shapeUpdate.shapeId, shapeUpdate.shapeTag, shapeUpdate.itemId) match {
+          case (None, _, _)=>
+            logger.error("Shape update without any shape ID?")
+            Future.failed(new RuntimeException(s"Received shape update ${msg.noSpaces} without any shapeId"))
+          case (_, None, _)=>
+            logger.error("Shape update without any shape tag?")
+            Future.failed(new RuntimeException(s"Received shape update ${msg.noSpaces} without any shapeTag"))
+          case (_, _, None)=>
+            logger.error("Shape update without any item ID")
+            Future.failed(new RuntimeException(s"Received shape update ${msg.noSpaces} without any itemId"))
+          case (_, Some("original"), _)=>
+            logger.info(s"Shape tag original handled by new file event, dropping message")
+            Future.failed(SilentDropMessage())
+          case (Some(shapeId), Some(_), Some(itemId))=>
+            matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+              handleShapeUpdate(vault, shapeUpdate, shapeId, itemId)
+            }
+        }
       case (_, _)=>
         logger.warn(s"Dropping message $routingKey from vidispine exchange as I don't know how to handle it. This should be fixed in" +
           s" the code.")
