@@ -371,7 +371,13 @@ class VidispineMessageProcessor()
    */
   protected def buildMetadataForProxy(vault:Vault, rec:NearlineRecord) = {
     getOriginalMediaMeta(vault, rec.objectId)
-      .map(_.map(_.copy(itemType = CustomMXSMetadata.TYPE_PROXY, vidispineItemId = rec.vidispineItemId, proxyOID = None, thumbnailOID = None, mainMediaOID = Some(rec.objectId))))
+      .map(_.map(_.copy(
+        itemType = CustomMXSMetadata.TYPE_PROXY,
+        vidispineItemId = rec.vidispineItemId,
+        proxyOID = None,
+        thumbnailOID = None,
+        metaOID = None,
+        mainMediaOID = Some(rec.objectId))))
       .map(_.map(_.toAttributes(MxsMetadata.empty)))  //filesystem level metadata should have been added at this point
   }
 
