@@ -223,7 +223,8 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
       for {
         (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
         result <- if(shouldUpload) {
-          performUpload(keyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
+          val fixedKeyToUpload = if(keyToUpload.startsWith("/")) keyToUpload else "/" + keyToUpload //fix "could not generate URI" error
+          performUpload(fixedKeyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
         } else {
           Future(MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyToUpload)),
             bucketName,
