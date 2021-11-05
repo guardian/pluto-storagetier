@@ -176,6 +176,11 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
     }
   }
 
+  private def generateS3Uri(bucket:String, keyToUpload:String) = {
+    val fixedKeyToUpload = if(keyToUpload.startsWith("/")) keyToUpload else "/" + keyToUpload //fix "could not generate URI" error
+    Uri().withScheme("s3").withHost(bucket).withPath(Uri.Path(fixedKeyToUpload))
+  }
+
   def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map(), allowOverwrite:Boolean=false)(implicit mat:Materializer, ec:ExecutionContext) = {
     val baseHeaders = S3Headers.empty
     val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
@@ -197,7 +202,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
               .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
               .runWith(Sink.head)
               .map(objectMetadata => {
-                Try { Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)) } match {
+                Try { generateS3Uri(bucketName,keyForUpload) } match {
                   case Success(uri)=>
                     MultipartUploadResult(
                       uri,
@@ -223,10 +228,9 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
       for {
         (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
         result <- if(shouldUpload) {
-          val fixedKeyToUpload = if(keyToUpload.startsWith("/")) keyToUpload else "/" + keyToUpload //fix "could not generate URI" error
-          performUpload(fixedKeyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
+          performUpload(keyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
         } else {
-          Future(MultipartUploadResult(Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyToUpload)),
+          Future(MultipartUploadResult(generateS3Uri(bucketName, keyToUpload),
             bucketName,
             keyToUpload,
             etag="",
