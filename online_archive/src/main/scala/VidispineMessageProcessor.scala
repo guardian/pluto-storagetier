@@ -187,7 +187,11 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
       maybeFailureRecord <- failureRecordDAO.findBySourceFilename(filePath)
       result <- (maybeIgnoredRecord, maybeArchivedRecord) match {
         case (Some(ignoreRecord), _) =>
-          Future.failed(SilentDropMessage(Some(s"${filePath} should be ignored due to reason ${ignoreRecord.ignoreReason}")))
+          ignoredRecordDAO
+            .writeRecord(ignoreRecord.copy(vidispineItemId = mediaIngested.itemId, vidispineVersionId = mediaIngested.essenceVersion))
+            .flatMap(_=>{
+              Future.failed(SilentDropMessage(Some(s"${filePath} should be ignored due to reason ${ignoreRecord.ignoreReason}")))
+            })
         case (None, Some(archivedRecord)) =>
           showPreviousFailure(maybeFailureRecord, filePath)
 
