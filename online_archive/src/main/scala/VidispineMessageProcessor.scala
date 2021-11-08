@@ -71,7 +71,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
                                 ec: ExecutionContext,
                                 mat: Materializer,
                                 system: ActorSystem) extends MessageProcessor {
-  private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
+  protected lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
   import VidispineMessageProcessor._
 
@@ -245,18 +245,25 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig,
           logger.debug(s"Got ingested file ID $fileId from the message")
           for {
             absPath <- vidispineCommunicator.getFileInformation(fileId).map(_.flatMap(_.getAbsolutePath))
-            result <- absPath match {
-              case None=>
+            maybeProject <- absPath.map(Paths.get(_)).map(asLookup.assetFolderProjectLookup).getOrElse(Future(None))
+            result <- (absPath, maybeProject) match {
+              case (None, _)=>
                 logger.error(s"Could not get absolute filepath for file $fileId")
                 Future.failed(new RuntimeException(s"Could not get absolute filepath for file $fileId"))
-              case Some(absPath)=>
-                getRelativePath(absPath, mediaIngested.importSource) match {
-                  case Left(err) =>
-                    logger.error(s"Could not relativize file path $absPath: $err. Uploading to $absPath")
-                    uploadIfRequiredAndNotExists(absPath, absPath, mediaIngested)
-                  case Right(relativePath) =>
-                    uploadIfRequiredAndNotExists(absPath, relativePath.toString, mediaIngested)
+              case (Some(absPath), Some(projectInfo)) =>
+                if(projectInfo.deletable.contains(true) || projectInfo.sensitive.contains(true)) {
+                  Future.failed(SilentDropMessage(Some(s"$absPath is from project ${projectInfo.id} which is either deletable or sensitive")))
+                } else {
+                  getRelativePath(absPath, mediaIngested.importSource) match {
+                    case Left(err) =>
+                      logger.error(s"Could not relativize file path $absPath: $err. Uploading to $absPath")
+                      uploadIfRequiredAndNotExists(absPath, absPath, mediaIngested)
+                    case Right(relativePath) =>
+                      uploadIfRequiredAndNotExists(absPath, relativePath.toString, mediaIngested)
+                  }
                 }
+              case (_, None) =>
+                Future(Left(s"Could not look up a project for fileId $fileId ($absPath)"))
             }
           } yield result
         case None=>

@@ -15,7 +15,7 @@ import io.circe.syntax._
 import io.circe.generic.auto._
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
-import com.gu.multimedia.storagetier.plutocore.PlutoCoreConfig
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
@@ -27,6 +27,7 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.duration.DurationInt
 import scala.util.{Success, Try}
 import java.io.InputStream
+import java.time.ZonedDateTime
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   val fakeDeliverablesConfig = PlutoDeliverablesConfig("Deliverables/",1)
@@ -157,15 +158,26 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         val fakeResult = mock[Json]
         mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
 
+        val mockedProject = ProjectRecord(
+          Some(1234), 2, "Test project", ZonedDateTime.now(), ZonedDateTime.now(), "someuser", None,None,Some(false),None, Some(false), EntryStatus.New, ProductionOffice.UK
+        )
+
         val basePath = Paths.get("/absolute/path")
-        val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
+        val fakePlutoConfig = PlutoCoreConfig("https://fake-server","notsecret",basePath)
+        val realASlookup = new AssetFolderLookup(fakePlutoConfig)
+        val mockAsLookup = mock[AssetFolderLookup]
+        mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(mockedProject))
+        mockAsLookup.relativizeFilePath(any) answers ((arg:Any)=>realASlookup.relativizeFilePath(arg.asInstanceOf[Path]))
+
+        val toTest = new VidispineMessageProcessor(fakePlutoConfig, fakeDeliverablesConfig, mockUploader, mockUploader) {
+          override protected lazy val asLookup: AssetFolderLookup = mockAsLookup
           override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
         }
 
         val result = Await.result(toTest.handleIngestedMedia(mediaIngested), 2.seconds)
-        there was one(mockUploadIfReqd).apply("/absolute/path/relative/path.mp4","relative/path.mp4",mediaIngested)
         result must beRight
         result.right.get.content mustEqual fakeResult
+        there was one(mockUploadIfReqd).apply("/absolute/path/relative/path.mp4","relative/path.mp4",mediaIngested)
       }
 
       "fall back to fileId if sourceFileId not set" in {
@@ -194,8 +206,19 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         val fakeResult = mock[Json]
         mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
 
+        val mockedProject = ProjectRecord(
+          Some(1234), 2, "Test project", ZonedDateTime.now(), ZonedDateTime.now(), "someuser", None,None,Some(false),Some(true), Some(false), EntryStatus.New, ProductionOffice.UK
+        )
+
         val basePath = Paths.get("/absolute/path")
+        val fakePlutoConfig = PlutoCoreConfig("https://fake-server","notsecret",basePath)
+        val realASlookup = new AssetFolderLookup(fakePlutoConfig)
+        val mockAsLookup = mock[AssetFolderLookup]
+        mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(mockedProject))
+        mockAsLookup.relativizeFilePath(any) answers ((arg:Any)=>realASlookup.relativizeFilePath(arg.asInstanceOf[Path]))
+
         val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
+          override protected lazy val asLookup = mockAsLookup
           override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
         }
 
@@ -204,6 +227,90 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         result must beRight
         result.right.get.content mustEqual(fakeResult)
       }
+    }
+
+    "SilentDrop if the project is deletable" in {
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      implicit val mockUploader = mock[FileUploader]
+      implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
+      archivedRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
+      ignoredRecordDAO.writeRecord(any) returns Future(345)
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "12345"),
+        VidispineField("status", "FINISHED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,MessageProcessorReturnValue]]]
+      val fakeResult = mock[Json]
+      mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
+
+      val mockedProject = ProjectRecord(
+        Some(1234), 2, "Test project", ZonedDateTime.now(), ZonedDateTime.now(), "someuser", None,None,Some(true),None, Some(false), EntryStatus.New, ProductionOffice.UK
+      )
+
+      val mockAsLookup = mock[AssetFolderLookup]
+      mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(mockedProject))
+      val basePath = Paths.get("/absolute/path")
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
+        override protected lazy val asLookup: AssetFolderLookup = mockAsLookup
+        override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
+      }
+
+      val result = Try { Await.result(toTest.handleIngestedMedia(mediaIngested), 2.seconds) }
+      result must beAFailedTry(SilentDropMessage(Some("/absolute/path/relative/path.mp4 is from project Some(1234) which is either deletable or sensitive")))
+    }
+
+    "SilentDrop if the project is sensitive" in {
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      implicit val mockUploader = mock[FileUploader]
+      implicit val archivedRecordDAO:ArchivedRecordDAO = mock[ArchivedRecordDAO]
+      archivedRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val ignoredRecordDAO:IgnoredRecordDAO = mock[IgnoredRecordDAO]
+      ignoredRecordDAO.writeRecord(any) returns Future(345)
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "12345"),
+        VidispineField("status", "FINISHED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val mockUploadIfReqd = mock[(String, String, VidispineMediaIngested)=>Future[Either[String,MessageProcessorReturnValue]]]
+      val fakeResult = mock[Json]
+      mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
+
+      val mockedProject = ProjectRecord(
+        Some(1234), 2, "Test project", ZonedDateTime.now(), ZonedDateTime.now(), "someuser", None,None,Some(false),None, Some(true), EntryStatus.New, ProductionOffice.UK
+      )
+
+      val mockAsLookup = mock[AssetFolderLookup]
+      mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(mockedProject))
+      val basePath = Paths.get("/absolute/path")
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath), fakeDeliverablesConfig, mockUploader, mockUploader) {
+        override protected lazy val asLookup: AssetFolderLookup = mockAsLookup
+        override def uploadIfRequiredAndNotExists(filePath: String, relativePath: String, mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(filePath, relativePath, mediaIngested)
+      }
+
+      val result = Try { Await.result(toTest.handleIngestedMedia(mediaIngested), 2.seconds) }
+      result must beAFailedTry(SilentDropMessage(Some("/absolute/path/relative/path.mp4 is from project Some(1234) which is either deletable or sensitive")))
     }
   }
 
