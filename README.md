@@ -24,7 +24,8 @@ These are numbered based on the iteration, and the final images are then pushed 
 repo hosted in AWS.  This is configured for "immutable images", i.e. once a given iteration number has been pushed it
 can't be over-written and a new one must be provided.
 
-Our Kubernetes systems then pull the images from there with their own credentials.
+They are then deployed via manifests to our Kubernertes system which uses rotated credentials to access them.  As with
+other "prexit" components, `pluto-versions-manager` can be used to interrogate the builds and quickly deploy updates.
 
 ## How do I build it locally?
 
@@ -53,7 +54,9 @@ sbt:nearline_archive> test
 sbt:nearline_archive> docker:publishLocal
 ```
 
-to run tests then compile and build a local version.  Dependencies are resolved and downloaded prior to compilation.
+to run tests then compile and build a local version.  Dependencies are resolved and downloaded prior to compilation, so
+internet access is required; and using a 3G connection definitely not recommended!
+
 This should ultimately output a Docker image onto your local
 Docker daemon as `guardianmultimedia/storagetier-online-nearline:DEV` which can then be run via
 `docker run --rm  guardianmultimedia/storagetier-online-nearline:DEV`.
@@ -66,7 +69,7 @@ which builds into a minikube environment and provides all of these elements.
 
 With that installed, you can point your Docker configuration at the minikube instance and build on there:
 ```
-$ $(minikube docker-env)
+$ $(minikube docker-env)  #point the local docker client to the minikube docker daemon
 $ sbt
 sbt:pluto-storagetier> projects
 [info] In file:/Users/andy_gallagher/workdev/pluto-storagetier/
@@ -125,7 +128,7 @@ Vidispine does not directly interface to RabbitMQ but sends HTTP messages to giv
 a tool called "pluto-vsrelay" (see https://gitlab.com/codmill/customer-projects/guardian/pluto-vs-relay) which
 receives these HTTP notifications and pushes them to an Exchange.
 
-The key point is that it does not need to know or care about what other processes may want to consume
+The key point is that `pluto-vsrelay` does not need to know or care about what other processes may want to consume
 these messages.  Furthermore, it is responsible for "declaring" (in RabbitMQ parlance) the exchange i.e.
 ensuring that it is created and configured properly.
 
@@ -153,7 +156,7 @@ re-queued so another instance can pick it up.
 In this way it does not matter if our app crashes or is restarted for some reason outside of our control, because
 if it was in the middle of something then that operation will be re-tried.
 
-It is important, though, to ensure that operations each app performs are indempotent and will not fail
+It is important, though, to ensure that operations each app performs are  will not fail
 if they are being retried over a partially-completed attempt.
 
 ### Routing Keys
@@ -240,7 +243,7 @@ interface) with an exchange to subscribe to, a routing key spec to narrow down t
 You can see this being set up in [Main.scala](online_archive/src/main/Main.scala).
 
 Once initiated, it will connect to rabbitMQ and declare a queue with a specific name. This name is shared
-between all instances, so we have a single queue for the app that recives messages from all the different exchanges
+between all instances, so we have a single queue for the app that receives messages from all the different exchanges
 (including our own, and our own retries).
 
 The logic in `MessageProcessor` takes care of routing an incoming message to the correct `MessageProcessor` instance,
@@ -258,7 +261,7 @@ message is `ack`'d on the broker, removing it from the queue
   - The original message is `nack`'d _without_ retry on the original queue and a copy is sent to the "retry exchange".
   - The "Retry exchange" is subscribed by the "retry queue", which has a Time-To-Live attribute set on it. 
   - The message copy _also_ has a Time-To-Live attribute set, and whichever is the lower of these two settings is used.
-  - Once the time-to-live is exipired, the message broker forwards it on to the designated "dead-letter exchange" of the
+  - Once the time-to-live is expired, the message broker forwards it on to the designated "dead-letter exchange" of the
 retry queue, which then immediately forwards it back to the input queue.
   - In this way we have a retry loop that can act without blocking application instances and allowing other content to be
 processed at the same time
@@ -301,7 +304,7 @@ class MyProcessor extends MessageProcessor {
 
 ## Logging
 
-When the system is actually running in pracise, it quickly becomes very difficult to understand the logs.
+When the system is actually running in practise, it quickly becomes very difficult to understand the logs.
 This is because you potentially have a lot of messages, some retrying, some new, being processed across a lot of instances.
 Not every failure is a problem; some messages are expected to loop through a few retries before an external system has
 "caught up" (e.g. validating that a file exists in the archive storage).
@@ -316,7 +319,7 @@ which is defined in a `resources/logback.xml` configuration file and looks like 
 i.e.:
 - timestamp
 - thread ID
-- message ID that is being processed. This is arbitary and set by the sender; we normally use UUIDs.  Allows you to cross-reference the events or filter
+- message ID that is being processed. This is arbitrary and set by the sender; we normally use UUIDs.  Allows you to cross-reference the events or filter
 across multiple retries
 - retry attempt counter. Starts at 0, this is incremented every time a message is retried. Note that a message will not necessarily
 be retried on the same instance that received it before
@@ -327,5 +330,5 @@ be retried on the same instance that received it before
 - class/logger name
 - message
 
-These fields are parsed out in logstash and can be used for filtering so you can quicky zoom in on why a specific file 'X' seems
+These fields are parsed out in logstash and can be used for filtering, so you can quickly zoom in on why a specific file 'X' seems
 to be failing.
