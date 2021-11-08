@@ -15,6 +15,11 @@ case class CustomMXSMetadata(itemType:String,
                              deliverableBundle:Option[Int],
                              deliverableVersion:Option[Int],
                              deliverableType:Option[String],
+                             vidispineItemId:Option[String]=None,
+                             proxyOID:Option[String]=None,      //expect this to be set on original media, if a proxyy exists
+                             thumbnailOID:Option[String]=None,  //expect this to be set on original media, if a thumbnail exists
+                              metaOID:Option[String]=None,      //expect this to be set on original media, if a VS metadata doc exists
+                             mainMediaOID:Option[String]=None,  //expect this to be set on a proxy or thumbnail
                              hidden:Boolean=false) {
   /**
    * adds the contents of the record to the given MxsMetadata object, ignoring empty fields
@@ -31,7 +36,12 @@ case class CustomMXSMetadata(itemType:String,
       projectName.map(s=>"GNM_PROJECT_NAME"->s),
       commissionName.map(s=>"GNM_COMMISSION_NAME"->s),
       workingGroupName.map(s=>"GNM_WORKING_GROUP_NAME"->s),
-      deliverableType.map(s=>"GNM_DELIVERABLE_TYPE"->s)
+      deliverableType.map(s=>"GNM_DELIVERABLE_TYPE"->s),
+      vidispineItemId.map(s=>"GNM_VIDISPINE_ITEM"->s),
+      proxyOID.map(s=>"ATT_PROXY_OID"->s),
+      thumbnailOID.map(s=>"ATT_THUMB_OID"->s) ,
+      metaOID.map(s=>"ATT_META_OID"->s),
+      mainMediaOID.map(s=>"ATT_ORIGINAL_OID"->s) ,
     ).collect({case Some(kv)=>kv}).toMap
 
     val firstUpdate = content.foldLeft(addTo)((acc,kv)=>acc.withString(kv._1,kv._2))
@@ -55,6 +65,8 @@ object CustomMXSMetadata {
   val TYPE_DELIVERABLE = "deliverables"
   val TYPE_PROJECT = "project"
   val TYPE_UNSORTED = "unsorted"
+  val TYPE_PROXY = "proxy"
+  val TYPE_THUMB = "thumb"
   val TYPE_META = "metadata"
 
   def fromMxsMetadata(incoming:MxsMetadata):Option[CustomMXSMetadata] =
@@ -72,6 +84,11 @@ object CustomMXSMetadata {
         incoming.intValues.get("GNM_DELIVERABLE_BUNDLE_ID"),
         incoming.intValues.get("GNM_DELIVERABLE_VERSION"),
         incoming.stringValues.get("GNM_DELIVERABLE_TYPE"),
+        incoming.stringValues.get("GNM_VIDISPINE_ITEM"),
+        incoming.stringValues.get("ATT_PROXY_OID"),
+        incoming.stringValues.get("ATT_THUMB_OID"),
+        incoming.stringValues.get("ATT_META_OID"),
+        incoming.stringValues.get("ATT_ORIGINAL_OID"),
         incoming.boolValues.getOrElse("GNM_HIDDEN_FILE", false)
       )
     )
