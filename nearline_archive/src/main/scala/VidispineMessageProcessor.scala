@@ -295,7 +295,7 @@ class VidispineMessageProcessor()
             .map(recId=>
               Right(MessageProcessorReturnValue(
                 record
-                  .copy(id=Some(recId))
+                  .copy(id = Some(recId))
                   .asJson
               ))
             )

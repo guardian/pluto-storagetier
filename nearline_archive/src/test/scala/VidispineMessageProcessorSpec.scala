@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
@@ -1154,8 +1154,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       result must beLeft("Error copying file")
     }
-/*
-   TODO: Fix this test case. Get an Null pointer error but can't figure out what is wrong.
 
     "Update file with additional metadata after file has been copied" in {
       val mockNearlineRecord = NearlineRecord(
@@ -1209,7 +1207,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       ))
 
       val mockCallUpdateMetadata = mock[(Vault, String, MxsMetadata) => Try[Unit]]
+      mockCallUpdateMetadata.apply(any,any,any) returns Success( () )
       val mockUpdateParentsMetadata = mock[(Vault, String, String, String) => Try[Unit]]
+      mockUpdateParentsMetadata.apply(any,any,any,any) returns Success( () )
       val mockMetadata = mock[MxsMetadata]
 
       val toTest = new VidispineMessageProcessor() {
@@ -1232,6 +1232,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         mockNearlineRecord,
         mockShapeFile), 2.seconds)
 
+      there was no(mockMxsObject).delete()
+
       there was one (mockCallUpdateMetadata).apply(mockVault, "VX-1234", mockMetadata)
       result must beRight(MessageProcessorReturnValue(mockNearlineRecord
         .copy(
@@ -1241,7 +1243,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         )
         .asJson))
     }
-  } */
+  }
 
   "VidispineMessageProcessor.getFilePathForShape" should {
     "return Left if no file could be found in the shapeDoc" in {
