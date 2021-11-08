@@ -16,6 +16,7 @@ import org.specs2.mutable.Specification
 import io.circe.syntax._
 import io.circe.generic.auto._
 
+import java.net.URI
 import java.time.{ZoneId, ZonedDateTime}
 import java.nio.file.{Path, Paths}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -835,7 +836,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -915,17 +915,17 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       result must beRight(mockCopyResult)
 
       there was one(mockCopyShapeIfRequired).apply(
-        org.mockito.ArgumentMatchers.eq(mockVault),
-        org.mockito.ArgumentMatchers.eq(mediaIngested),
-        org.mockito.ArgumentMatchers.eq("VX-456"),
-        org.mockito.ArgumentMatchers.eq("VX-123"),
-        org.mockito.ArgumentMatchers.eq(mockNearlineRecord)
+        mockVault,
+        mediaIngested,
+        "VX-456",
+        "VX-123",
+        mockNearlineRecord
       )
     }
   }
 
   "VidispineMessageProcessor.copyShapeIfRequired" should {
-    "return Left when item Shape can't be found on item" in {
+    "return a failed Future when item Shape can't be found on item" in {
       val mockNearlineRecord = NearlineRecord(
         Some(123),
         "object-id",
@@ -945,7 +945,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -1044,7 +1043,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -1069,7 +1067,11 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockGetFilePathForShape.apply(any, any, any) returns Future(Right(mockPath))
       val mockUploadShapeIfRequired = mock[(Vault, Path, VidispineMediaIngested, NearlineRecord, VSShapeFile) =>
         Future[Either[String, MessageProcessorReturnValue]]]
-      mockUploadShapeIfRequired.apply(any, any, any, any, any) returns Future(Right(MessageProcessorReturnValue(mockNearlineRecord.asJson)))
+      mockUploadShapeIfRequired.apply(any, any, any, any, any) returns Future(Right(MessageProcessorReturnValue(mockNearlineRecord.copy(
+        proxyObjectId = Some("Object-id"),
+        vidispineItemId = mediaIngested.itemId,
+        vidispineVersionId = mediaIngested.essenceVersion,
+      ).asJson)))
 
       val toTest = new VidispineMessageProcessor() {
         override def getFilePathForShape(shapeDoc: ShapeDocument, itemId: String, shapeId: String) =
@@ -1087,7 +1089,11 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         "VX-456",
         mockNearlineRecord), 2.seconds)
 
-      result must beRight(MessageProcessorReturnValue(mockNearlineRecord.asJson))
+      result must beRight(MessageProcessorReturnValue(mockNearlineRecord.copy(
+        proxyObjectId = Some("Object-id"),
+        vidispineItemId = mediaIngested.itemId,
+        vidispineVersionId = mediaIngested.essenceVersion,
+      ).asJson))
       there was one (mockGetFilePathForShape).apply(mockShapeDoc, "VX-123", "VX-456")
       there was one (mockUploadShapeIfRequired).apply(mockVault, mockPath, mediaIngested, mockNearlineRecord, mockShapeFile)
     }
@@ -1313,12 +1319,65 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockShapeDoc = mock[ShapeDocument]
       mockShapeDoc.getLikelyFile returns Some(mockShapeFile)
 
+      val mockInternalCheckFile = mock[(Path) =>  Boolean]
+      mockInternalCheckFile.apply(any) returns true
+
       val toTest = new VidispineMessageProcessor() {
-        override protected def internalCheckFile(filePath: Path): Boolean = true
+        override protected def internalCheckFile(filePath: Path): Boolean = mockInternalCheckFile(filePath)
       }
       val result = Await.result(toTest.getFilePathForShape(mockShapeDoc, "VX-1", "VX-1234"), 2.seconds)
 
       result must beRight(Paths.get("/srv/proxies/another/location/for/proxies/VX-1234.mp4"))
+      there was one (mockInternalCheckFile).apply(Paths.get(URI.create("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4")))
+    }
+
+    "return a Failure if filePath for Shape doesn't exist" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockShapeFile = VSShapeFile(
+        "VX-1234",
+        "another/location/for/proxies/VX-1234.mp4",
+        Seq("file:///srv/proxy/with/illegal/location/VX-1234.mp4"),
+        "CLOSED",
+        1234L,
+        Some("deadbeef"),
+        "2021-01-02T03:04:05.678Z",
+        1,
+        "VX-2"
+      )
+      val mockShapeDoc = mock[ShapeDocument]
+      mockShapeDoc.getLikelyFile returns Some(mockShapeFile)
+
+      val mockInternalCheckFile = mock[(Path) =>  Boolean]
+      mockInternalCheckFile.apply(any) returns false
+
+      val toTest = new VidispineMessageProcessor() {
+        override protected def internalCheckFile(filePath: Path): Boolean = mockInternalCheckFile(filePath)
+      }
+
+      val result = Try { Await.result(toTest.getFilePathForShape(mockShapeDoc, "VX-1", "VX-1234"), 2.seconds) }
+
+      result must beAFailedTry
+      there was one (mockInternalCheckFile).apply(Paths.get(URI.create("file:///srv/proxy/with/illegal/location/VX-1234.mp4")))
     }
   }
 }
