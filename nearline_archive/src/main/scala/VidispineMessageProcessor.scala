@@ -262,7 +262,7 @@ class VidispineMessageProcessor()
     val proxyFileName = uploadKeyForProxy(nearlineRecord, proxyFile)
 
     val copyResult = for {
-      copyResult <- fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, None)    //surely passing the original media object ID was a mistake here??
+      copyResult <- fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, None)
       metadataUpdate <- buildMetadataForProxy(vault, nearlineRecord)
       writeResult <- Future.fromTry((copyResult, metadataUpdate) match {
         case (Left(_), _)=>Success( () ) //ignore
@@ -281,7 +281,6 @@ class VidispineMessageProcessor()
       })
     } yield copyResult
 
-    //fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, Some(nearlineRecord.objectId))
     copyResult.flatMap({
         case Right(objectId) =>
           val record = nearlineRecord
@@ -324,7 +323,7 @@ class VidispineMessageProcessor()
                 case Right(filePath) =>
                   val copyFut = for {
                     copyResult <- uploadShapeIfRequired(vault, filePath, mediaIngested, nearlineRecord, fileInfo)
-                  } yield Right(MessageProcessorReturnValue(copyResult.asJson))
+                  } yield copyResult
 
                   //the future will fail if we can't copy to MatrixStore, but treat this as a retryable failure
                   copyFut.recover({

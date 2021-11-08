@@ -813,4 +813,510 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       there was one(mockStreamCopy).apply(any, org.mockito.ArgumentMatchers.eq(mockVault), org.mockito.ArgumentMatchers.eq(MxsMetadata.empty))
     }
   }
+
+  "VidispineMessageProcessor.handleShapeUpdate" should {
+    "return Left with error message when no record exists" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockVault = mock[Vault]
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val toTest = new VidispineMessageProcessor()
+
+      val result = Await.result(toTest.handleShapeUpdate(
+        mockVault,
+        mediaIngested,
+        "VX-123",
+        "VX-456"), 2.seconds)
+
+      result must beLeft("No record of vidispine item VX-456 retry later")
+    }
+
+    "return updated record when Shape is successfully copied to MatrixStore" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockVault = mock[Vault]
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val mockCopyResult = mock[MessageProcessorReturnValue]
+      val mockCopyShapeIfRequired = mock[(Vault, VidispineMediaIngested, String, String, NearlineRecord) =>
+        Future[Either[String, MessageProcessorReturnValue]]]
+
+      mockCopyShapeIfRequired.apply(any, any, any, any, any) returns Future(Right(mockCopyResult))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def copyShapeIfRequired(vault:Vault, mediaIngested: VidispineMediaIngested, itemId: String, shapeId: String,
+                                         record: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] =
+          mockCopyShapeIfRequired(vault, mediaIngested, itemId, shapeId, record)
+      }
+
+      val result = Await.result(toTest.handleShapeUpdate(
+        mockVault,
+        mediaIngested,
+        "VX-123",
+        "VX-456"), 2.seconds)
+
+      result must beRight(mockCopyResult)
+
+      there was one(mockCopyShapeIfRequired).apply(
+        org.mockito.ArgumentMatchers.eq(mockVault),
+        org.mockito.ArgumentMatchers.eq(mediaIngested),
+        org.mockito.ArgumentMatchers.eq("VX-456"),
+        org.mockito.ArgumentMatchers.eq("VX-123"),
+        org.mockito.ArgumentMatchers.eq(mockNearlineRecord)
+      )
+    }
+  }
+
+  "VidispineMessageProcessor.copyShapeIfRequired" should {
+    "return Left when item Shape can't be found on item" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      mockVSCommunicator.findItemShape(any, any) returns Future(None)
+
+      val mockVault = mock[Vault]
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val toTest = new VidispineMessageProcessor()
+
+      val result = Try { Await.result(toTest.copyShapeIfRequired(
+        mockVault,
+        mediaIngested,
+        "VX-123",
+        "VX-456",
+        mockNearlineRecord), 2.seconds) }
+
+      result must beAFailedTry
+    }
+
+    "return Left when shapeDoc doesn´t contain a file yet" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockShapeDoc = mock[ShapeDocument]
+      mockShapeDoc.getLikelyFile returns None
+
+      mockVSCommunicator.findItemShape(any, any) returns Future(Some(mockShapeDoc))
+
+      val mockVault = mock[Vault]
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val toTest = new VidispineMessageProcessor()
+
+      val result = Await.result(toTest.copyShapeIfRequired(
+        mockVault,
+        mediaIngested,
+        "VX-123",
+        "VX-456",
+        mockNearlineRecord), 2.seconds)
+
+      result must beLeft("No file exists on shape VX-456 for item VX-123 yet")
+    }
+
+    "return updated record when Shape is successfully copied to MatrixStore" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockShapeDoc = mock[ShapeDocument]
+      val mockShapeFile = mock[VSShapeFile]
+      mockShapeDoc.getLikelyFile returns Some(mockShapeFile)
+
+      mockVSCommunicator.findItemShape(any, any) returns Future(Some(mockShapeDoc))
+
+      val mockVault = mock[Vault]
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val mockPath = mock[Path]
+      val mockGetFilePathForShape = mock[(ShapeDocument, String, String) =>  Future[Either[String, Path]]]
+      mockGetFilePathForShape.apply(any, any, any) returns Future(Right(mockPath))
+      val mockUploadShapeIfRequired = mock[(Vault, Path, VidispineMediaIngested, NearlineRecord, VSShapeFile) =>
+        Future[Either[String, MessageProcessorReturnValue]]]
+      mockUploadShapeIfRequired.apply(any, any, any, any, any) returns Future(Right(MessageProcessorReturnValue(mockNearlineRecord.asJson)))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def getFilePathForShape(shapeDoc: ShapeDocument, itemId: String, shapeId: String) =
+          mockGetFilePathForShape(shapeDoc, itemId, shapeId)
+
+        override def uploadShapeIfRequired(vault: Vault, fullPath: Path, mediaIngested: VidispineMediaIngested,
+                                           nearlineRecord: NearlineRecord, proxyFile:VSShapeFile) = mockUploadShapeIfRequired(vault,
+          fullPath, mediaIngested, nearlineRecord, proxyFile)
+      }
+
+      val result = Await.result(toTest.copyShapeIfRequired(
+        mockVault,
+        mediaIngested,
+        "VX-123",
+        "VX-456",
+        mockNearlineRecord), 2.seconds)
+
+      result must beRight(MessageProcessorReturnValue(mockNearlineRecord.asJson))
+      there was one (mockGetFilePathForShape).apply(mockShapeDoc, "VX-123", "VX-456")
+      there was one (mockUploadShapeIfRequired).apply(mockVault, mockPath, mediaIngested, mockNearlineRecord, mockShapeFile)
+    }
+  }
+
+  "VidispineMessageProcessor.uploadShapeIfRequired" should {
+    "return Left when copy to MatrixStore fail" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+
+      val mockVault = mock[Vault]
+
+      val mockShapeFile = VSShapeFile(
+        "VX-1234",
+        "another/location/for/proxies/VX-1234.mp4",
+        Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        "CLOSED",
+        1234L,
+        Some("deadbeef"),
+        "2021-01-02T03:04:05.678Z",
+        1,
+        "VX-2"
+      )
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def buildMetadataForProxy(vault:Vault, rec:NearlineRecord): Future[Option[MxsMetadata]] = Future(Some
+        (mock[MxsMetadata]))
+      }
+      val result = Await.result(toTest.uploadShapeIfRequired(
+        mockVault,
+        Paths.get("/srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        mediaIngested,
+        mockNearlineRecord,
+        mockShapeFile), 2.seconds)
+
+      result must beLeft("Error copying file")
+    }
+/*
+   TODO: Fix this test case. Get an Null pointer error but can't figure out what is wrong.
+
+    "Update file with additional metadata after file has been copied" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("VX-1234"))
+
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+
+      val mockMxsObject = mock[MxsObject]
+      doNothing.when(mockMxsObject).delete
+      val mockVault = mock[Vault]
+      mockVault.getObject(any) returns mockMxsObject
+
+      val mockShapeFile = VSShapeFile(
+        "VX-1234",
+        "another/location/for/proxies/VX-1234.mp4",
+        Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        "CLOSED",
+        1234L,
+        Some("deadbeef"),
+        "2021-01-02T03:04:05.678Z",
+        1,
+        "VX-2"
+      )
+
+      val mediaIngested = VidispineMediaIngested(List(
+        VidispineField("itemId", "VX-123"),
+        VidispineField("bytesWritten", "100"),
+        VidispineField("status", "FAILED"),
+        VidispineField("essenceVersion", "3"),
+        VidispineField("sourceFileId", "VX-456"),
+        VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
+      ))
+
+      val mockCallUpdateMetadata = mock[(Vault, String, MxsMetadata) => Try[Unit]]
+      val mockUpdateParentsMetadata = mock[(Vault, String, String, String) => Try[Unit]]
+      val mockMetadata = mock[MxsMetadata]
+
+      val toTest = new VidispineMessageProcessor() {
+        override def buildMetadataForProxy(vault:Vault, rec:NearlineRecord): Future[Option[MxsMetadata]] = Future(Some
+        (mockMetadata))
+
+        override def callUpdateMetadata(vault:Vault, objectId: String, metadata: MxsMetadata) = mockCallUpdateMetadata(vault,
+          objectId, metadata)
+
+        override def updateParentsMetadata(vault:Vault, objectId:String, fieldName:String, fieldValue:String) =
+          mockUpdateParentsMetadata(vault, objectId, fieldName, fieldValue)
+
+        override def uploadKeyForProxy(rec: NearlineRecord, file: VSShapeFile): String = "/path/video_proxy.mp4"
+      }
+
+      val result = Await.result(toTest.uploadShapeIfRequired(
+        mockVault,
+        Paths.get("/srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        mediaIngested,
+        mockNearlineRecord,
+        mockShapeFile), 2.seconds)
+
+      there was one (mockCallUpdateMetadata).apply(mockVault, "VX-1234", mockMetadata)
+      result must beRight(MessageProcessorReturnValue(mockNearlineRecord
+        .copy(
+          proxyObjectId = Some("VX-1234"),
+          vidispineVersionId = Some(3),
+          vidispineItemId = Some("VX-123")
+        )
+        .asJson))
+    }
+  } */
+
+  "VidispineMessageProcessor.getFilePathForShape" should {
+    "return Left if no file could be found in the shapeDoc" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockShapeDoc = mock[ShapeDocument]
+      mockShapeDoc.getLikelyFile returns None
+
+      val toTest = new VidispineMessageProcessor()
+      val result = Await.result(toTest.getFilePathForShape(mockShapeDoc, "VX-1", "VX-2"), 2.seconds)
+
+      result must beLeft("No file exists on shape VX-2 for item VX-1 yet")
+    }
+
+    "find filePath for Shape if it exists" in {
+      val mockNearlineRecord = NearlineRecord(
+        Some(123),
+        "object-id",
+        "/absolute/path/to/file",
+        Some("VX-123"),
+        None,
+        None,
+        None
+      )
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(mockNearlineRecord))
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      failureRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockCopier = mock[FileCopier]
+      implicit val mockBuilder = mock[MXSConnectionBuilder]
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      val mockShapeFile = VSShapeFile(
+        "VX-1234",
+        "another/location/for/proxies/VX-1234.mp4",
+        Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        "CLOSED",
+        1234L,
+        Some("deadbeef"),
+        "2021-01-02T03:04:05.678Z",
+        1,
+        "VX-2"
+      )
+      val mockShapeDoc = mock[ShapeDocument]
+      mockShapeDoc.getLikelyFile returns Some(mockShapeFile)
+
+      val toTest = new VidispineMessageProcessor() {
+        override protected def internalCheckFile(filePath: Path): Boolean = true
+      }
+      val result = Await.result(toTest.getFilePathForShape(mockShapeDoc, "VX-1", "VX-1234"), 2.seconds)
+
+      result must beRight(Paths.get("/srv/proxies/another/location/for/proxies/VX-1234.mp4"))
+    }
+  }
 }
