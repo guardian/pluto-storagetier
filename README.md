@@ -156,7 +156,7 @@ re-queued so another instance can pick it up.
 In this way it does not matter if our app crashes or is restarted for some reason outside of our control, because
 if it was in the middle of something then that operation will be re-tried.
 
-It is important, though, to ensure that operations each app performs are  will not fail
+It is important, though, to ensure that operations each app performs will not fail
 if they are being retried over a partially-completed attempt.
 
 ### Routing Keys
@@ -309,7 +309,7 @@ This is because you potentially have a lot of messages, some retrying, some new,
 Not every failure is a problem; some messages are expected to loop through a few retries before an external system has
 "caught up" (e.g. validating that a file exists in the archive storage).
 
-For this reason, we use ELK (Elasticseach-Logstash-Kibana) to  parse and warehouse the logs.  Each log line has a format
+For this reason, we use ELK (Elasticsearch-Logstash-Kibana) to  parse and warehouse the logs.  Each log line has a format
 which is defined in a `resources/logback.xml` configuration file and looks like this:
 
 ```
