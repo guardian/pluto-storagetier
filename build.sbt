@@ -131,7 +131,7 @@ lazy val `online_nearline` = (project in file("online_nearline"))
     dockerChmodType := DockerChmodType.Custom("ugo=rx"),
     dockerAdditionalPermissions += (DockerChmodType.Custom(
       "ugo=rx"
-    ), "/opt/docker/bin/nearline_archive"),
+    ), "/opt/docker/bin/online_nearline"),
     packageName := "storagetier-online-nearline",
     dockerBaseImage := "openjdk:8-jdk-slim-buster",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
