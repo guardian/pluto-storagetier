@@ -95,7 +95,7 @@ online_archive:
     - main
     - merge_requests
 
-nearline_archive:
+online_nearline:
   image: registry.gitlab.com/codmill/customer-projects/guardian/pluto-storagetier/storagetier-build:20211026
   stage: build
   services:
@@ -115,10 +115,10 @@ nearline_archive:
   script:
     - if [ -d ".sbt" ]; then rm -rf ${HOME}/.sbt; mv .sbt ${HOME}; fi
     - if [ -d "junit-tests" ]; then mkdir junit-tests; fi
-    - sbt 'project nearline_archive; test'
+    - sbt 'project online_nearline; test'
     - mkdir ~/.docker && cp -a /certs/client/*.pem ~/.docker
     - docker version
-    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt 'project nearline_archive; docker:publishLocal'
+    - JAVA_OPTS="-Dbuild.number=${CI_PIPELINE_IID}" sbt 'project online_nearline; docker:publishLocal'
     - mv ${HOME}/.sbt .sbt || true
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker tag guardianmultimedia/storagetier-online-nearline:$CI_PIPELINE_IID $CI_REGISTRY_IMAGE:$CI_PIPELINE_IID

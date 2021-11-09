@@ -117,7 +117,7 @@ lazy val `online_archive` = (project in file("online_archive"))
     )
   )
 
-lazy val `nearline_archive` = (project in file("nearline_archive"))
+lazy val `online_nearline` = (project in file("online_nearline"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
   .dependsOn(common, mxscopy)
   .settings(commonSettings,
