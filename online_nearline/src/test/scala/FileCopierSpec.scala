@@ -1,4 +1,5 @@
 import akka.stream.Materializer
+import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
@@ -13,6 +14,95 @@ import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 class FileCopierSpec extends Specification with Mockito {
+  "FileCopier.maybeGetIndex" should {
+    "return the index portion of a filename" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-2.ext")), None)
+
+      val toTest = new FileCopier() {
+        def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
+      }
+
+      toTest.callMaybeGetIndex(elem) must beSome(2)
+    }
+
+    "return the index portion of a filename without extension" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-2")), None)
+
+      val toTest = new FileCopier() {
+        def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
+      }
+
+      toTest.callMaybeGetIndex(elem) must beSome(2)
+    }
+
+    "return 0 if there is no index" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file.ext")), None)
+
+      val toTest = new FileCopier() {
+        def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
+      }
+
+      toTest.callMaybeGetIndex(elem) must beSome(0)
+    }
+
+    "return None if the object does not have a filename set" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty), None)
+
+      val toTest = new FileCopier() {
+        def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
+      }
+
+      toTest.callMaybeGetIndex(elem) must beNone
+    }
+  }
+
+  "FileCopier.updateFilenameIfRequired" should {
+    "return the original filename if there are no matching files on the destination" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val vault = mock[Vault]
+
+      val toTest = new FileCopier() {
+        override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(Seq())
+      }
+
+      val result = Await.result(toTest.updateFilenameIfRequired(vault, "/path/to/some/file.ext"), 1.second)
+      result mustEqual("/path/to/some/file.ext")
+    }
+
+    "return the next index in sequence if there are matching files" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val vault = mock[Vault]
+      val results = Seq(
+        ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file.ext")), None),
+        ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-1.ext")), None),
+        ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-3.ext")), None),
+      )
+      val toTest = new FileCopier() {
+        override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(results)
+      }
+
+      val result = Await.result(toTest.updateFilenameIfRequired(vault, "/path/to/some/file.ext"), 1.second)
+      result mustEqual("/path/to/some/file-4.ext")
+    }
+
+    "return the next index in sequence if there is only one matching file" in {
+      implicit val mat:Materializer = mock[Materializer]
+      val vault = mock[Vault]
+      val results = Seq(
+        ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file.ext")), None)
+      )
+      val toTest = new FileCopier() {
+        override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(results)
+      }
+
+      val result = Await.result(toTest.updateFilenameIfRequired(vault, "/path/to/some/file.ext"), 1.second)
+      result mustEqual("/path/to/some/file-1.ext")
+    }
+  }
 
   "FileCopier.copyFileToMatrixStore" should {
     "perform an upload without an existing object id and return new object id with checksum" in {

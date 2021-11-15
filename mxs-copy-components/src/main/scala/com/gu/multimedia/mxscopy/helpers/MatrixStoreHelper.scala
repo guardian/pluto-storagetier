@@ -12,7 +12,7 @@ import com.om.mxs.client.internal.TaggedIOException
 import com.om.mxs.client.japi.{Constants, MatrixStore, MxsObject, SearchTerm, UserInfo, Vault}
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import org.slf4j.LoggerFactory
-import com.gu.multimedia.mxscopy.streamcomponents.{OMLookupMetadata, OMSearchSource}
+import com.gu.multimedia.mxscopy.streamcomponents.{OMFastContentSearchSource, OMLookupMetadata, OMSearchSource}
 import org.apache.commons.codec.binary.Hex
 
 import scala.util.{Failure, Success, Try}
@@ -43,84 +43,19 @@ object MatrixStoreHelper {
   }
 
   /**
-    * locate files for the given filename, as stored in the metadata. This assumes that one or at most two records will
-    * be returned and should therefore be more efficient than using the streaming interface. If many records are expected,
-    * this will be inefficient and you should use the streaming interface
+    * locate files for the given filename, as stored in the metadata.
+    * This is a complete rewrite of the old one.
     * @param vault MXS `vault` object
     * @param fileName file name to search for
     * @return a Try, containing either a sequence of zero or more results as [[ObjectMatrixEntry]] records or an error
     */
-  def findByFilename(vault:Vault, fileName:String, onField:String="MXFS_FILENAME"):Try[Seq[ObjectMatrixEntry]] = Try {
-    val escapedFileName = escapeForQuery(fileName)
-    logger.debug(s"checking for $escapedFileName in $onField")
-    def doSearch(searchTerm:SearchTerm) = {
-      val iterator = vault.searchObjectsIterator(searchTerm, 1).asScala
-
-      var finalSeq: Seq[ObjectMatrixEntry] = Seq()
-      while (iterator.hasNext) {
-        finalSeq ++= Seq(ObjectMatrixEntry(iterator.next(), None, None))
-      }
-      finalSeq
-    }
-
-    val regularSearchResults = doSearch(SearchTerm.createSimpleTerm(onField, fileName))
-
-    val oidList = if(regularSearchResults.nonEmpty) {
-      s"results - ${regularSearchResults.map(_.oid).mkString(",")}"
-    } else {
-      ""
-    }
-
-    logger.info(s"$fileName on $onField: ${regularSearchResults.length} $oidList")
-    regularSearchResults
-  }
-
-  /**
-    * helper function to initialise a Source that finds elements matching the given name and looks up their metadata.
-    * both of these operations are performed with async barriers
-    * @param userInfo MXS UserInfo object that provides cluster, login and vault details
-    * @param searchTerms search terms to search for, as MXS SearchTerms object
-    * @param mat implicitly provided actor materializer
-    * @param ec implicitly provided execution context
-    * @return a partial graph that provides a Source to be mixed into another stream
-    */
-  def findBulkSource(userInfo:UserInfo, searchTerms:SearchTerm)(implicit mat:Materializer, ec:ExecutionContext) = {
-    GraphDSL.create() { implicit builder=>
-      import akka.stream.scaladsl.GraphDSL.Implicits._
-
-      val src = builder.add(new OMSearchSource(userInfo,Some(searchTerms),None).async)
-      val mdLookup = builder.add(new OMLookupMetadata(userInfo).async)
-
-      src ~> mdLookup
-
-      SourceShape(mdLookup.out)
-    }
-  }
-
-  /**
-    * helper function to perform a filename search using the streaming interface
-    * @param userInfo  MXS UserInfo object that provides cluster, login and vault details
-    * @param fileName file name to search for
-    * @param mat implicitly provided actor materializer
-    * @param ec implicitly provided execution context
-    * @return a Future, containing a Sequence of matching [[ObjectMatrixEntry]] records. If the stream fails then
-    *         the future is cancelled; use either .onComplete or .recover/.recoverWith to handle this.
-    */
-  def findByFilenameBulk(userInfo:UserInfo, fileName:String)(implicit mat:Materializer, ec:ExecutionContext) = {
+  def findByFilenameNew(vault: Vault, fileName:String)(implicit mat:Materializer) = {
     val sinkFactory = Sink.fold[Seq[ObjectMatrixEntry],ObjectMatrixEntry](Seq())((acc,entry)=>acc ++ Seq(entry))
-    val searchTerm = SearchTerm.createSimpleTerm("MXFS_FILENAME",fileName)
-
-//    val graph = GraphDSL.create(sinkFactory) { implicit builder=> sink=>
-//      import akka.stream.scaladsl.GraphDSL.Implicits._
-//      val src = findBulkSource(userInfo, searchTerm)
-//
-//      src ~> sink
-//      ClosedShape
-//    }
-//
-//    RunnableGraph.fromGraph(graph).run()
-    Source.fromGraph(findBulkSource(userInfo, searchTerm))
-      .toMat(sinkFactory)(Keep.right)
+    val escapedFileName = fileName.replaceAll("\"", "\\\"")
+    Source.fromGraph(new OMFastContentSearchSource(vault,
+      s"MXFS_PATH:\"$escapedFileName\"",
+      Array("MXFS_PATH","MXFS_PATH","MXFS_FILENAME")
+    )).toMat(sinkFactory)(Keep.right)
       .run()
   }
 
