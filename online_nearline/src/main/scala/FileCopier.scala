@@ -69,7 +69,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
   protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path) = {
     val fromFile = filePath.toFile
 
-    updateFilenameIfRequired(vault, fileName)
+    updateFilenameIfRequired(vault, filePath.toString)
       .flatMap(nameToUse=>{
         Copier.doCopyTo(vault, Some(nameToUse), fromFile, 2*1024*1024, "md5").map(value => Right(value._1))
       }).recover({
