@@ -526,6 +526,10 @@ class VidispineMessageProcessor()
         matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
           handleIngestedMedia(vault, mediaIngested)
         }
+      case (Right(mediaIngested), "vidispine.job.essence_version.stop")=>
+        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+          handleIngestedMedia(vault, mediaIngested)
+        }
       case (Right(mediaIngested), "vidispine.item.metadata.modify")=>
         handleMetadataUpdate(mediaIngested)
       case (Right(shapeUpdate), "vidispine.item.shape.modify")=>
