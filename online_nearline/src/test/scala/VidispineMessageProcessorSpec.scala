@@ -146,7 +146,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
       ))
 
-      val toTest = new VidispineMessageProcessor()
+      val toTest = new VidispineMessageProcessor() {
+        override protected def checkFileExists(filePath: Path): Unit = ()
+      }
 
       val result = Await.result(toTest.uploadIfRequiredAndNotExists(mockVault, "/absolute/path/to/file", mediaIngested), 2.seconds)
       result must beRight(MessageProcessorReturnValue(mockNearlineRecord.asJson))
@@ -192,7 +194,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
       ))
 
-      val toTest = new VidispineMessageProcessor()
+      val toTest = new VidispineMessageProcessor() {
+        override protected def checkFileExists(filePath: Path): Unit = ()
+      }
 
       val result = Await.result(toTest.uploadIfRequiredAndNotExists(mockVault, "/absolute/path/to/file", mediaIngested), 2.seconds)
       result must beLeft("Something went wrong!!")
@@ -238,7 +242,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
       ))
 
-      val toTest = new VidispineMessageProcessor()
+      val toTest = new VidispineMessageProcessor() {
+        override protected def checkFileExists(filePath: Path): Unit = ()
+      }
 
       val result = Await.result(toTest.uploadIfRequiredAndNotExists(mockVault, "/absolute/path/to/file", mediaIngested), 2.seconds)
       result must beLeft("Crash during copy!!!")

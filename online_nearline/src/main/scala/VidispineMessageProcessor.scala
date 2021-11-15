@@ -54,10 +54,20 @@ class VidispineMessageProcessor()
    */
   protected def internalCheckFile(filePath:Path) = Files.exists(filePath)
 
+  protected def checkFileExists(filePath:Path) = {
+    if (!Files.exists(filePath)){
+      logger.error(s"File $filePath doesn't exist")
+      throw SilentDropMessage(Some(s"File $filePath doesn't exist"))
+    } else if(!Files.isRegularFile(filePath)) {
+      logger.error(s"File $filePath is not a regular file")
+      throw SilentDropMessage(Some(s"File $filePath is not a regular file"))
+    }
+  }
+
   /**
    * Upload ingested file if not already exist.
    *
-   * @param filePath       path to the file that has been ingested
+   * @param absPath       path to the file that has been ingested
    * @param mediaIngested  the media object ingested by Vidispine
    *
    * @return String explaining which action took place
@@ -67,12 +77,7 @@ class VidispineMessageProcessor()
     logger.debug(s"uploadIfRequiredAndNotExists: Original file is $absPath")
 
     val fullPath = Paths.get(absPath)
-    val fullPathFile = fullPath.toFile
-
-    if (!fullPathFile.exists || !fullPathFile.isFile) {
-      logger.info(s"File $absPath doesn't exist")
-      throw SilentDropMessage(Some(s"File $absPath doesn't exist")))
-    }
+    checkFileExists(fullPath)
 
     val recordsFut = for {
       maybeNearlineRecord <- nearlineRecordDAO.findBySourceFilename(absPath)
