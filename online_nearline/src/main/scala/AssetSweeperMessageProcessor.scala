@@ -84,14 +84,10 @@ class AssetSweeperMessageProcessor()
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(file)=>
-        if (routingKey=="assetsweeper.asset_folder_importer.file.update") {
-          logger.warn("Received an update message, these are not implemented yet")
-          Future(Left("Not implemented yet"))
-        } else {
           val fullPath = Paths.get(file.filepath, file.filename)
           if(!Files.exists(fullPath) || !Files.isRegularFile(fullPath)) {
             logger.error(s"File $fullPath does not exist, or it's not a regular file. Can't continue.")
-            Future.failed(new RuntimeException("Invalid file"))
+            Future.failed(SilentDropMessage(Some(s"Invalid file $fullPath")))
           } else {
             matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
               processFile(file, vault)
