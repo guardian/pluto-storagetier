@@ -70,8 +70,8 @@ class VidispineMessageProcessor()
     val fullPathFile = fullPath.toFile
 
     if (!fullPathFile.exists || !fullPathFile.isFile) {
-      logger.info(s"File ${absPath} doesn't exist")
-      Failure(new Exception(s"File ${absPath} doesn't exist"))
+      logger.info(s"File $absPath doesn't exist")
+      throw SilentDropMessage(Some(s"File $absPath doesn't exist")))
     }
 
     val recordsFut = for {
