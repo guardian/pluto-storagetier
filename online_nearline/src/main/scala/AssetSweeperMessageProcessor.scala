@@ -112,7 +112,7 @@ class AssetSweeperMessageProcessor()
 
     for {
       maybeNearlineRecord <- nearlineRecordDAO.findBySourceFilename(fullPath.toString)  //check if we have a record of this file in the database
-      maybePreExistingRecord   <- if(maybeNearlineRecord.isEmpty) checkForPreExistingFiles(vault, file) else Future(maybeNearlineRecord) //if not then check the appliance itself
+      maybePreExistingRecord   <- if(maybeNearlineRecord.isEmpty) checkForPreExistingFiles(vault, file) else Future(None) //if not then check the appliance itself
       result              <- if(maybePreExistingRecord.isDefined) Future(Right(maybePreExistingRecord.asJson)) else copyFile(vault, file, maybeNearlineRecord)
     } yield result
   }

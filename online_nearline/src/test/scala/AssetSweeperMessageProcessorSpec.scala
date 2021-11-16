@@ -132,13 +132,19 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       val mockVault = mock[Vault]
       mockVault.getObject(any) throws mockExc
 
-      val toTest = new AssetSweeperMessageProcessor()
+      val mockCheckPreExisting = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
+      mockCheckPreExisting.apply(any,any) returns Future(None)
+
+      val toTest = new AssetSweeperMessageProcessor() {
+        override protected def checkForPreExistingFiles(vault: Vault, file: AssetSweeperNewFile): Future[Option[NearlineRecord]] = mockCheckPreExisting(vault, file)
+      }
+
       val mockFile = mock[AssetSweeperNewFile]
       mockFile.filepath returns "/path/to/Assets/project"
       mockFile.filename returns "original-file.mov"
 
       val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
-
+      there was no(mockCheckPreExisting).apply(any,any)
       result must beLeft("ObjectMatrix error: ObjectMatrix out of office right now!!")
     }
   }
