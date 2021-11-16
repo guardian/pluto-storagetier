@@ -77,7 +77,12 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
   def findMatchingFilesOnNearline(vault:Vault, filePath:Path, fileSize:Long) = {
     logger.debug(s"Looking for files matching $filePath at size $fileSize")
     callFindByFilenameNew(vault, filePath.toString)
-      .map(_.filter(_.maybeGetSize().contains(fileSize)))
+      .map(fileNameMatches=>{
+        val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
+        logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
+        logger.debug(fileNameMatches.map(obj=>s"${obj.pathOrFilename.getOrElse("-")}: ${obj.maybeGetSize()}").mkString("; "))
+        sizeMatches
+      })
   }
 
   protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path) = {
