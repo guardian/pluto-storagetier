@@ -66,6 +66,19 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
       }
     })
 
+  /**
+   * Searches the given vault for files matching the given specification.
+   * Both the name and fileSize must match in order to be considered valid.
+   * @param vault vault to search
+   * @param filePath Path representing the file path to look for.
+   * @param fileSize Long representing the size of the file to match
+   * @return a Future, containing a sequence of ObjectMatrixEntries that match the given file path and size
+   */
+  def findMatchingFilesOnNearline(vault:Vault, filePath:Path, fileSize:Long) = {
+    callFindByFilenameNew(vault, filePath.toString)
+      .map(_.filter(_.maybeGetSize().contains(fileSize)))
+  }
+
   protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path) = {
     val fromFile = filePath.toFile
 
@@ -77,8 +90,6 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
           logger.error(s"Unexpected error occurred when trying to determine filename to use: ${err.getMessage}")
           Left(err.getMessage)
       })
-
-
   }
 
   protected def getContextMap() = {

@@ -63,7 +63,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "call out to uploadIfRequiredAndNotExists" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 
@@ -107,7 +107,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
   "VidispineMessageProcessor.uploadIfRequiredAndNotExists" should {
     "return NearlineRecord when file has been copied to MatrixStore" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 
@@ -155,7 +155,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "return Left when file copy to MatrixStore fail" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 
@@ -203,7 +203,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "return FailureRecord when exception is thrown during file copy" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 

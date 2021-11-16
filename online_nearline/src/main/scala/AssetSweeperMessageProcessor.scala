@@ -6,12 +6,13 @@ import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import org.slf4j.{LoggerFactory}
+import org.slf4j.LoggerFactory
 
 import java.nio.file.{Files, Paths}
 import scala.concurrent.{ExecutionContext, Future}
@@ -24,6 +25,7 @@ class AssetSweeperMessageProcessor()
                                    system:ActorSystem,
                                    matrixStoreBuilder: MXSConnectionBuilderImpl,
                                    mxsConfig: MatrixStoreConfig,
+                                   vidispineCommunicator: VidispineCommunicator,
                                    fileCopier: FileCopier) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
   import AssetSweeperNewFile.Decoder._
@@ -68,13 +70,51 @@ class AssetSweeperMessageProcessor()
     })
   }
 
+  /**
+   * performs a search on the given vault looking for a matching file (i.e. one with the same file name AND size).
+   * If one exists, it will create a NearlineRecord linking that file to the given name, save it to the database and return it.
+   * Intended for use if no record exists already but a file may exist on the storage.
+   * @param vault vault to check
+   * @param file AssetSweeperNewFile record
+   * @return a Future, containing the newly saved NearlineRecord if a record is found or None if not.
+   */
+  protected def checkForPreExistingFiles(vault:Vault, file:AssetSweeperNewFile) = {
+    val filePath = Paths.get(file.filepath, file.filename)
+
+    for {
+      matchingNearlineFiles <- fileCopier.findMatchingFilesOnNearline(vault, filePath, file.size)
+      maybeVidispineMatches <- vidispineCommunicator.searchByPath(filePath.toString).recover({
+        case err:Throwable=>  //don't abort the process if VS is not playing nice
+          logger.error(s"Could not consult Vidispine for new file $filePath: ${err.getMessage}")
+          None
+      })  //check if we have something in Vidispine too
+      result <- if(matchingNearlineFiles.isEmpty) {
+        logger.info(s"Found no pre-existing archived files for $filePath")
+        Future(None)
+      } else {
+        logger.info(s"Found ${matchingNearlineFiles.length} archived files for $filePath: ${matchingNearlineFiles.map(_.pathOrFilename).mkString(",")}")
+        val newRec = NearlineRecord(
+          objectId=matchingNearlineFiles.head.oid,
+          originalFilePath = filePath.toString,
+        )
+
+        val updatedRec = maybeVidispineMatches.flatMap(_.file.headOption).flatMap(_.item.map(_.id)) match {
+          case Some(vidispineId)=>newRec.copy(vidispineItemId = Some(vidispineId))
+          case None=>newRec
+        }
+        nearlineRecordDAO.writeRecord(updatedRec).map(newId=>Some(updatedRec.copy(id=Some(newId))))
+      }
+    } yield result
+  }
+
   def processFile(file: AssetSweeperNewFile, vault: Vault): Future[Either[String, Json]] = {
     val fullPath = Paths.get(file.filepath, file.filename)
-    nearlineRecordDAO
-      .findBySourceFilename(fullPath.toString)
-      .flatMap(rec => {
-        copyFile(vault, file, rec)
-      })
+
+    for {
+      maybeNearlineRecord <- nearlineRecordDAO.findBySourceFilename(fullPath.toString)  //check if we have a record of this file in the database
+      maybeUpdatedRecord  <- if(maybeNearlineRecord.isEmpty) checkForPreExistingFiles(vault, file) else Future(maybeNearlineRecord) //if not then check the appliance itself
+      result              <- copyFile(vault, file, maybeUpdatedRecord)
+    } yield result
   }
 
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {

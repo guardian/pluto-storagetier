@@ -54,7 +54,7 @@ object MatrixStoreHelper {
     val escapedFileName = fileName.replaceAll("\"", "\\\"")
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"MXFS_PATH:\"$escapedFileName\"",
-      Array("MXFS_PATH","MXFS_PATH","MXFS_FILENAME")
+      Array("MXFS_PATH","MXFS_PATH","MXFS_FILENAME", "__mxs__length")
     )).toMat(sinkFactory)(Keep.right)
       .run()
   }

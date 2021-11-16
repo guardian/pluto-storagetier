@@ -3,6 +3,7 @@ import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import matrixstore.MatrixStoreConfig
 import org.specs2.mock.Mockito
@@ -25,18 +26,23 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
 
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
       fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
+      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
+      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
-      val toTest = new AssetSweeperMessageProcessor()
+      val toTest = new AssetSweeperMessageProcessor() {
+        override protected def checkForPreExistingFiles(vault: Vault, file: AssetSweeperNewFile): Future[Option[NearlineRecord]] = mockCheckForPreExistingFiles(vault, file)
+      }
       val mockFile = mock[AssetSweeperNewFile]
       mockFile.filepath returns "/path/to/Assets/project"
       mockFile.filename returns "original-file.mov"
@@ -54,10 +60,13 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       )
 
       result.map(value=>value) must beRight(rec.asJson)
+      there was one(mockCheckForPreExistingFiles).apply(mockVault, mockFile)
     }
 
     "perform an upload and record success if record with objectId doesn't exist in ObjectMatrix" in {
       implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
       val rec: NearlineRecord = NearlineRecord(
         id = Some(123),
         objectId = "some-object-id",
@@ -95,6 +104,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
     "return Failure if Left is returned when trying to copy file ObjectMatrix" in {
       implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
       val rec: NearlineRecord = NearlineRecord(
         id = Some(123),
         objectId = "some-object-id",

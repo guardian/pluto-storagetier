@@ -7,7 +7,7 @@ import com.gu.multimedia.mxscopy.helpers.{Copier, MetadataHelper}
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.storagetier.auth.HMAC.logger
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
-import com.gu.multimedia.storagetier.messages.VidispineMediaIngested
+import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
@@ -65,6 +65,40 @@ class VidispineMessageProcessor()
   }
 
   /**
+   * performs a search on the given vault looking for a matching file (i.e. one with the same file name AND size).
+   * If one exists, it will create a NearlineRecord linking that file to the given name, save it to the database and return it.
+   * Intended for use if no record exists already but a file may exist on the storage.
+   * @param vault vault to check
+   * @param absPath absolute path to the file on-disk
+   * @param mediaIngested VidispineMediaIngested object representing the incoming message. This function will always
+   *                      return None if the file size is not set here.
+   * @return a Future, containing the newly saved NearlineRecord if a record is found or None if not.
+   */
+  def checkForPreExistingFiles(vault:Vault, filePath:Path, mediaIngested: VidispineMediaIngested) = {
+    mediaIngested.fileSize match {
+      case Some(fileSize) =>
+        fileCopier
+          .findMatchingFilesOnNearline(vault, filePath,fileSize)
+          .flatMap(matches => {
+            if (matches.isEmpty) {
+              logger.info(s"Found no pre-existing archived files for $filePath")
+              Future(None)
+            } else {
+              logger.info(s"Found ${matches.length} archived files for $filePath: ${matches.map(_.pathOrFilename).mkString(",")}")
+              val newRec = NearlineRecord(
+                objectId = matches.head.oid,
+                originalFilePath = filePath.toString
+              )
+              nearlineRecordDAO.writeRecord(newRec).map(newId => Some(newRec.copy(id = Some(newId))))
+            }
+          })
+      case None=>
+        logger.info(s"Could not check for pre-existing files as no file size was provided")
+        Future(None)
+    }
+  }
+
+  /**
    * Upload ingested file if not already exist.
    *
    * @param absPath       path to the file that has been ingested
@@ -81,8 +115,9 @@ class VidispineMessageProcessor()
 
     val recordsFut = for {
       maybeNearlineRecord <- nearlineRecordDAO.findBySourceFilename(absPath)
+      maybeUpdatedRecord <- if(maybeNearlineRecord.isEmpty) checkForPreExistingFiles(vault, fullPath, mediaIngested) else Future(maybeNearlineRecord)
       maybeFailureRecord <- failureRecordDAO.findBySourceFilename(absPath)
-    } yield (maybeNearlineRecord, maybeFailureRecord)
+    } yield (maybeUpdatedRecord, maybeFailureRecord)
 
     recordsFut.flatMap(result => {
       val (maybeNearlineRecord, maybeFailureRecord) = result
