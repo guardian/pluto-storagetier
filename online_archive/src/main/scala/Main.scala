@@ -96,8 +96,8 @@ object Main {
     val config = Seq(
       ProcessorConfiguration(
         "assetsweeper",
-        "assetsweeper.asset_folder_importer.file.#",
-        "storagetier.onlinearchive.newfile",
+        Seq("assetsweeper.asset_folder_importer.file.new","assetsweeper.asset_folder_importer.file.update"),
+        Seq("storagetier.onlinearchive.newfile","storagetier.onlinearchive.newfile"),
         new AssetSweeperMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(
