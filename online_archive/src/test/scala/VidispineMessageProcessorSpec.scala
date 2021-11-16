@@ -133,7 +133,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       }
 
       "call out to uploadIfRequiredAndNotExists" in {
-        val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+        val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
         implicit val mockVSCommunicator = mock[VidispineCommunicator]
         mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
         implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
@@ -181,7 +181,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       }
 
       "fall back to fileId if sourceFileId not set" in {
-        val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+        val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
         implicit val mockVSCommunicator = mock[VidispineCommunicator]
         mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
         implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
@@ -230,7 +230,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "SilentDrop if the project is deletable" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
@@ -272,7 +272,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "SilentDrop if the project is sensitive" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2")
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, "deadbeef", "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
       implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
