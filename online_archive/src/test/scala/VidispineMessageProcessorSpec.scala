@@ -25,6 +25,7 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Success, Try}
 import java.io.InputStream
 import java.time.ZonedDateTime
+import java.util.UUID
 
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   val fakeDeliverablesConfig = PlutoDeliverablesConfig("Deliverables/",1)
@@ -132,7 +133,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
   "VidispineMessageProcessor.handleShapeUpdate" should {
     "call out to uploadShapeIfRequired provided that the shape should be pushed" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, UUID.randomUUID().toString)
           .copy(archiveHunterIDValidated = true)
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -163,7 +164,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
     "not call out to uploadShapeIfRequired and return Left if the ArchiveHunter ID is not validated yes" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, UUID.randomUUID().toString)
           .copy(archiveHunterIDValidated = false)
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
       mockArchivedRecordDAO.findByVidispineId(any) returns Future(Some(mockArchivedRecord))
@@ -192,7 +193,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
     "not call out to uploadShapeIfRequired and return Right if the file should be ignored" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, UUID.randomUUID().toString)
           .copy(archiveHunterIDValidated = true)
       val mockIgnoredRecord = IgnoredRecord(None,"/path/to/original/file", "test", Some("VX-123"), None)
 

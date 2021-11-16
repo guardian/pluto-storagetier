@@ -5,6 +5,8 @@ import org.specs2.specification.{AfterEach, Before, BeforeAll}
 import slick.jdbc.JdbcBackend.Database
 import slick.lifted.TableQuery
 import slick.jdbc.PostgresProfile.api._
+
+import java.util.UUID
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.Await
@@ -43,7 +45,7 @@ class ArchivedRecordDAOSpec extends Specification with BeforeAll with AfterEach 
     "insert a new record, and update it" in {
       //insert a new record, make sure we got something that looks like an id
       val rec = ArchivedRecord(None,"test-id",false,"/path/to/original-file",100,"somebucket","/path/to/archived-file",Some(1), None,
-      None, None, None, None, None, None)
+      None, None, None, None, None, None, UUID.randomUUID().toString)
 
       val result = Await.result(dao.writeRecord(rec), 2.seconds)
       result must beGreaterThanOrEqualTo (1)
@@ -69,7 +71,7 @@ class ArchivedRecordDAOSpec extends Specification with BeforeAll with AfterEach 
 
     "fail if we try to update a record that does not exist" in {
       val rec = ArchivedRecord(Some(123),"test-nonexistent-id",false,"/path/to/original-file",100,"somebucket",
-      "/path/to/archived-file",Some(1), None, None, None, None, None, None, None)
+      "/path/to/archived-file",Some(1), None, None, None, None, None, None, None, UUID.randomUUID().toString)
 
       val result = Try { Await.result(dao.writeRecord(rec), 2.seconds) }
       result must beAFailedTry
@@ -80,7 +82,7 @@ class ArchivedRecordDAOSpec extends Specification with BeforeAll with AfterEach 
   "ArchivedRecordDAO.deleteRecord" should {
     "delete an existing record" in {
       val rec = ArchivedRecord(None,"test-id-to-delete",false,"/path/to/original-file",100,"somebucket","/path/to/archived-file",Some
-      (1), None, None, None, None, None, None, None)
+      (1), None, None, None, None, None, None, None, UUID.randomUUID().toString)
 
       val insertedId = Await.result(db.run(TableQuery[ArchivedRecordRow] returning TableQuery[ArchivedRecordRow].map(_.id) += rec), 2.seconds)
       val updatedRec = rec.copy(id=Some(insertedId))
@@ -99,7 +101,7 @@ class ArchivedRecordDAOSpec extends Specification with BeforeAll with AfterEach 
   "ArchivedRecordDAO.deleteRecordByID" should {
     "delete an existing record" in {
       val rec = ArchivedRecord(None,"test-id-to-delete",false,"/path/to/original-file",100,"somebucket","/path/to/archived-file",Some
-      (1), None, None, None, None, None, None, None)
+      (1), None, None, None, None, None, None, None, UUID.randomUUID().toString)
 
       val insertedId = Await.result(db.run(TableQuery[ArchivedRecordRow] returning TableQuery[ArchivedRecordRow].map(_.id) += rec), 2.seconds)
 

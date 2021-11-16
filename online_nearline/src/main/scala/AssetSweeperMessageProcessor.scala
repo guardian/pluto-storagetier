@@ -12,9 +12,10 @@ import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.nio.file.{Files, Paths}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class AssetSweeperMessageProcessor()
@@ -38,8 +39,10 @@ class AssetSweeperMessageProcessor()
         case Right(objectId) =>
           val record = maybeNearlineRecord match {
             case Some(rec) => rec
-            case None => NearlineRecord(objectId, fullPath.toString)
+            case None => NearlineRecord(objectId, fullPath.toString, UUID.randomUUID().toString)
           }
+
+          MDC.put("correlationId", record.correlationId)
 
           nearlineRecordDAO
             .writeRecord(record)

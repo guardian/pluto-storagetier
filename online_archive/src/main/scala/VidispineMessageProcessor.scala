@@ -11,7 +11,7 @@ import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, Vidi
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig}
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
@@ -20,6 +20,7 @@ import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -79,6 +80,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
                                itemId: Option[String], essenceVersion: Option[Int]):Future[Either[String, MessageProcessorReturnValue]] = {
     val record = archivedRecord match {
       case Some(rec) =>
+        MDC.put("correlationId", rec.correlationId)
         logger.debug(s"actual archivehunter ID for $filePath is ${rec.archiveHunterID}")
         rec.copy(
           originalFileSize = fileSize,
@@ -87,8 +89,12 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
           vidispineVersionId = essenceVersion
         )
       case None =>
+        val correlationId = UUID.randomUUID().toString
         val archiveHunterID = utils.ArchiveHunter.makeDocId(bucket = vidispineFunctions.mediaBucketName, uploadedPath)
+
+        MDC.put("correlationId", correlationId)
         logger.debug(s"Provisional archivehunter ID for $uploadedPath is $archiveHunterID")
+
         ArchivedRecord(None,
           archiveHunterID,
           archiveHunterIDValidated=false,
@@ -103,7 +109,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
           None,
           None,
           None,
-          None
+          None,
+          correlationId
         )
     }
 
@@ -212,6 +219,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
           logger.info(s"Item $itemId is ignored because ${ignoredItem.ignoreReason}, leaving alone")
           Future(Right(MessageProcessorReturnValue(ignoredItem.asJson)))
         case (Some(archivedItem), None)=>
+          MDC.put("correlationId", archivedItem.correlationId)
           if(archivedItem.archiveHunterIDValidated) {
             for {
               proxyUploadResult <- vidispineFunctions.uploadShapeIfRequired(itemId, shapeId, shapeTag, archivedItem)
@@ -239,6 +247,8 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
               logger.info(s"Item $itemId is ignored because ${ignoredItem.ignoreReason}, leaving alone")
               Future.failed(SilentDropMessage())
             case (Some(archivedItem), None)=>
+              MDC.put("correlationId", archivedItem.correlationId)
+
               if(archivedItem.archiveHunterIDValidated) {
                 vidispineFunctions.uploadMetadataToS3(itemId, mediaIngested.essenceVersion, archivedItem)
               } else {

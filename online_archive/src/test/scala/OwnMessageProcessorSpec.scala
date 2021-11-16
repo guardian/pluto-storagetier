@@ -13,6 +13,7 @@ import io.circe.syntax._
 import messages.RevalidateArchiveHunterRequest
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import java.time.ZonedDateTime
+import java.util.UUID
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.{Await, Future}
@@ -52,7 +53,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         None,
         None,
         None,
-        None
+        None,
+        UUID.randomUUID().toString
       )
       val result = Await.result(toTest.handleArchivehunterValidation(incomingRecord), 3.seconds)
 
@@ -94,7 +96,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         None,
         None,
         None,
-        None
+        None,
+        UUID.randomUUID().toString
       )
       val result = Await.result(toTest.handleArchivehunterValidation(incomingRecord), 3.seconds)
 
@@ -136,7 +139,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         None,
         None,
         None,
-        None
+        None,
+        UUID.randomUUID().toString
       )
       val result = Try { Await.result(toTest.handleArchivehunterValidation(incomingRecord), 3.seconds) }
 

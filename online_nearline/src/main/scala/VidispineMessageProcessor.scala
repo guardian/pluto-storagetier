@@ -19,6 +19,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import org.slf4j.MDC
 
 import java.net.URI
 import java.nio.file.{Path, Paths}
@@ -26,6 +27,7 @@ import java.time.{Instant, ZonedDateTime}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
@@ -159,16 +161,28 @@ class VidispineMessageProcessor()
                   vidispineItemId = mediaIngested.itemId,
                   vidispineVersionId = mediaIngested.essenceVersion,
                   None,
-                  None
+                  None,
+                  correlationId = UUID.randomUUID().toString
                 )
             }
 
+<<<<<<< HEAD
             for {
               recId <- nearlineRecordDAO.writeRecord(record)
               updatedRecord <- Future(record.copy(id=Some(recId)))
               //ensure that Vidispine is updated with the MXS ID whenever the media changes
               result <- VidispineHelper.updateVidispineWithMXSId(mediaIngested.itemId.get, updatedRecord)
             } yield result
+=======
+            MDC.put("correlationId", record.correlationId)
+
+            nearlineRecordDAO
+              .writeRecord(record)
+              .map(recId=>
+                //for some reason using the implicit conversion causes a compilation error here - https://github.com/scala/bug/issues/6317
+                Right(MessageProcessorReturnValue(record.copy(id=Some(recId)).asJson))
+              )
+>>>>>>> Added correlationId to ArchivedRecord and NearlineRecord that can be use for logging
 
           case Left(error) => Future(Left(error))
         })
@@ -419,6 +433,8 @@ class VidispineMessageProcessor()
   : Future[Either[String, MessageProcessorReturnValue]] = {
     nearlineRecordDAO.findByVidispineId(itemId).flatMap({
         case Some(nearlineRecord) =>
+          MDC.put("correlationId", nearlineRecord.correlationId)
+
           copyShapeIfRequired(vault, mediaIngested, itemId, shapeId, nearlineRecord)
         case None =>
           logger.info(s"No record of vidispine item $itemId retry later")
@@ -629,6 +645,7 @@ class VidispineMessageProcessor()
         logger.error(s"Incoming vidispine message $metadataUpdated has no itemId")
         Future.failed(new RuntimeException("no vidispine item id provided"))
       case Some(itemId)=>
+<<<<<<< HEAD
         matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
           nearlineRecordDAO
             .findByVidispineId(itemId)
@@ -651,6 +668,32 @@ class VidispineMessageProcessor()
                     case Some(newRec)=>
                       //we got a record. Write it to the database and continue.
                       logger.info(s"Found existing file at ${newRec.originalFilePath} with OID ${newRec.objectId} for vidispine item ${newRec.vidispineItemId}")
+=======
+        nearlineRecordDAO.findByVidispineId(itemId).flatMap({
+          case None=>
+            logger.info(s"No record of vidispine item $itemId yet.")
+            Future(Left(s"No record of vidispine item $itemId yet.")) //this is retryable, assume that the item has not finished importing yet
+          case Some(nearlineRecord: NearlineRecord)=>
+            MDC.put("correlationId", nearlineRecord.correlationId)
+
+            matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
+              buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
+                case None=>
+                  logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
+                  Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure
+                case Some(updatedMetadata)=>
+                  streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
+                    case Right((copiedId, maybeChecksum))=>
+                      updateParentsMetadata(vault, nearlineRecord.objectId, "ATT_META_OID", copiedId) match {
+                        case Success(_) =>
+                        case Failure(err)=>
+                          //this is not a fatal error.
+                          logger.warn(s"Could not update metadata on ${nearlineRecord.objectId} to set metadata attachment: ${err.getMessage}")
+                      }
+
+                      logger.info(s"Metadata xml for $itemId is copied to file $copiedId with checksum ${maybeChecksum.getOrElse("(none)")}")
+                      val updatedRec = nearlineRecord.copy(metadataXMLObjectId = Some(copiedId))
+>>>>>>> Added correlationId to ArchivedRecord and NearlineRecord that can be use for logging
                       nearlineRecordDAO
                         .writeRecord(newRec)
                         .map(recordId=>newRec.copy(id=Some(recordId)))

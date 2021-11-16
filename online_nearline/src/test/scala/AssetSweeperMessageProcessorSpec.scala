@@ -12,6 +12,7 @@ import io.circe.syntax._
 import io.circe.generic.auto._
 
 import java.io.IOException
+import java.util.UUID
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -56,7 +57,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
         vidispineItemId = None,
         vidispineVersionId = None,
         proxyObjectId = None,
-        metadataXMLObjectId = None
+        metadataXMLObjectId = None,
+        correlationId = UUID.randomUUID().toString
       )
 
       result.map(value=>value) must beRight(rec.asJson)
@@ -74,7 +76,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
         vidispineItemId = None,
         vidispineVersionId = None,
         proxyObjectId = None,
-        metadataXMLObjectId = None
+        metadataXMLObjectId = None,
+        correlationId = UUID.randomUUID().toString
       )
       nearlineRecordDAO.writeRecord(any) returns Future(123)
       nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(rec))
@@ -158,7 +161,8 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
         vidispineItemId = None,
         vidispineVersionId = None,
         proxyObjectId = None,
-        metadataXMLObjectId = None
+        metadataXMLObjectId = None,
+        correlationId = UUID.randomUUID().toString
       )
       nearlineRecordDAO.writeRecord(any) returns Future(123)
       nearlineRecordDAO.findBySourceFilename(any) returns Future(Some(rec))
