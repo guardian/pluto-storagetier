@@ -37,7 +37,7 @@ case class ObjectMatrixEntry(oid:String, attributes:Option[MxsMetadata], fileAtt
   def maybeGetFilename() = stringAttribute("MXFS_FILENAME")
 
   def maybeGetSize() = {
-  (longAttribute("__mxs_length"), stringAttribute("__mxs_length"), longAttribute("DPSP_SIZE"), stringAttribute("DPSP_SIZE"), fileAttribues) match {
+  (longAttribute("__mxs__length"), stringAttribute("__mxs__length"), longAttribute("DPSP_SIZE"), stringAttribute("DPSP_SIZE"), fileAttribues) match {
     case (Some(size),_,_,_,_)=>
       Some(size)
     case (_, Some(sizeString), _, _, _)=>

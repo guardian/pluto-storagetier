@@ -102,6 +102,51 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       result must beRight(rec.asJson)
     }
 
+    "not perform an upload but record success if a matching file already exists in ObjectMatrix" in {
+      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
+      val rec: NearlineRecord = NearlineRecord(
+        id = Some(123),
+        objectId = "some-object-id",
+        originalFilePath = "/path/to/Assets/project/original-file.mov",
+        vidispineItemId = None,
+        vidispineVersionId = None,
+        proxyObjectId = None,
+        metadataXMLObjectId = None
+      )
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
+
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val fileCopier = mock[FileCopier]
+      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
+
+      val mockVault = mock[Vault]
+      //workaround from https://stackoverflow.com/questions/3762047/throw-checked-exceptions-from-mocks-with-mockito
+      mockVault.getObject(any) answers( (x:Any)=> throw new IOException("Invalid object, it does not exist (error 306)"))
+
+      val mockCheckPreExisting = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
+      mockCheckPreExisting.apply(any,any) returns Future(Some(rec))
+      val toTest = new AssetSweeperMessageProcessor() {
+        override protected def checkForPreExistingFiles(vault: Vault, file: AssetSweeperNewFile): Future[Option[NearlineRecord]] = mockCheckPreExisting(vault, file)
+      }
+      val mockFile = mock[AssetSweeperNewFile]
+      mockFile.filepath returns "/path/to/Assets/project"
+      mockFile.filename returns "original-file.mov"
+
+      val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
+
+      there was one(mockCheckPreExisting).apply(mockVault, mockFile)
+      there was no(fileCopier).copyFileToMatrixStore(any,any,any,any)
+      result must beRight(rec.asJson)
+    }
+
     "return Failure if Left is returned when trying to copy file ObjectMatrix" in {
       implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]

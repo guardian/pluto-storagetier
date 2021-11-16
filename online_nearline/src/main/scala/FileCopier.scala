@@ -75,6 +75,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
    * @return a Future, containing a sequence of ObjectMatrixEntries that match the given file path and size
    */
   def findMatchingFilesOnNearline(vault:Vault, filePath:Path, fileSize:Long) = {
+    logger.debug(s"Looking for files matching $filePath at size $fileSize")
     callFindByFilenameNew(vault, filePath.toString)
       .map(_.filter(_.maybeGetSize().contains(fileSize)))
   }

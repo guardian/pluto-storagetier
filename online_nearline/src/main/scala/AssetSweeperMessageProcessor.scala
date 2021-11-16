@@ -90,6 +90,7 @@ class AssetSweeperMessageProcessor()
       })  //check if we have something in Vidispine too
       result <- if(matchingNearlineFiles.isEmpty) {
         logger.info(s"Found no pre-existing archived files for $filePath")
+
         Future(None)
       } else {
         logger.info(s"Found ${matchingNearlineFiles.length} archived files for $filePath: ${matchingNearlineFiles.map(_.pathOrFilename).mkString(",")}")
