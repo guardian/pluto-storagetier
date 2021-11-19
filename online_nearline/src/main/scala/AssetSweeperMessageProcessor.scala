@@ -28,7 +28,7 @@ class AssetSweeperMessageProcessor()
                                    vidispineCommunicator: VidispineCommunicator,
                                    fileCopier: FileCopier) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
-  import AssetSweeperNewFile.Decoder._
+  import AssetSweeperNewFile.Codec._
 
   def copyFile(vault: Vault, file: AssetSweeperNewFile, maybeNearlineRecord: Option[NearlineRecord]): Future[Either[String, Json]] = {
     val fullPath = Paths.get(file.filepath, file.filename)
