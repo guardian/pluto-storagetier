@@ -17,6 +17,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import cats.implicits._
 
+import java.net.URLEncoder
+
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
 
@@ -217,6 +219,17 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       uri = s"${config.baseUri}/API/item/$itemId/metadata",
       method = HttpMethods.PUT,
       entity = HttpEntity(ContentTypes.`application/json`, doc.asJson.noSpaces)
+    ))
+  }
+
+  def searchByPath(pathToFind:String) = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
+
+    val encodedPath = URLEncoder.encode(pathToFind, "UTF-8")
+    callToVidispine[FileListDocument](HttpRequest(
+      uri = s"${config.baseUri}/API/storage/file?path=${encodedPath}&includeItem=true",
+      method = HttpMethods.GET
     ))
   }
 }

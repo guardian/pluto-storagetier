@@ -1,6 +1,7 @@
 import akka.stream.Materializer
 import akka.stream.scaladsl.FileIO
 import com.gu.multimedia.mxscopy.helpers.{Copier, MatrixStoreHelper, MetadataHelper}
+import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.streamcomponents.ChecksumSink
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import org.slf4j.{LoggerFactory, MDC}
@@ -8,15 +9,93 @@ import org.slf4j.{LoggerFactory, MDC}
 import java.nio.file.{Files, Path}
 import java.util.Map
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Success, Try}
 
 class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  private val numberedMatcherWithExt = "-(\\d+)\\.[^.]+$".r.unanchored
+  private val numberedMatcherNoExt = "-(\\d+)$".r.unanchored
+  private val fileSplitter = "^(.*)\\.([^\\.]+)$".r
+
+  /**
+   * Internal method. This takes an ObjectMatrixEntry from a search and tries to find a "-(number)" in its filepath.
+   * If so, it's returned in an option. If nothing is found then None is returned.
+   * It's assumed that the relevant fields are present in the ObjectMAtrixEntry, otherwise None will always be returned
+   * @param elem ObjectMatrixEntry to check
+   * @return the index portion of the filename or None if it was not present
+   */
+  protected def maybeGetIndex(elem:ObjectMatrixEntry) = elem.pathOrFilename match {
+    case Some(filePath)=>
+      filePath match {
+        case numberedMatcherWithExt(num)=>Some(num.toInt)
+        case numberedMatcherNoExt(num)=>Some(num.toInt)
+        case _=>Some(0)
+      }
+    case None=>
+      None
+  }
+
+  protected def callFindByFilenameNew(vault:Vault, fileName:String) = MatrixStoreHelper.findByFilenameNew(vault, fileName)
+
+  def updateFilenameIfRequired(vault:Vault, fileName:String) = callFindByFilenameNew(vault, fileName)
+    .map(objects=>{
+      if(objects.isEmpty) {
+        logger.debug(s"Found no other files matching $fileName so continuing with that name")
+        fileName
+      } else {
+        logger.debug(s"Found ${objects.length} files matching $fileName:")
+        objects.foreach(ent=>logger.debug(s"\t${ent.pathOrFilename}"))
+        if(objects.length>100) {
+          throw new Exception("Debugging error, not expecting more than 100 matches. Check the filtering functions.")
+        } else {
+          //find the highest number that is used as a filename index and add one
+          val numberToUse = objects.foldLeft(0)((acc,elem)=>{
+            maybeGetIndex(elem) match {
+              case Some(num)=>if(num>=acc) num+1 else acc
+              case None=>acc
+            }
+          })
+          fileName match {
+            case fileSplitter(path, xtn)=>
+              path + s"-$numberToUse" + "." + xtn
+            case _=>
+              fileName + s"-$numberToUse"
+          }
+        }
+      }
+    })
+
+  /**
+   * Searches the given vault for files matching the given specification.
+   * Both the name and fileSize must match in order to be considered valid.
+   * @param vault vault to search
+   * @param filePath Path representing the file path to look for.
+   * @param fileSize Long representing the size of the file to match
+   * @return a Future, containing a sequence of ObjectMatrixEntries that match the given file path and size
+   */
+  def findMatchingFilesOnNearline(vault:Vault, filePath:Path, fileSize:Long) = {
+    logger.debug(s"Looking for files matching $filePath at size $fileSize")
+    callFindByFilenameNew(vault, filePath.toString)
+      .map(fileNameMatches=>{
+        val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
+        logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
+        logger.debug(fileNameMatches.map(obj=>s"${obj.pathOrFilename.getOrElse("-")}: ${obj.maybeGetSize()}").mkString("; "))
+        sizeMatches
+      })
+  }
+
   protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path) = {
     val fromFile = filePath.toFile
 
-    Copier.doCopyTo(vault, Some(fileName), fromFile, 2*1024*1024, "md5").map(value => Right(value._1))
+    updateFilenameIfRequired(vault, filePath.toString)
+      .flatMap(nameToUse=>{
+        Copier.doCopyTo(vault, Some(nameToUse), fromFile, 2*1024*1024, "md5").map(value => Right(value._1))
+      }).recover({
+        case err:Throwable=>
+          logger.error(s"Unexpected error occurred when trying to determine filename to use: ${err.getMessage}")
+          Left(err.getMessage)
+      })
   }
 
   protected def getContextMap() = {

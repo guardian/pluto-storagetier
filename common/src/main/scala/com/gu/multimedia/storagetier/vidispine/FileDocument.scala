@@ -5,7 +5,8 @@ import org.slf4j.LoggerFactory
 import java.net.URI
 import scala.util.{Failure, Try}
 
-case class FileDocument(id:String, path:String, uri:Seq[String], state:String, size:Long, hash:String, timestamp:String,refreshFlag:Int, storage:String) {
+case class FileItemRef(id:String)
+case class FileDocument(id:String, path:String, uri:Seq[String], state:String, size:Long, hash:String, timestamp:String,refreshFlag:Int, storage:String, item:Option[FileItemRef]) {
   private val logger = LoggerFactory.getLogger(getClass)
   /**
    * tries to parse the given URI string, check if it's a file: url and if so returns the path segment
