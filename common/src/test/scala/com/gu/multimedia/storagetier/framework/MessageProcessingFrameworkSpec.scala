@@ -1,6 +1,7 @@
 package com.gu.multimedia.storagetier.framework
 
 import com.rabbitmq.client.AMQP.BasicProperties
+import com.rabbitmq.client.impl.AMQBasicProperties
 import com.rabbitmq.client.{AMQP, Channel, Connection, ConnectionFactory, Consumer, Envelope}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
@@ -11,7 +12,6 @@ import java.util.UUID
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
-import MessageProcessorConverters._
 
 class MessageProcessingFrameworkSpec extends Specification with Mockito {
   "MessageProcessingFramework" should {
@@ -158,7 +158,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
 
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
+      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(MessageProcessorReturnValue(responseMsg)))
       val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
         ProcessorConfiguration("some-exchange",Seq("input.routing.key"), Seq("output.routing.key"), mockedMessageProcessor, Some(replyuuid))
@@ -268,6 +268,72 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         org.mockito.ArgumentMatchers.eq("other.routing.key"),
         org.mockito.ArgumentMatchers.eq(expectedProperties),
         org.mockito.ArgumentMatchers.eq(responseMsg.content.noSpaces.getBytes)
+      )
+      there was no(mockRmqChannel).basicPublish(
+        org.mockito.ArgumentMatchers.eq("failed-exchg"),
+        any,
+        any,
+        any
+      )
+      there was no(mockRmqChannel).basicPublish(
+        org.mockito.ArgumentMatchers.eq("retry-exchg"),
+        any,
+        any,
+        any
+      )
+      there was one(mockedMessageProcessor).handleMessage(any, any)
+    }
+
+    "pass a valid message to the configured handler and return a successful reply to the second routing key pair" in {
+      val mockRmqChannel = mock[Channel]
+      val mockRmqConnection = mock[Connection]
+      mockRmqConnection.createChannel() returns mockRmqChannel
+      val mockRmqFactory = mock[ConnectionFactory]
+      mockRmqFactory.newConnection() returns mockRmqConnection
+
+      implicit val connectionFactoryProvider:ConnectionFactoryProvider = mock[ConnectionFactoryProvider]
+      connectionFactoryProvider.get() returns mockRmqFactory
+
+      val mockedMessageProcessor = mock[MessageProcessor]
+      val responseMsg = Map("status"->"ok").asJson
+      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(MessageProcessorReturnValue(responseMsg)))
+      val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
+      val handlers = Seq(
+        ProcessorConfiguration("some-exchange",Seq("input.routing.key","second.routing.key"), Seq("output.routing.key","second.output.key"), mockedMessageProcessor, Some(replyuuid))
+      )
+
+      val f = new MessageProcessingFramework("input-queue",
+        "output-exchg",
+        "retry-exchg",
+        "failed-exchg",
+        "failed-q",
+        handlers)(mockRmqChannel, mockRmqConnection)
+
+      val envelope = new Envelope(12345678L, false, "some-exchange","second.routing.key")
+      val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()
+      val msgBytes = "{\"key\":\"value\"}".getBytes
+      f.MsgConsumer.handleDelivery("test-consumer",envelope, msgProps, msgBytes)
+
+      val expectedProperties = new AMQP.BasicProperties.Builder()
+        .contentType("application/json")
+        .contentEncoding("UTF-8")
+        .messageId("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
+        .headers(Map(
+          "x-in-response-to"->"fake-message-id"
+        ).asInstanceOf[Map[String,AnyRef]].asJava)
+        .build()
+
+      //the consumer has been updated to expect an asynchronous reply from the processor, but we have no easy way of
+      //finding the future to wait on it here. So, do it the hacky way for the time being and assume that it will
+      //run within a couple of seconds
+      Thread.sleep(2000)
+      there was one(mockRmqChannel).basicAck(12345678L, false)
+      there was no(mockRmqChannel).basicNack(any,any,any)
+      there was one(mockRmqChannel).basicPublish(
+        org.mockito.ArgumentMatchers.eq("output-exchg"),
+        org.mockito.ArgumentMatchers.eq("second.output.key.success"),
+        org.mockito.ArgumentMatchers.eq(expectedProperties),
+        org.mockito.ArgumentMatchers.eq(responseMsg.noSpaces.getBytes)
       )
       there was no(mockRmqChannel).basicPublish(
         org.mockito.ArgumentMatchers.eq("failed-exchg"),

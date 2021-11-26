@@ -202,7 +202,7 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
               .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
               .runWith(Sink.head)
               .map(objectMetadata => {
-                Try { generateS3Uri(bucketName,keyForUpload) } match {
+                Try { Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)) } match {
                   case Success(uri)=>
                     MultipartUploadResult(
                       uri,

@@ -7,7 +7,7 @@ import java.time.{ZoneId, ZonedDateTime}
 class AssetSweeperNewFileSpec extends Specification {
   "AssetSweeperNewFile.Decoder" should {
     "decode a sample message from asset sweeper" in {
-      import AssetSweeperNewFile.Decoder._
+      import AssetSweeperNewFile.Codec._
 
       val sampleData = """{
                          |  "imported_id": null,

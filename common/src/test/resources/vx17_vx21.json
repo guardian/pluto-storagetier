@@ -1,0 +1,297 @@
+{
+  "id": "VX-21",
+  "created": "2021-10-01T15:31:48.879+0000",
+  "essenceVersion": 1,
+  "tag": [
+    "original"
+  ],
+  "mimeType": [
+    "video/quicktime"
+  ],
+  "containerComponent": {
+    "duration": {
+      "samples": 27801767,
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 1000000
+      }
+    },
+    "format": "mov,mp4,m4a,3gp,3g2,mj2",
+    "startTimecode": 0,
+    "startTimestamp": {
+      "samples": 0,
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 48000
+      }
+    },
+    "roundedTimeBase": 226,
+    "dropFrame": false,
+    "file": [
+      {
+        "id": "VX-20",
+        "path": "VX-20.mov",
+        "uri": [
+          "file:///media/shared/VX-20.mov"
+        ],
+        "state": "CLOSED",
+        "size": 60076122,
+        "hash": "c1f82fc747f53d674067b246f2bfa184f9e7adfa",
+        "timestamp": "2021-10-01T15:32:15.007+0000",
+        "refreshFlag": 1,
+        "storage": "VX-8",
+        "metadata": {}
+      }
+    ],
+    "id": "VX-10",
+    "metadata": [
+      {
+        "key": "creation_time",
+        "value": "2021-10-01 15:31:49"
+      },
+      {
+        "key": "componentOriginalFilename",
+        "value": "VX-20.mov"
+      },
+      {
+        "key": "drop_frame",
+        "value": "false"
+      },
+      {
+        "key": "major_brand",
+        "value": "mp42"
+      },
+      {
+        "key": "com.android.version",
+        "value": "8.0.0"
+      },
+      {
+        "key": "rounded_time_base",
+        "value": "226"
+      },
+      {
+        "key": "transcoder_version",
+        "value": "5.2.2-g3499146-33"
+      },
+      {
+        "key": "encoder",
+        "value": "Lavf54.128.100"
+      },
+      {
+        "key": "start_timecode",
+        "value": "0"
+      },
+      {
+        "key": "compatible_brands",
+        "value": "isommp42"
+      },
+      {
+        "key": "fileId",
+        "value": "VX-20"
+      },
+      {
+        "key": "minor_version",
+        "value": "0"
+      }
+    ]
+  },
+  "audioComponent": [
+    {
+      "channelCount": 2,
+      "channelLayout": 3,
+      "sampleFormat": "AV_SAMPLE_FMT_S16",
+      "frameSize": 1024,
+      "file": [
+        {
+          "id": "VX-20",
+          "path": "VX-20.mov",
+          "uri": [
+            "file:///media/shared/VX-20.mov"
+          ],
+          "state": "CLOSED",
+          "size": 60076122,
+          "hash": "c1f82fc747f53d674067b246f2bfa184f9e7adfa",
+          "timestamp": "2021-10-01T15:32:15.007+0000",
+          "refreshFlag": 1,
+          "storage": "VX-8",
+          "metadata": {}
+        }
+      ],
+      "id": "VX-11",
+      "metadata": [
+        {
+          "key": "creation_time",
+          "value": "2021-10-01 15:31:49"
+        },
+        {
+          "key": "componentOriginalFilename",
+          "value": "VX-20.mov"
+        },
+        {
+          "key": "handler_name",
+          "value": "DataHandler"
+        },
+        {
+          "key": "language",
+          "value": "eng"
+        }
+      ],
+      "codec": "aac",
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 48000
+      },
+      "itemTrack": "A1",
+      "essenceStreamId": 0,
+      "bitrate": 256013,
+      "numberOfPackets": 1303,
+      "extradata": "1190",
+      "pid": 1,
+      "duration": {
+        "samples": 1334272,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 48000
+        }
+      },
+      "edl": {
+        "timeScale": {
+          "numerator": 1,
+          "denominator": 180000
+        },
+        "entry": [
+          {
+            "start": 0,
+            "length": 5003520,
+            "mediaRate": 65536
+          }
+        ]
+      },
+      "startTimestamp": {
+        "samples": 0,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 48000
+        }
+      }
+    }
+  ],
+  "videoComponent": [
+    {
+      "resolution": {
+        "width": 1920,
+        "height": 1080
+      },
+      "pixelFormat": "yuv420p",
+      "maxBFrames": 0,
+      "pixelAspectRatio": {
+        "horizontal": 1,
+        "vertical": 1
+      },
+      "fieldOrder": "progressive",
+      "codecTimeBase": {
+        "numerator": 1,
+        "denominator": 360000
+      },
+      "averageFrameRate": {
+        "numerator": 25020000,
+        "denominator": 834053
+      },
+      "realBaseFrameRate": {
+        "numerator": 30,
+        "denominator": 1
+      },
+      "displayWidth": {
+        "numerator": 1920,
+        "denominator": 1
+      },
+      "displayHeight": {
+        "numerator": 1080,
+        "denominator": 1
+      },
+      "colr_primaries": 1,
+      "colr_transfer_function": 1,
+      "colr_matrix": 1,
+      "max_packet_size": 245257,
+      "ticks_per_frame": 2,
+      "bitDepth": 8,
+      "bitsPerPixel": 12,
+      "colorPrimaries": "BT709",
+      "file": [
+        {
+          "id": "VX-20",
+          "path": "VX-20.mov",
+          "uri": [
+            "file:///media/shared/VX-20.mov"
+          ],
+          "state": "CLOSED",
+          "size": 60076122,
+          "hash": "c1f82fc747f53d674067b246f2bfa184f9e7adfa",
+          "timestamp": "2021-10-01T15:32:15.007+0000",
+          "refreshFlag": 1,
+          "storage": "VX-8",
+          "metadata": {}
+        }
+      ],
+      "id": "VX-12",
+      "metadata": [
+        {
+          "key": "creation_time",
+          "value": "2021-10-01 15:31:49"
+        },
+        {
+          "key": "componentOriginalFilename",
+          "value": "VX-20.mov"
+        },
+        {
+          "key": "handler_name",
+          "value": "DataHandler"
+        },
+        {
+          "key": "language",
+          "value": "eng"
+        }
+      ],
+      "codec": "h264",
+      "timeBase": {
+        "numerator": 1,
+        "denominator": 180000
+      },
+      "itemTrack": "V1",
+      "essenceStreamId": 1,
+      "bitrate": 17003815,
+      "numberOfPackets": 834,
+      "extradata": "01648028FFE1000B67648028ACB403C0113F2A01000468EE0D83",
+      "pid": 2,
+      "duration": {
+        "samples": 5004318,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 180000
+        }
+      },
+      "profile": 100,
+      "level": 40,
+      "edl": {
+        "timeScale": {
+          "numerator": 1,
+          "denominator": 180000
+        },
+        "entry": [
+          {
+            "start": 0,
+            "length": 5004318,
+            "mediaRate": 65536
+          }
+        ]
+      },
+      "startTimestamp": {
+        "samples": 0,
+        "timeBase": {
+          "numerator": 1,
+          "denominator": 180000
+        }
+      }
+    }
+  ]
+}

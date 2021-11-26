@@ -5,6 +5,8 @@ import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import io.circe.Json
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
+import AssetSweeperNewFile.Codec._
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.generic.auto._
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import io.circe.syntax._
@@ -13,18 +15,20 @@ import utils.ArchiveHunter
 import java.nio.file.{Files, Path, Paths}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
 class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
                                   (implicit archivedRecordDAO: ArchivedRecordDAO,
                                    failureRecordDAO: FailureRecordDAO,
                                    ignoredRecordDAO: IgnoredRecordDAO,
+                                   vidispineFunctions: VidispineFunctions,
+                                   vidispineCommunicator: VidispineCommunicator,
                                    ec:ExecutionContext,
                                    mat:Materializer,
                                    system:ActorSystem,
                                    uploader: FileUploader) extends MessageProcessor {
-  private lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
+  protected lazy val asLookup = new AssetFolderLookup(plutoCoreConfig)
   private val logger = LoggerFactory.getLogger(getClass)
-  import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 
   /**
    * assembles a java.nio.Path pointing to the Sweeper file, catching exceptions and converting to a Future
@@ -46,23 +50,35 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       logger.debug(s"$fullPath: Upload completed")
       val archiveHunterID = ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
       logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
-      val rec = ArchivedRecord(archiveHunterID,
-        originalFilePath=fullPath.toString,
-        originalFileSize=fileSize,
-        uploadedBucket = uploader.bucketName,
-        uploadedPath = fileName,
-        uploadedVersion = None)
-
       archivedRecordDAO
-        .writeRecord(rec)
-        .map(recId=>
-          Right(
-            rec
-              .copy(id=Some(recId))
-              .asJson
+        .findBySourceFilename(fullPath.toString)
+        .map({
+          case Some(existingRecord)=>
+            existingRecord.copy(
+              uploadedBucket = uploader.bucketName,
+              uploadedPath = fileName,
+              uploadedVersion = None
+            )
+          case None=>
+            ArchivedRecord(archiveHunterID,
+              originalFilePath=fullPath.toString,
+              originalFileSize=fileSize,
+              uploadedBucket = uploader.bucketName,
+              uploadedPath = fileName,
+              uploadedVersion = None)
+        }).flatMap(rec=>{
+          archivedRecordDAO
+            .writeRecord(rec)
+            .map(recId =>
+              Right(
+                rec
+                  .copy(id = Some(recId))
+                  .asJson
+              )
           )
-        )
+      })
     }).recoverWith(err=>{
+      logger.error(s"Could not complete upload for $fullPath ${err.getMessage}", err)
       val attemptCount = attemptCountFromMDC() match {
         case Some(count)=>count
         case None=>
@@ -128,7 +144,48 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
-    import AssetSweeperNewFile.Decoder._  //need to use custom decoder to properly decode message
+    if(routingKey.startsWith("assetsweeper.asset_folder_importer.file")) {
+      handleNewFile(routingKey, msg)
+    } else if(routingKey=="assetsweeper.replay.file") {
+      handleReplay(routingKey, msg)
+    } else {
+      Future.failed(new RuntimeException(s"Did not recognise routing key $routingKey"))
+    }
+  }
+
+  /**
+   * handle a replay notification. This is telling us that we should check that the given record is correctly handled on
+   * our side, as it may have been missed before
+   * @param routingKey
+   * @param msg
+   * @return
+   */
+  def handleReplay(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+    import AssetSweeperNewFile.Codec._  //need to use custom decoder to properly decode message
+    msg.as[AssetSweeperNewFile] match {
+      case Left(err)=>
+        Future(Left(s"Could not parse incoming message: $err"))
+      case Right(newFile)=>
+        val uploadResultFut = for {
+          fullPath <- compositingGetPath(newFile)
+          projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
+          fileUploadResult <- processFileAndProject(fullPath, projectRecord)
+        } yield fileUploadResult
+        uploadResultFut.map({
+          case recoverableErr@Left(_)=>recoverableErr
+          case Right(_)=>Right(msg) //when replaying, we want to output the _replay_ message on success, not our record
+        })
+    }
+  }
+
+  /**
+   * handle a notification from Asset Sweeper that a file has been found or updated
+   * @param routingKey message routing key
+   * @param msg message parsed content
+   * @return
+   */
+  def handleNewFile(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+    import AssetSweeperNewFile.Codec._  //need to use custom decoder to properly decode message
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
     msg.as[AssetSweeperNewFile] match {
       case Left(err)=>

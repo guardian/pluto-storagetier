@@ -202,4 +202,112 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       result must beNone
     }
   }
+
+  "VidispineCommunicator.listItemShapes" should {
+    "return parsed ShapeDocuments for all shapes associated with an item" in {
+      val mockHttp = mock[HttpExt]
+      val listResponse = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_shape.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape"),
+        any,
+        any,
+        any
+      ) returns Future(listResponse)
+
+      val vx20response = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_vx20.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape/VX-20"),
+        any,
+        any,
+        any
+      ) returns Future(vx20response)
+
+      val vx21response = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_vx21.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape/VX-21"),
+        any,
+        any,
+        any
+      ) returns Future(vx21response)
+
+      val vx22response = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_vx22.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape/VX-22"),
+        any,
+        any,
+        any
+      ) returns Future(vx22response)
+
+      val toTest = new VidispineCommunicator(fakeConfig) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Await.result(toTest.listItemShapes("VX-17"), 1.second)
+      result must beSome
+      result.get.length mustEqual 3
+      val vx20 = result.get.find(_.id=="VX-20")
+      vx20 must beSome
+      vx20.get.tag.contains("original") must beTrue
+      vx20.get.getLikelyFile must beSome
+      val vx21 = result.get.find(_.id=="VX-21")
+      vx21 must beSome
+      vx21.get.tag.contains("original") must beTrue
+      vx21.get.getLikelyFile must beSome
+      val vx22 = result.get.find(_.id=="VX-22")
+      vx22 must beSome
+      vx22.get.tag.contains("lowres") must beTrue
+      vx22.get.getLikelyFile must beSome
+    }
+
+    "drop a ShapeDocument that's not found without aborting the request" in {
+      val mockHttp = mock[HttpExt]
+      val listResponse = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_shape.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape"),
+        any,
+        any,
+        any
+      ) returns Future(listResponse)
+
+      val vx20response = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_vx20.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape/VX-20"),
+        any,
+        any,
+        any
+      ) returns Future(vx20response)
+
+      val vx21response = HttpResponse(StatusCodes.NotFound)
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape/VX-21"),
+        any,
+        any,
+        any
+      ) returns Future(vx21response)
+
+      val vx22response = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("vx17_vx22.json")))
+      mockHttp.singleRequest(
+        argThat((req:HttpRequest)=>req.uri.path.toString()=="/API/item/VX-17/shape/VX-22"),
+        any,
+        any,
+        any
+      ) returns Future(vx22response)
+
+      val toTest = new VidispineCommunicator(fakeConfig) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Await.result(toTest.listItemShapes("VX-17"), 1.second)
+      result must beSome
+      result.get.length mustEqual 2
+      val vx20 = result.get.find(_.id=="VX-20")
+      vx20 must beSome
+      vx20.get.tag.contains("original") must beTrue
+      vx20.get.getLikelyFile must beSome
+      val vx22 = result.get.find(_.id=="VX-22")
+      vx22 must beSome
+      vx22.get.tag.contains("lowres") must beTrue
+      vx22.get.getLikelyFile must beSome
+    }
+  }
 }

@@ -91,26 +91,26 @@ object Main {
       case Right(u)=>u
     }
 
+    lazy implicit val vidispineFunctions = new VidispineFunctions(uploader, proxyUploader)
     val deliverablesConfig = PlutoDeliverablesConfig()
 
     val config = Seq(
       ProcessorConfiguration(
         "assetsweeper",
-        Seq("assetsweeper.asset_folder_importer.file.new","assetsweeper.asset_folder_importer.file.update"),
-        Seq("storagetier.onlinearchive.newfile","storagetier.onlinearchive.newfile"),
+        Seq("assetsweeper.asset_folder_importer.file.new","assetsweeper.asset_folder_importer.file.update", "assetsweeper.replay.file"),
+        Seq("storagetier.onlinearchive.newfile","storagetier.onlinearchive.newfile","storagetier.onlinearchive.replay"),
         new AssetSweeperMessageProcessor(plutoConfig)
       ),
       ProcessorConfiguration(
         "vidispine-events",
         Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify", "vidispine.item.metadata.modify"),
-        //we need to treat raw_import.stop and essence_version.stop as new files so that the archivehunter ID is validated
         Seq("storagetier.onlinearchive.newfile", "storagetier.onlinearchive.newfile", "storagetier.onlinearchive.vidispineupdate", "storagetier.onlinearchive.vidispineupdate"),
-        new VidispineMessageProcessor(plutoConfig, deliverablesConfig, uploader, proxyUploader)
+        new VidispineMessageProcessor(plutoConfig, deliverablesConfig)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
-        "storagetier.onlinearchive.newfile.success",
-        "storagetier.onlinearchive.mediaingest",
+        Seq("storagetier.onlinearchive.newfile.success","storagetier.onlinearchive.request.*","storagetier.onlinearchive.replay.success"),
+        Seq("storagetier.onlinearchive.mediaingest","storagetier.onlinearchive.requested","storagetier.onlinearchive.replayed"),
         new OwnMessageProcessor()
       )
     )
