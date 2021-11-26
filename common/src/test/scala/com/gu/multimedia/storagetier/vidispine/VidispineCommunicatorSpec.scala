@@ -54,7 +54,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       ),any,any,any)
       result must beSome
       result.get.id mustEqual "VX-151335"
-      result.get.mimeType mustEqual Seq("video/mp4")
+      result.get.mimeType must beSome (Seq("video/mp4"))
       result.get.tag mustEqual Seq("lowres")
       result.get.getLikelyFile must beSome(
         VSShapeFile(
@@ -94,7 +94,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       ),any,any,any)
       result must beSome
       result.get.id mustEqual "VX-151335"
-      result.get.mimeType mustEqual Seq("video/mp4")
+      result.get.mimeType must beSome(Seq("video/mp4"))
       result.get.tag mustEqual Seq("mp4-noaudio")
       result.get.getLikelyFile must beSome(
         VSShapeFile(
@@ -134,7 +134,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       ),any,any,any)
       result must beSome
       result.get.id mustEqual "VX-5626"
-      result.get.mimeType mustEqual Seq("audio/x-wav")
+      result.get.mimeType must beSome(Seq("audio/x-wav"))
       result.get.tag mustEqual Seq("wav-8track")
       result.get.getLikelyFile must beSome(
         VSShapeFile(
@@ -174,7 +174,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       ),any,any,any)
       result must beSome
       result.get.id mustEqual "VX-151335"
-      result.get.mimeType mustEqual Seq("unknown")
+      result.get.mimeType must beSome(Seq("unknown"))
       result.get.tag mustEqual Seq("unknown")
       result.get.getLikelyFile must beNone
     }

@@ -31,7 +31,7 @@ case class ShapeDocument(
                         created: String,
                         essenceVersion: Option[Int],
                         tag: Seq[String],
-                        mimeType: Seq[String],
+                        mimeType: Option[Seq[String]],
                         containerComponent: Option[SimplifiedComponent],
                         audioComponent: Option[Seq[SimplifiedComponent]],
                         videoComponent: Option[Seq[SimplifiedComponent]]
