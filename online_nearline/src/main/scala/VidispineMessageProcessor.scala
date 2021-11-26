@@ -589,7 +589,7 @@ class VidispineMessageProcessor()
       case (_, _)=>
         logger.warn(s"Dropping message $routingKey from vidispine exchange as I don't know how to handle it. This should be fixed in" +
           s" the code.")
-        Future.failed(new RuntimeException("Not meant to receive this"))
+        Future.failed(new RuntimeException(s"Routing key $routingKey dropped because I don't know how to handle it"))
     }
   }
 }
