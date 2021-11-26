@@ -9,10 +9,11 @@ case class NearlineRecord(id:Option[Int],
                           vidispineVersionId:Option[Int],
                           proxyObjectId:Option[String],
                           metadataXMLObjectId:Option[String],
-                          internallyArchived:Option[Boolean]=None
+                          internallyArchived:Option[Boolean]=None,
+                          expectingVidispineId:Boolean=true
                          )
 
-object NearlineRecord extends ((Option[Int], String, String, Option[String], Option[Int], Option[String], Option[String], Option[Boolean]) =>
+object NearlineRecord extends ((Option[Int], String, String, Option[String], Option[Int], Option[String], Option[String], Option[Boolean], Boolean) =>
   NearlineRecord ) {
   def apply(objectId:String, originalFilePath:String) = {
     new NearlineRecord(None, objectId, originalFilePath, None, None, None, None, None)
@@ -28,7 +29,8 @@ class NearlineRecordRow (tag:Tag) extends Table[NearlineRecord](tag, "nearlinear
   def proxyObjectId = column[Option[String]]("s_proxy_objectid")
   def metadataXMLObjectId = column[Option[String]]("s_metadata_xml_objectid")
   def internallyArchived = column[Option[Boolean]]("b_internally_archived")
+  def expectingVidispineId = column[Boolean]("b_expecting_vidispine_id")
 
-  def * = (id.?, objectId, originalFilePath, vidispineItemId, vidispineVersionId, proxyObjectId, metadataXMLObjectId, internallyArchived) <>
+  def * = (id.?, objectId, originalFilePath, vidispineItemId, vidispineVersionId, proxyObjectId, metadataXMLObjectId, internallyArchived, expectingVidispineId) <>
     (NearlineRecord.tupled, NearlineRecord.unapply)
 }

@@ -174,8 +174,13 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
                     Left(s"Could not update item $itemId in Vidispine")
                 })
               case None=>
-                logger.info(s"The nearline record for ${rec.originalFilePath} does not have a vidispine id (yet)")
-                Future(Left("No vidispine id yet"))
+                if(rec.expectingVidispineId) {
+                  logger.info(s"The nearline record for ${rec.originalFilePath} does not have a vidispine id (yet)")
+                  Future(Left("No vidispine id yet"))
+                } else {
+                  logger.info(s"Not expecting ${rec.originalFilePath} to have a vidispine record")
+                  Future.failed(SilentDropMessage(Some("Not expecting a vidispine record for this")))
+                }
             }
         })
   }

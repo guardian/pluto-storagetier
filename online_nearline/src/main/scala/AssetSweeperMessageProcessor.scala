@@ -47,7 +47,7 @@ class AssetSweeperMessageProcessor()
             .map(recId=>
               Right(
                 record
-                  .copy(id=Some(recId), originalFilePath = fullPath.toString)
+                  .copy(id=Some(recId), originalFilePath = fullPath.toString, expectingVidispineId = !file.ignore)
                   .asJson
               )
             )
