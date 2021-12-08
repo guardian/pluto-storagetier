@@ -13,7 +13,7 @@ import scala.util.{Failure, Success, Try}
 trait MXSConnectionBuilder {
   def build():Try[MatrixStore]
 
-  def withVaultFuture[T](vaultId:String)(cb:Vault=>Future[T])(implicit ec:ExecutionContext):Future[T]
+  def withVaultFuture[T](vaultId:String)(cb:Vault=>Future[Either[String, T]])(implicit ec:ExecutionContext):Future[Either[String,T]]
 }
 
 /**
@@ -45,11 +45,11 @@ case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, acce
    * @tparam T the type returned by the callback's Future
    * @return either the result of the callback, or a failed Try indicating some error in establishing the connection
    */
-  def withVaultFuture[T](vaultId:String)(cb: Vault => Future[T])(implicit ec:ExecutionContext) = {
+  def withVaultFuture[T](vaultId:String)(cb: Vault => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Future.fromTry(build()).flatMap(mxs=>{
       MXSConnectionBuilderImpl
         .withVaultFuture(mxs, vaultId)(cb)
-        .andThen(_=>mxs.dispose())
+        .andThen({case _=>mxs.dispose()})
     })
   }
 
@@ -76,7 +76,7 @@ case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, acce
 object MXSConnectionBuilderImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def withVault[T](mxs: MatrixStore, vaultId: String)(cb: (Vault) => Try[T]) = {
+  def withVault[T](mxs: MatrixStore, vaultId: String)(cb: (Vault) => Try[Either[String, T]]) = {
     Try {
       mxs.openVault(vaultId)
     } match {
@@ -86,11 +86,11 @@ object MXSConnectionBuilderImpl {
         result
       case Failure(err) =>
         logger.error(s"Could not establish vault connection: ${err.getMessage}", err)
-        Failure(err)
+        Success(Left(err.toString))
     }
   }
 
-  def withVaultFuture[T](mxs:MatrixStore, vaultId: String)(cb: (Vault) => Future[T])(implicit ec:ExecutionContext) = {
+  def withVaultFuture[T](mxs:MatrixStore, vaultId: String)(cb: (Vault) => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Try {
       mxs.openVault(vaultId)
     } match {
@@ -98,7 +98,7 @@ object MXSConnectionBuilderImpl {
         cb(vault).andThen(_=>vault.dispose())
       case Failure(err) =>
         logger.error(s"Could not establish vault connection: ${err.getMessage}", err)
-        Future.failed(err)
+        Future(Left(err.toString))
     }
   }
 }

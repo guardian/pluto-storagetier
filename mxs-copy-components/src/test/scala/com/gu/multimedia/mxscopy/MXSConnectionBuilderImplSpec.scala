@@ -20,7 +20,7 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
 
       MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
         checker(v)
-        Success("Hooray")
+        Success(Right("Hooray"))
       }
 
       there was one(checker).apply(mockVault)
@@ -58,7 +58,7 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
 
       Await.ready(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
-        Future("Hooray")
+        Future(Right("Hooray"))
       },2.seconds)
 
       there was one(checker).apply(mockVault)
