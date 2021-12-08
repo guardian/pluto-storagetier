@@ -69,12 +69,13 @@ class VidispineMessageProcessor()
    * If one exists, it will create a NearlineRecord linking that file to the given name, save it to the database and return it.
    * Intended for use if no record exists already but a file may exist on the storage.
    * @param vault vault to check
-   * @param absPath absolute path to the file on-disk
+   * @param filePath absolute path to the file on-disk
    * @param mediaIngested VidispineMediaIngested object representing the incoming message. This function will always
    *                      return None if the file size is not set here.
+   * @param shouldSave if set to false, then don't write the record to the database before returning. Defaults to `true`.
    * @return a Future, containing the newly saved NearlineRecord if a record is found or None if not.
    */
-  def checkForPreExistingFiles(vault:Vault, filePath:Path, mediaIngested: VidispineMediaIngested) = {
+  def checkForPreExistingFiles(vault:Vault, filePath:Path, mediaIngested: VidispineMediaIngested, shouldSave:Boolean=true) = {
     mediaIngested.fileSize match {
       case Some(fileSize) =>
         fileCopier
@@ -89,7 +90,11 @@ class VidispineMessageProcessor()
                 objectId = matches.head.oid,
                 originalFilePath = filePath.toString
               )
-              nearlineRecordDAO.writeRecord(newRec).map(newId => Some(newRec.copy(id = Some(newId))))
+              if(shouldSave) {
+                nearlineRecordDAO.writeRecord(newRec).map(newId => Some(newRec.copy(id = Some(newId))))
+              } else {
+                Future(Some(newRec))
+              }
             }
           })
       case None=>
@@ -503,42 +508,96 @@ class VidispineMessageProcessor()
           Future.failed(new RuntimeException(s"No metadata on $itemId"))  //this is a permanent failure, no point in retrying
       })
 
+  /**
+   * queries Vidispine to find the paths of all files associated with the original shape of the given item ID.
+   * Returns an empty sequence if there are none (e.g. if there is no original shape, no item, or no files on the original shape)
+   * or a sequence of VSShapeFiles representing the files of the original shape if successful. Under normal circumstances
+   * we would expect no more than one entry in the sequence
+   * @param itemId item ID to query
+   * @return list of matching files as `VSShapeFile` objects. Empty sequence otherwise.
+   */
+  def getOriginalFilesForItem(itemId:String) = {
+    vidispineCommunicator
+      .listItemShapes(itemId)
+      .map(_.getOrElse(Seq()))
+      .map(_.filter(_.tag.contains("original")))
+      .map(shapes=>{
+        shapes.map(_.getLikelyFile)
+      })
+      .map(_.collect({case Some(f)=>f}))
+  }
+
   def handleMetadataUpdate(metadataUpdated:VidispineMediaIngested):Future[Either[String, MessageProcessorReturnValue]] = {
     metadataUpdated.itemId match {
       case None=>
         logger.error(s"Incoming vidispine message $metadataUpdated has no itemId")
         Future.failed(new RuntimeException("no vidispine item id provided"))
       case Some(itemId)=>
-        nearlineRecordDAO.findByVidispineId(itemId).flatMap({
-          case None=>
-            logger.info(s"No record of vidispine item $itemId yet.")
-            Future(Left(s"No record of vidispine item $itemId yet.")) //this is retryable, assume that the item has not finished importing yet
-          case Some(nearlineRecord: NearlineRecord)=>
-            matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
-              buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
-                case None=>
-                  logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
-                  Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure
-                case Some(updatedMetadata)=>
-                  streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
-                    case Right((copiedId, maybeChecksum))=>
-                      updateParentsMetadata(vault, nearlineRecord.objectId, "ATT_META_OID", copiedId) match {
-                        case Success(_) =>
-                        case Failure(err)=>
-                          //this is not a fatal error.
-                          logger.warn(s"Could not update metadata on ${nearlineRecord.objectId} to set metadata attachment: ${err.getMessage}")
-                      }
+        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
+          nearlineRecordDAO
+            .findByVidispineId(itemId)
+            .flatMap({
+              case foundRecord@Some(_)=>Future(foundRecord) //we found a record in the database, happy days
+              case None=>                                   //we didn't find a record in the database, but maybe the file does exist already?
+                val maybeNewEntryList = for {
+                  files <- getOriginalFilesForItem(itemId)
+                  filePaths <- Future(files.map(_.path).map(Paths.get(_)))
+                  possibleEntries <- {
+                    logger.info(s"Checking for existing files for vidispine ID $itemId. File path list is $filePaths.")
+                    Future.sequence(filePaths.map(path=>checkForPreExistingFiles(vault, path, metadataUpdated, shouldSave = false)))
+                  }
+                } yield possibleEntries
 
-                      logger.info(s"Metadata xml for $itemId is copied to file $copiedId with checksum ${maybeChecksum.getOrElse("(none)")}")
-                      val updatedRec = nearlineRecord.copy(metadataXMLObjectId = Some(copiedId))
+                maybeNewEntryList
+                  .map(_.collect({case Some(newRec)=>newRec}))
+                  .map(_.headOption)
+                  .flatMap({
+                    case Some(newRec)=>
+                      //we got a record. Write it to the database and continue.
+                      logger.info(s"Found existing file at ${newRec.originalFilePath} with OID ${newRec.objectId} for vidispine item ${newRec.vidispineItemId}")
                       nearlineRecordDAO
-                        .writeRecord(updatedRec)
-                        .map(_=>Right(updatedRec.asJson))
-                    case Left(err)=>Future(Left(err))
+                        .writeRecord(newRec)
+                        .map(recordId=>newRec.copy(id=Some(recordId)))
+                        .map(Some(_))
+                    case None=>
+                      logger.info(s"No files found in the nearline storage for vidispine item ID $itemId")
+                      Future(None)
+                  })
+                .recover({
+                  case err:Throwable=>
+                    logger.error(s"Could not search for pre-existing files for vidispine item $itemId: ${err.getMessage}", err)
+                    None  //this will cause a retryable failure to be logged out below.
+                })
+            })
+            .flatMap({
+              case None=>
+                logger.info(s"No record of vidispine item $itemId yet.")
+                Future(Left(s"No record of vidispine item $itemId yet.")) //this is retryable, assume that the item has not finished importing yet
+              case Some(nearlineRecord: NearlineRecord)=>
+                  buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
+                    case None=>
+                      logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
+                      Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure
+                    case Some(updatedMetadata)=>
+                      streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
+                        case Right((copiedId, maybeChecksum))=>
+                          updateParentsMetadata(vault, nearlineRecord.objectId, "ATT_META_OID", copiedId) match {
+                            case Success(_) =>
+                            case Failure(err)=>
+                              //this is not a fatal error.
+                              logger.warn(s"Could not update metadata on ${nearlineRecord.objectId} to set metadata attachment: ${err.getMessage}")
+                          }
+
+                          logger.info(s"Metadata xml for $itemId is copied to file $copiedId with checksum ${maybeChecksum.getOrElse("(none)")}")
+                          val updatedRec = nearlineRecord.copy(metadataXMLObjectId = Some(copiedId))
+                          nearlineRecordDAO
+                            .writeRecord(updatedRec)
+                            .map(_=>Right(updatedRec.asJson))
+                        case Left(err)=>Future(Left(err))
+                      })
                   })
               })
-            }
-        })
+        }
     }
   }
 

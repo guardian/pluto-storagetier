@@ -258,8 +258,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
       val shapes = Seq(
-        ShapeDocument("VX-332","",Some(1),Seq("original"),Seq("video/mxf"),None,None,None),
-        ShapeDocument("VX-334","",Some(1),Seq("lowres"),Seq("video/mp4"),None,None,None),
+        ShapeDocument("VX-332","",Some(1),Seq("original"),Some(Seq("video/mxf")),None,None,None),
+        ShapeDocument("VX-334","",Some(1),Seq("lowres"),Some(Seq("video/mp4")),None,None,None),
       )
       vidispineCommunicator.listItemShapes(any) returns Future(Some(shapes))
 
@@ -293,8 +293,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vidispineFunctions = mock[VidispineFunctions]
 
       val shapes = Seq(
-        ShapeDocument("VX-332","",Some(1),Seq("original"),Seq("video/mxf"),None,None,None),
-        ShapeDocument("VX-334","",Some(1),Seq("lowres"),Seq("video/mp4"),None,None,None),
+        ShapeDocument("VX-332","",Some(1),Seq("original"),Some(Seq("video/mxf")),None,None,None),
+        ShapeDocument("VX-334","",Some(1),Seq("lowres"),Some(Seq("video/mp4")),None,None,None),
       )
       vidispineCommunicator.listItemShapes(any) returns Future(Some(shapes))
 

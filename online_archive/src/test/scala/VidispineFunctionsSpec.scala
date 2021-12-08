@@ -140,7 +140,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         "",
         Some(1),
         Seq("lowres"),
-        Seq("video/mp4"),
+        Some(Seq("video/mp4")),
         Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
         Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
         Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
@@ -193,7 +193,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         "",
         Some(1),
         Seq("lowres"),
-        Seq("video/mp4"),
+        Some(Seq("video/mp4")),
         Some(SimplifiedComponent("VX-111",Seq())),
         Some(Seq(SimplifiedComponent("VX-112",Seq()))),
         Some(Seq(SimplifiedComponent("VX-113",Seq())))
@@ -289,7 +289,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         "",
         Some(1),
         Seq("original"),
-        Seq("video/mxf"),
+        Some(Seq("video/mxf")),
         Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
         Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
         Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
@@ -350,7 +350,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         "",
         Some(1),
         Seq("lowres"),
-        Seq("video/mp4"),
+        Some(Seq("video/mp4")),
         Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
         Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
         Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
