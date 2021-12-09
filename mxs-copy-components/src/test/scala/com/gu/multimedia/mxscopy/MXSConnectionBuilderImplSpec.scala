@@ -20,7 +20,7 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
 
       MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
         checker(v)
-        Success("Hooray")
+        Success(Right("Hooray"))
       }
 
       there was one(checker).apply(mockVault)
@@ -45,6 +45,22 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
       there was one(mockVault).dispose()
       there was one(mxs).openVault("some-vault")
     }
+
+    "return a Left instead of a Failure if the vault connection fails" in {
+      val mxs = mock[MatrixStore]
+      mxs.openVault(any) throws new RuntimeException("oh no!")
+
+      val checker = mock[Vault=>Unit]
+
+      val result = MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
+        checker(v)
+        Success(Right("this should not happen"))
+      }
+
+      result must beSuccessfulTry(Left("java.lang.RuntimeException: oh no!"))
+      there was one(mxs).openVault("some-vault")
+      there was no(checker).apply(any)
+    }
   }
 
   "MXSConnectionBuilderImpl.withVaultFuture" should {
@@ -58,7 +74,7 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
 
       Await.ready(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
         checker(v)
-        Future("Hooray")
+        Future(Right("Hooray"))
       },2.seconds)
 
       there was one(checker).apply(mockVault)
@@ -82,6 +98,22 @@ class MXSConnectionBuilderImplSpec extends Specification with Mockito {
       there was one(checker).apply(mockVault)
       there was one(mockVault).dispose()
       there was one(mxs).openVault("some-vault")
+    }
+
+    "return a Left instead of a Failure if the vault connection fails" in {
+      val mxs = mock[MatrixStore]
+      mxs.openVault(any) throws new RuntimeException("oh no!")
+
+      val checker = mock[Vault=>Unit]
+
+      val result = Await.result(MXSConnectionBuilderImpl.withVaultFuture(mxs, "some-vault") { v=>
+        checker(v)
+        Future(Right("this should not happen"))
+      }, 2.seconds)
+
+      result must beLeft("java.lang.RuntimeException: oh no!")
+      there was one(mxs).openVault("some-vault")
+      there was no(checker).apply(any)
     }
   }
 }
