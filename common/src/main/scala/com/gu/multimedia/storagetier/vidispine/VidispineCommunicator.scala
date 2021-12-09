@@ -254,6 +254,21 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       }
     } yield result
   }
+
+  /**
+  Tries to find the file associated with the given shape tag on the given item
+   @param itemId - the item ID to query
+   @param shapeTag - name of the shape tag we are interested in
+   @return a Future containing None if the item, shape or file was not found or a VSShapeFile describing the file if it was present
+   */
+  def findItemFile(itemId:String, shapeTag:String) = {
+    listItemShapes(itemId).map({
+      case None=>None
+      case Some(shapes)=>
+        val maybeWantedShape = shapes.find(_.tag.contains(shapeTag))
+        maybeWantedShape.flatMap(_.getLikelyFile)
+    })
+  }
 }
 
 object VidispineCommunicator {
