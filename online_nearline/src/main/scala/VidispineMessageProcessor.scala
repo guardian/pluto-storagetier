@@ -76,10 +76,20 @@ class VidispineMessageProcessor()
    * @return a Future, containing the newly saved NearlineRecord if a record is found or None if not.
    */
   def checkForPreExistingFiles(vault:Vault, filePath:Path, mediaIngested: VidispineMediaIngested, shouldSave:Boolean=true) = {
-    mediaIngested.fileSize match {
+    val fileSizeFut = (mediaIngested.fileSize, mediaIngested.itemId) match {
+      case (Some(fileSize), _) => Future(Some(fileSize))
+      case (None, Some(itemId))=>
+        logger.info(s"No file size provided in incoming message, looking based on file ID")
+        vidispineCommunicator.findItemFile(itemId, "original").map(_.map(_.size))
+      case (None,None)=>
+        logger.error("Could not check for pre-existing files as neither file size nor item ID was provided")
+        Future(None)
+    }
+
+    fileSizeFut.flatMap({
       case Some(fileSize) =>
         fileCopier
-          .findMatchingFilesOnNearline(vault, filePath,fileSize)
+          .findMatchingFilesOnNearline(vault, filePath, fileSize)
           .flatMap(matches => {
             if (matches.isEmpty) {
               logger.info(s"Found no pre-existing archived files for $filePath")
@@ -90,7 +100,7 @@ class VidispineMessageProcessor()
                 objectId = matches.head.oid,
                 originalFilePath = filePath.toString
               )
-              if(shouldSave) {
+              if (shouldSave) {
                 nearlineRecordDAO.writeRecord(newRec).map(newId => Some(newRec.copy(id = Some(newId))))
               } else {
                 Future(Some(newRec))
@@ -98,9 +108,8 @@ class VidispineMessageProcessor()
             }
           })
       case None=>
-        logger.info(s"Could not check for pre-existing files as no file size was provided")
         Future(None)
-    }
+    })
   }
 
   /**
