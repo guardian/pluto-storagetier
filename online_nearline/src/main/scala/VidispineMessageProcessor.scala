@@ -86,7 +86,7 @@ class VidispineMessageProcessor()
         Future(None)
     }
 
-    fileSizeFut.map({
+    fileSizeFut.flatMap({
       case Some(fileSize) =>
         fileCopier
           .findMatchingFilesOnNearline(vault, filePath, fileSize)
