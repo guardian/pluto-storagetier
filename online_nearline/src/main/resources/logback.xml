@@ -10,6 +10,7 @@
         <appender-ref ref="STDOUT"/>
         <includeCallerData>true</includeCallerData>
     </appender>
+    <logger name="com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl" level="DEBUG"/>
     <logger name="com.gu.multimedia" level="INFO"/>
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
     <logger name="com.gu.multimedia.storagetier.plutocore" level="INFO"/>

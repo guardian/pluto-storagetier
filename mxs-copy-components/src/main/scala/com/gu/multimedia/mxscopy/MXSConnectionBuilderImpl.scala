@@ -1,17 +1,20 @@
 package com.gu.multimedia.mxscopy
 
+import akka.actor.ActorSystem
 import com.om.mxs.client.japi.cred.Credentials
 import com.om.mxs.client.japi.{MatrixStore, MatrixStoreConnection, Vault}
 import org.slf4j.LoggerFactory
 
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import scala.concurrent.duration._
 
 /**
  * describes the interface of MXSConnectionBuilder, which safely creates and disposes MatrixStore connections
  */
 trait MXSConnectionBuilder {
-  def build():Try[MatrixStore]
+  def getConnection():Try[MatrixStore]
 
   def withVaultFuture[T](vaultId:String)(cb:Vault=>Future[Either[String, T]])(implicit ec:ExecutionContext):Future[Either[String,T]]
 }
@@ -23,8 +26,16 @@ trait MXSConnectionBuilder {
  * @param accessKeyId access key ID for the service account to use to connect
  * @param accessKeySecret access key secret for the service account to use to connect
  */
-case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String) extends MXSConnectionBuilder {
+class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String, maxIdleSeconds:Int=300)(implicit actorSystem: ActorSystem) extends MXSConnectionBuilder {
+  //private vars are synchronised to object instance on access
+  private var cachedConnection:Option[MatrixStore] = None
+  private var connectionLastRetrieved:Instant = Instant.now()
+
+  private implicit val ec:ExecutionContext = actorSystem.dispatcher
+  private val logger = LoggerFactory.getLogger(getClass)
+
   def build() = Try {
+    logger.debug(s"Building new MXS connection to $hosts")
     val credentials = Credentials.newAccessKeyCredentials(accessKeyId, accessKeySecret)
 
     val conn = MatrixStoreConnection.builder().withHosts(hosts).withClusterId(clusterId).build()
@@ -33,6 +44,38 @@ case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, acce
       .withCredentials(credentials)
       .build()
   }
+
+  def getConnection():Try[MatrixStore] = this.synchronized {
+    cachedConnection match {
+      case Some(connection)=>
+        logger.debug("Using cached MXS datastore connection")
+        connectionLastRetrieved = Instant.now()
+        Success(connection)
+      case None=>
+        logger.debug("Building new MXS datastore connection")
+        connectionLastRetrieved = Instant.now()
+        build()
+    }
+  }
+
+  actorSystem.getScheduler.scheduleAtFixedRate(30.seconds, 30.seconds)(new Runnable {
+    override def run(): Unit = {
+      this.synchronized {
+        cachedConnection match {
+          case None=>
+            logger.debug("No current MXS connection")
+          case Some(mxs)=>
+            val idleTime = Instant.now().getEpochSecond - connectionLastRetrieved.getEpochSecond
+            logger.debug(s"Idle time of cached connection is $idleTime seconds")
+            if(idleTime>=maxIdleSeconds) {
+              logger.info(s"Terminating MXS connection as it has been idle for $idleTime seconds")
+              mxs.dispose()
+              cachedConnection = None
+            }
+        }
+      }
+    }
+  })
 
   /**
    * initiates a connection to the configuration indicated by the builder, opens the given vault then runs the callback.
@@ -46,7 +89,7 @@ case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, acce
    * @return either the result of the callback, or a failed Try indicating some error in establishing the connection
    */
   def withVaultFuture[T](vaultId:String)(cb: Vault => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
-    Future.fromTry(build()).flatMap(mxs=>{
+    Future.fromTry(getConnection()).flatMap(mxs=>{
       MXSConnectionBuilderImpl
         .withVaultFuture(mxs, vaultId)(cb)
         .andThen({case _=>mxs.dispose()})
@@ -64,7 +107,7 @@ case class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, acce
    * @return the result of the callback, or a failure if we were not able to establish the connection
    */
   def withVaultsFuture[T](vaultIds:Seq[String])(cb: Seq[Vault]=>Future[T])(implicit ec:ExecutionContext) = {
-    Future.fromTry(build()).flatMap(mxs=>{
+    Future.fromTry(getConnection()).flatMap(mxs=>{
       Future
         .sequence(vaultIds.map(vid=>Future.fromTry(Try{mxs.openVault(vid)})))
         .flatMap(cb)
