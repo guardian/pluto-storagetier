@@ -95,7 +95,6 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
     Future.fromTry(getConnection()).flatMap(mxs=>{
       MXSConnectionBuilderImpl
         .withVaultFuture(mxs, vaultId)(cb)
-        .andThen({case _=>mxs.dispose()})
     })
   }
 
@@ -114,7 +113,6 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
       Future
         .sequence(vaultIds.map(vid=>Future.fromTry(Try{mxs.openVault(vid)})))
         .flatMap(cb)
-        .andThen(_=>mxs.dispose())
     })
   }
 }
