@@ -57,7 +57,7 @@ object Main {
   def main(args:Array[String]):Unit = {
     implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
-    implicit lazy val matrixStore = new MXSConnectionBuilderImpl(
+    implicit val matrixStore = new MXSConnectionBuilderImpl(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
       accessKeySecret = matrixStoreConfig.accessKeySecret,

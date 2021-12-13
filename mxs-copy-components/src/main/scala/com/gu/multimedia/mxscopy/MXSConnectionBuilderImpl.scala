@@ -54,7 +54,10 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
       case None=>
         logger.debug("Building new MXS datastore connection")
         connectionLastRetrieved = Instant.now()
-        build()
+        build().map(mxs=>{
+          cachedConnection = Some(mxs)
+          mxs
+        })
     }
   }
 
