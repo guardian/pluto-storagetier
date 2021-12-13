@@ -586,7 +586,8 @@ class VidispineMessageProcessor()
                   buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
                     case None=>
                       logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
-                      Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure
+                      //this has been changed to a retryable failure as we have been seeing unexplained errors
+                      Future(Left(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata"))
                     case Some(updatedMetadata)=>
                       streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
                         case Right((copiedId, maybeChecksum))=>
