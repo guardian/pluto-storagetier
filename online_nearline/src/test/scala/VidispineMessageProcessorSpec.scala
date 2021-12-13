@@ -455,8 +455,8 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val result = Try { Await.result(toTest.handleMetadataUpdate(msg), 2.seconds) }
 
-      result must beAFailedTry
-      result.failed.get.getMessage mustEqual "Object object-id does not have GNM compatible metadata"
+      result must beASuccessfulTry
+      result.get must beLeft("Object object-id does not have GNM compatible metadata")
 
       there was one(nearlineRecordDAO).findByVidispineId("VX-12345")
       there was one(mockBuildMetaForXML).apply(mockVault, mockNearlineRecord, "VX-12345")
