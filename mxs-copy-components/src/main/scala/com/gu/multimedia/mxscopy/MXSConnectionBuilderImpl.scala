@@ -27,9 +27,9 @@ trait MXSConnectionBuilder {
  * @param accessKeySecret access key secret for the service account to use to connect
  */
 class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String, maxIdleSeconds:Int=300)(implicit actorSystem: ActorSystem) extends MXSConnectionBuilder {
-  //private vars are synchronised to object instance on access
-  private var cachedConnection:Option[MatrixStore] = None
-  private var connectionLastRetrieved:Instant = Instant.now()
+  //private vars are synchronised to object instance on access - that's why they need to be private and final
+  private final var cachedConnection:Option[MatrixStore] = None
+  private final var connectionLastRetrieved:Instant = Instant.now()
 
   private implicit val ec:ExecutionContext = actorSystem.dispatcher
   private val logger = LoggerFactory.getLogger(getClass)
