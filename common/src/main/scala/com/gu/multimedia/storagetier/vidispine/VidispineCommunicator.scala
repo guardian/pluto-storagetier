@@ -74,6 +74,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     ).flatMap({
       case None => Future(None)
       case Some(entity) =>
+        logger.debug(s"Vidispine URL was ${req.uri} with headers ${req.headers}")
         contentBodyToJson(consumeStream(entity.dataBytes))
     })
 
