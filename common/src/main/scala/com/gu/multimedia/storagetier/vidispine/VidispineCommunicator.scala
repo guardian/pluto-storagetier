@@ -246,10 +246,15 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       shapeIdList <- callToVidispine[ShapeListDocument](HttpRequest(uri = s"${config.baseUri}/API/item/$itemId/shape"))
       result <- shapeIdList match {
         case Some(shapeDoc)=>
-          Future
-            .sequence(shapeDoc.uri.map(shapeId=>findItemShape(itemId, shapeId)))
-            .map(_.collect({case Some(shapeDoc)=>shapeDoc}))
-            .map(Some(_))
+          shapeDoc.uri match {
+            case Some(uriList) =>
+              Future
+                .sequence(uriList.map(shapeId => findItemShape(itemId, shapeId)))
+                .map(_.collect({ case Some(shapeDoc) => shapeDoc }))
+                .map(Some(_))
+            case None =>
+              Future(Some(Seq())) //if there are no shapes, then the `uri` parameter is empty
+          }
         case None=>
           Future(None)
       }
