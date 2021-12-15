@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response.hit import Hit
+import dateutil.parser as dateutil
 import mimetypes
 import os
 import pika
@@ -42,17 +43,21 @@ def convert_to_assetsweeper_record(h: Hit):
     else:
         wholepath = h.wholepath
 
+    parsed_time = dateutil.parse(h.timestamp)
+    epoch_time = int(parsed_time.timestamp())
     file_dir = os.path.dirname(wholepath)
     file_name = os.path.basename(wholepath)
     return ({
         "imported_id": None,
-        "mime_type": mimetypes.types_map.get("."+h.extension),
-        "mtime": h.timestamp,
-        "ctime": h.timestamp,
-        "atime": h.timestamp,
+        "mime_type": mimetypes.types_map.get("."+h.extension, "application/octet-stream"),
+        "mtime": epoch_time,
+        "ctime": epoch_time,
+        "atime": epoch_time,
+        "size": h.size,
+        "ignore": False,
         "owner": 0,
         "group": 0,
-        "filepath": file_dir,
+        "parent_dir": file_dir,
         "filename": file_name
     }, wholepath)
 
@@ -113,6 +118,7 @@ for f in scan_for_files(esclient, args.indexname):
         logger.debug("dropping {0}".format(wholepath))
         continue
 
+    #pprint(rec)
     send_to_rabbit(rmq_chan, args.exchange, args.routingkey, rec)
     i+=1
 logger.info("Selected {0} records".format(i))
