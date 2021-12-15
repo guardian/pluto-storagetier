@@ -31,7 +31,7 @@ object VidispineFunctions {
   def uploadKeyForProxy(archivedRecord: ArchivedRecord, proxyFile:VSShapeFile) = {
     val uploadedPath = Paths.get(archivedRecord.uploadedPath)
 
-    val proxyFileParts = proxyFile.uri.headOption.flatMap(_.split("/").lastOption) match {
+    val proxyFileParts = proxyFile.uri.flatMap(_.headOption.flatMap(_.split("/").lastOption)) match {
       case None=>
         logger.error("No proxy file URI in information? This is unexpected.")
         ("", None)
@@ -205,19 +205,50 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
   private def doUploadShape(fileInfo:VSShapeFile, archivedRecord: ArchivedRecord, shapeDoc:ShapeDocument) = {
     val uploadKey = VidispineFunctions.uploadKeyForProxy(archivedRecord, fileInfo)
 
-    fileInfo.uri.headOption.flatMap(u=>Try { URI.create(u)}.toOption) match {
-      case Some(uri)=>
-        val filePath = Paths.get(uri)
-        if(internalCheckFile(filePath)) {
-          logger.info(s"Starting upload of ${fileInfo.uri.headOption} to s3://${proxyFileUploader.bucketName}/$uploadKey")
-          Future.fromTry(proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey)))
+    def filePathsForShape(f:VSShapeFile) = f.uri match {
+      case None=>Seq()
+      case Some(uriList)=>
+        uriList.map(u=>Try { URI.create(u) }.toOption).collect({case Some(uri)=>uri})
+    }
+
+    /**
+     * checks the paths in the list using `internalCheckFile` and returns the first one that passes the check, or None
+     * if there are no results
+     * @param paths a list of paths to check
+     * @return either a checked, working Path or None
+     */
+    def firstCheckedFilepath(paths:Seq[Path]) = paths.foldLeft[Option[Path]](None)((result, filePath)=>{
+      result match {
+        case existingResult@Some(_)=>existingResult
+        case None=>
+          if (internalCheckFile(filePath)) {
+            logger.info(s"Found filePath for Vidispine shape $filePath")
+            Some(filePath)
+          } else {
+            result
+          }
+      }
+    })
+    shapeDoc.getLikelyFile match {
+      case None =>
+        logger.error(s"${fileInfo} is a placeholder or has no original media")
+        Future.failed(new RuntimeException(s"${fileInfo} is a placeholder or has no original media"))
+      case Some(fileInfo) =>
+        val uriList = filePathsForShape(fileInfo)
+        if(uriList.isEmpty) {
+          logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
+          Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
         } else {
-          logger.error(s"Could not find path for URI $uri ($filePath) on-disk")
-          Future.failed(new RuntimeException(s"File $filePath could not be found"))
+          val filePaths = uriList.map(Paths.get)
+          firstCheckedFilepath(filePaths) match {
+            case Some(filePath)=>
+              logger.info(s"Starting upload of $filePath to s3://${proxyFileUploader.bucketName}/$uploadKey")
+              Future.fromTry(proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey)))
+            case None=>
+              logger.error(s"Could not find path for URI ${fileInfo.uri} on-disk")
+              Future.failed(new RuntimeException(s"File $fileInfo could not be found"))
+          }
         }
-      case None=>
-        logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
-        Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
     }
   }
 

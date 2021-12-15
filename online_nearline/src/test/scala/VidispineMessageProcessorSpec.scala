@@ -343,7 +343,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val mockShape = mock[ShapeDocument]
       mockShape.tag returns Seq("original")
-      mockShape.getLikelyFile returns Some(VSShapeFile("VX-8888","/path/to/some/file",Seq(),"CLOSED",1234L,None,"2012-01-02T03:04:05Z",1, "VX-4"))
+      mockShape.getLikelyFile returns Some(VSShapeFile("VX-8888","/path/to/some/file",None,"CLOSED",1234L,None,"2012-01-02T03:04:05Z",1, "VX-4"))
       mockVSCommunicator.listItemShapes(any) returns Future(Some(Seq(mockShape)))
 
       val mockCheckForPreExisting = mock[(Vault, Path, VidispineMediaIngested, Boolean)=>Future[Option[NearlineRecord]]]
@@ -1224,7 +1224,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockShapeFile = VSShapeFile(
         "VX-1234",
         "another/location/for/proxies/VX-1234.mp4",
-        Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        Some(Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
@@ -1288,7 +1288,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockShapeFile = VSShapeFile(
         "VX-1234",
         "another/location/for/proxies/VX-1234.mp4",
-        Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        Some(Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
@@ -1402,7 +1402,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockShapeFile = VSShapeFile(
         "VX-1234",
         "another/location/for/proxies/VX-1234.mp4",
-        Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+        Some(Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
@@ -1450,7 +1450,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       val mockShapeFile = VSShapeFile(
         "VX-1234",
         "another/location/for/proxies/VX-1234.mp4",
-        Seq("file:///srv/proxy/with/illegal/location/VX-1234.mp4"),
+        Some(Seq("file:///srv/proxy/with/illegal/location/VX-1234.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
