@@ -1,0 +1,3 @@
+# Elasticsearch 6.x
+elasticsearch-dsl>=6.0.0,<7.0.0
+pika==1.2.0

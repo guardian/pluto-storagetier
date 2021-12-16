@@ -83,7 +83,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         val testProxy = VSShapeFile(
           "VX-1234",
           "another/location/for/proxies/VX-1234.mp4",
-          Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4"),
+          Some(Seq("file:///srv/proxies/another/location/for/proxies/VX-1234.mp4")),
           "CLOSED",
           1234L,
           Some("deadbeef"),
@@ -105,7 +105,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         val testProxy = VSShapeFile(
           "VX-1234",
           "another/location/for/proxies/VX-1234.mp4",
-          Seq(),
+          None,
           "CLOSED",
           1234L,
           Some("deadbeef"),
@@ -127,7 +127,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
       val mockedInputStream = mock[InputStream]
       val sampleFile = VSShapeFile("VX-789",
         "VX-789.mp4",
-        Seq("file:///path/to/Vidispine/Proxies/VX-789.mp4"),
+        Some(Seq("file:///path/to/Vidispine/Proxies/VX-789.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
@@ -276,7 +276,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
       val mockedInputStream = mock[InputStream]
       val sampleFile = VSShapeFile("VX-789",
         "VX-789.mp4",
-        Seq("file:///path/to/Vidispine/Proxies/VX-789.mp4"),
+        Some(Seq("file:///path/to/Vidispine/Proxies/VX-789.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
@@ -337,7 +337,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
       val mockedInputStream = mock[InputStream]
       val sampleFile = VSShapeFile("VX-789",
         "VX-789.mp4",
-        Seq("file:///path/to/Vidispine/Proxies/VX-789.mp4"),
+        Some(Seq("file:///path/to/Vidispine/Proxies/VX-789.mp4")),
         "CLOSED",
         1234L,
         Some("deadbeef"),
@@ -380,7 +380,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         10.seconds
       )
 
-      result must beLeft("Could not upload List(file:///path/to/Vidispine/Proxies/VX-789.mp4) to S3")
+      result must beLeft("Could not upload Some(List(file:///path/to/Vidispine/Proxies/VX-789.mp4)) to S3")
       there was no(mockProxyUploader).copyFileToS3(any,any)
       there was no(mockMediaUploader).uploadStreamNoChecks(any,any,any,any,any)
       there was no(archiveHunterCommunicator).importProxy(any,any,any,any)

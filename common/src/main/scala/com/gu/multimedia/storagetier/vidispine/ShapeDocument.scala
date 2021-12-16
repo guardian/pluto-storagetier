@@ -7,7 +7,7 @@ import java.time.ZonedDateTime
 case class VSShapeFile(
                       id: String,
                       path: String,
-                      uri: Seq[String],
+                      uri: Option[Seq[String]],
                       state: String,
                       size: Long,
                       hash: Option[String],

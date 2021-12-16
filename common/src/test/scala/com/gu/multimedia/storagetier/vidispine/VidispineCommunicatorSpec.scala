@@ -60,7 +60,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
         VSShapeFile(
           "VX-735825",
           "VX-735825.mp4",
-          Seq("file:///path/to/vidispine/Proxies/VX-735825.mp4"),
+          Some(Seq("file:///path/to/vidispine/Proxies/VX-735825.mp4")),
           "CLOSED",
           83401958L,
           Some("9a4192d38e12997716d9b389d73e6170614c7186"),
@@ -100,7 +100,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
         VSShapeFile(
           "VX-735825",
           "VX-735825.mp4",
-          Seq("file:///path/to/vidispine/Proxies/VX-735825.mp4"),
+          Some(Seq("file:///path/to/vidispine/Proxies/VX-735825.mp4")),
           "CLOSED",
           189325589L,
           Some("9d304c3e23bdbe1f153c746679fd2f1f6846f561"),
@@ -140,7 +140,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
         VSShapeFile(
           "VX-4222",
           "VX-4222.wav",
-          Seq("file://path/to/vidispine/Audio/VX-4222.wav"),
+          Some(Seq("file://path/to/vidispine/Audio/VX-4222.wav")),
           "CLOSED",
           231546930L,
           Some("08a55101bb7f0afd9ca919817b5fbb59d86bba5e"),

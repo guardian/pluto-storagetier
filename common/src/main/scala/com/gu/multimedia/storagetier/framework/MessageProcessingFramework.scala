@@ -158,8 +158,15 @@ class MessageProcessingFramework (ingest_queue_name:String,
               case err:SilentDropMessage=>
                 logger.info(s"Dropping message with id ${properties.getMessageId}: ${err.getMessage}")
                 channel.basicAck(envelope.getDeliveryTag, false)
+              case err:java.io.IOException=>  //matrixstore errors get converted into IOException, which is not very useful for us :(
+                logger.error(s"MsgId ${properties.getMessageId} - Got java.io.IOException while trying to handle the message, retrying: ${err.getMessage}")
+                if(err.getMessage.contains("failed to retrieve work permit")) {
+                  logger.error("Got work permit error, this indicates either MatrixStore busy or failure. Waiting for 4mins to reduce load.")
+                  Thread.sleep(240000)  //=240 seconds = 4mins
+                }
+                rejectMessage(envelope, Option(properties), msg)
               case err:Throwable=>
-                logger.error(s"MsgID ${properties.getMessageId} - Got an exception while trying to handle the message: ${err.getMessage}", err)
+                logger.error(s"MsgID ${properties.getMessageId} - Got an exception ${err.getClass.getCanonicalName} while trying to handle the message: ${err.getMessage}", err)
                 permanentlyRejectMessage(envelope, properties, body, err.getMessage)
             })
           }

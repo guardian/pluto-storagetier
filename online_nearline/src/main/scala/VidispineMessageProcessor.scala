@@ -228,28 +228,50 @@ class VidispineMessageProcessor()
   }
 
   def getFilePathForShape(shapeDoc: ShapeDocument, itemId: String, shapeId: String): Future[Either[String,Path]] = {
+    def filePathsForShape(f:VSShapeFile) = f.uri match {
+      case None=>Seq()
+      case Some(uriList)=>
+        uriList.map(u=>Try { URI.create(u) }.toOption).collect({case Some(uri)=>uri})
+      }
+
+    /**
+     * checks the paths in the list using `internalCheckFile` and returns the first one that passes the check, or None
+     * if there are no results
+     * @param paths a list of paths to check
+     * @return either a checked, working Path or None
+     */
+    def firstCheckedFilepath(paths:Seq[Path]) = paths.foldLeft[Option[Path]](None)((result, filePath)=>{
+      result match {
+        case existingResult@Some(_)=>existingResult
+        case None=>
+          if (internalCheckFile(filePath)) {
+            logger.info(s"Found filePath for Vidispine shape $filePath")
+            Some(filePath)
+          } else {
+            result
+          }
+      }
+    })
     shapeDoc.getLikelyFile match {
       case None =>
         Future(Left(s"No file exists on shape $shapeId for item $itemId yet"))
       case Some(fileInfo) =>
-        fileInfo.uri.headOption.flatMap(u => Try {
-          URI.create(u)
-        }.toOption) match {
-          case Some(uri) =>
-            val filePath = Paths.get(uri)
-            if (internalCheckFile(filePath)) {
-              logger.info(s"Found filePath for Vidispine shape ${filePath}")
+        val uriList = filePathsForShape(fileInfo)
+        if(uriList.isEmpty) {
+          logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
+          Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
+        } else {
+          val filePaths = uriList.map(Paths.get)
+          firstCheckedFilepath(filePaths) match {
+            case Some(filePath)=>
               Future(Right(filePath))
-            } else {
-              logger.error(s"Could not find path for URI $uri ($filePath) on-disk")
-              Future.failed(new RuntimeException(s"File $filePath for Vidispine shape could not be found"))
+            case None=>
+              logger.error(s"Could not find path for any of URI ${fileInfo.uri} on-disk")
+              Future.failed(new RuntimeException(s"File any of URI ${fileInfo.uri} for Vidispine shape could not be found"))
             }
-          case None =>
-            logger.error(s"Either ${fileInfo.uri} is empty or it does not contain a valid URI")
-            Future.failed(new RuntimeException(s"Fileinfo $fileInfo has no valid URI"))
+          }
         }
     }
-  }
 
   /**
    * Determines an appropriate file name to use for the proxy of the given file
@@ -260,7 +282,7 @@ class VidispineMessageProcessor()
   def uploadKeyForProxy(nearlineRecord: NearlineRecord, proxyFile:VSShapeFile) = {
     val uploadedPath = Paths.get(nearlineRecord.originalFilePath)
 
-    val proxyFileParts = proxyFile.uri.headOption.flatMap(_.split("/").lastOption) match {
+    val proxyFileParts = proxyFile.uri.flatMap(_.headOption.flatMap(_.split("/").lastOption)) match {
       case None=>
         logger.error("No proxy file URI in information? This is unexpected.")
         ("", None)
@@ -586,7 +608,8 @@ class VidispineMessageProcessor()
                   buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
                     case None=>
                       logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
-                      Future.failed(new RuntimeException(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata")) //this is a permanent failure
+                      //this has been changed to a retryable failure as we have been seeing unexplained errors
+                      Future(Left(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata"))
                     case Some(updatedMetadata)=>
                       streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
                         case Right((copiedId, maybeChecksum))=>
