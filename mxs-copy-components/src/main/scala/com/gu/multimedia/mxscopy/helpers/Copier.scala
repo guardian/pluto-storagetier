@@ -4,7 +4,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 
 import java.io.File
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.time.Instant
 import akka.stream.{ClosedShape, Materializer, SourceShape}
 import akka.stream.scaladsl.{Broadcast, FileIO, GraphDSL, RunnableGraph, Sink, Source}
@@ -171,11 +171,17 @@ object Copier {
     } else {
       try {
         val mdToWrite = destFileName match {
-          case Some(fn) => metadata.get
+          case None => metadata.get
             .withString("MXFS_PATH",fromFile.getAbsolutePath)
             .withString("MXFS_FILENAME", fromFile.getName)
             .withString("MXFS_FILENAME_UPPER", fromFile.getName.toUpperCase)
-          case None => metadata.get.withValue[Int]("dmmyInt",0)
+          case Some(fn) =>
+            val p = Paths.get(fn)
+            val filenameOnly = p.getFileName.toString
+            metadata.get
+              .withString("MXFS_PATH", fn)
+              .withString("MXFS_FILENAME", filenameOnly)
+              .withString("MXFS_FILENAME_UPPER", filenameOnly.toUpperCase)
         }
         val timestampStart = Instant.now.toEpochMilli
 
