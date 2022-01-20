@@ -96,7 +96,7 @@ parser = ArgumentParser(description="Read un-backed-up files from elasticsearch 
 parser.add_argument("--es",dest='esurl',default='localhost',help="URL(s) to access elasticsearch on")
 parser.add_argument("--index",dest='indexname',default='files-to-back-up',help="Index name to scan")
 parser.add_argument("--rabbitmq",dest="rmq",default="localhost", help="rabbitmq instance to send results to")
-parser.add_argument("--port",dest="port",default="5672", help="port on which rabbitmq is runing")
+parser.add_argument("--port",dest="port",default="5672", help="port on which rabbitmq is running")
 parser.add_argument("--user", dest="user", default="rabbit", help="rabbitmq username")
 parser.add_argument("--passwd", dest="passwd", default="rabbit", help="rabbitmq password")
 parser.add_argument("--vhost", dest="vhost", default="/", help="virtualhost on the rabbitmq broker")
