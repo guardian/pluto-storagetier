@@ -585,8 +585,8 @@ class VidispineMessageProcessor()
               case Some(nearlineRecord: NearlineRecord)=>
                   buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
                     case None=>
-                      logger.error(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it")
-                      //this has been changed to a retryable failure as we have been seeing unexplained errors
+                      //this is a retryable failure; sometimes the "updated metadata" message will arrive earlier than the media has finished processing.
+                      logger.info(s"The object ${nearlineRecord.objectId} for file ${nearlineRecord.originalFilePath} does not have GNM compatible metadata attached to it yet. This can mean that ingest or extraction is still in progress.")
                       Future(Left(s"Object ${nearlineRecord.objectId} does not have GNM compatible metadata"))
                     case Some(updatedMetadata)=>
                       streamVidispineMeta(vault, itemId, updatedMetadata).flatMap({
