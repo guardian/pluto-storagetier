@@ -171,13 +171,16 @@ object Copier {
     } else {
       try {
         val mdToWrite = destFileName match {
-          case None => metadata.get
-            .withString("MXFS_PATH",fromFile.getAbsolutePath)
-            .withString("MXFS_FILENAME", fromFile.getName)
-            .withString("MXFS_FILENAME_UPPER", fromFile.getName.toUpperCase)
+          case None =>
+            logger.info(s"MXFS_PATH (from filesystem) is ${fromFile.getAbsolutePath}")
+            metadata.get
+              .withString("MXFS_PATH",fromFile.getAbsolutePath)
+              .withString("MXFS_FILENAME", fromFile.getName)
+              .withString("MXFS_FILENAME_UPPER", fromFile.getName.toUpperCase)
           case Some(fn) =>
             val p = Paths.get(fn)
             val filenameOnly = p.getFileName.toString
+            logger.info(s"MXFS_PATH (modified) is $fn")
             metadata.get
               .withString("MXFS_PATH", fn)
               .withString("MXFS_FILENAME", filenameOnly)
@@ -185,8 +188,6 @@ object Copier {
         }
         val timestampStart = Instant.now.toEpochMilli
 
-        logger.debug(s"mdToWrite is $mdToWrite")
-        logger.debug(s"attributes are ${mdToWrite.toAttributes.map(_.toString).mkString(",")}")
         val mxsFile = vault.createObject(mdToWrite.toAttributes.toArray)
 
         logger.debug(s"mxsFile is $mxsFile")
