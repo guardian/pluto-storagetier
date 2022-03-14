@@ -17,6 +17,23 @@ jobs:
       checks: write
       pull-requests: write
 
+    services:
+      postgres:
+        image: postgres:13-alpine
+        env:
+          POSTGRES_DB: storagetier-test
+          POSTGRES_PASSWORD: storagetier-test
+          POSTGRES_USER: storagetier
+        ports:
+        - "5432/tcp"
+        # needed because the postgres container does not provide a healthcheck
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    env:
+      POSTGRES_DB: storagetier-test
+      POSTGRES_PASSWORD: storagetier-test
+      POSTGRES_USER: storagetier
+
     steps:
       - uses: actions/checkout@v2
 
@@ -49,10 +66,11 @@ jobs:
       - run: if [ -d "junit-tests" ]; then mkdir junit-tests; fi
         name: Prepare test outputs location
 
-      - name: Build and test online_nearline
+      - name: Build and test everything
         env:
           JAVA_OPTS: "-Dbuild.number=${{ env.GITHUB_RUN_NUMBER }}"
           SBT_JUNIT_OUTPUT: ./junit-tests
+          DB_PORT: ${{ job.services.postgres.ports[5432] }}
         run: sbt -v "test; docker:publishLocal"
 
       - name: Publish Unit Test Results
