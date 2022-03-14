@@ -163,30 +163,31 @@ class VidispineMessageProcessor()
                 )
             }
 
-            nearlineRecordDAO
-              .writeRecord(record)
-              .map(recId=>
-                //for some reason using the implicit conversion causes a compilation error here - https://github.com/scala/bug/issues/6317
-                Right(MessageProcessorReturnValue(record.copy(id=Some(recId)).asJson))
-              )
+            for {
+              recId <- nearlineRecordDAO.writeRecord(record)
+              updatedRecord <- Future(record.copy(id=Some(recId)))
+              //ensure that Vidispine is updated with the MXS ID whenever the media changes
+              result <- VidispineHelper.updateVidispineWithMXSId(mediaIngested.itemId.get, updatedRecord)
+            } yield result
 
           case Left(error) => Future(Left(error))
         })
-    }).recoverWith(err=>{
-      val attemptCount = attemptCountFromMDC() match {
-        case Some(count)=>count
-        case None=>
-          logger.warn(s"Could not get attempt count from logging context for $fullPath, creating failure report with attempt 1")
-          1
-      }
+    }).recoverWith({
+      case err:Throwable=>
+        val attemptCount = attemptCountFromMDC() match {
+          case Some(count)=>count
+          case None=>
+            logger.warn(s"Could not get attempt count from logging context for $fullPath, creating failure report with attempt 1")
+            1
+        }
 
-      val rec = FailureRecord(id = None,
-        originalFilePath = fullPath.toString,
-        attempt = attemptCount,
-        errorMessage = err.getMessage,
-        errorComponent = ErrorComponents.Internal,
-        retryState = RetryStates.WillRetry)
-      failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
+        val rec = FailureRecord(id = None,
+          originalFilePath = fullPath.toString,
+          attempt = attemptCount,
+          errorMessage = err.getMessage,
+          errorComponent = ErrorComponents.Internal,
+          retryState = RetryStates.WillRetry)
+        failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
     })
   }
 

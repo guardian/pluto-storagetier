@@ -122,6 +122,19 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
     MetadataHelper.getFileSize(mxsFile)
   }
 
+  /**
+   * Copies the given file from the filesystem to MXS.
+   * If the given file already exists in the MXS vault (i.e., there is a file with a matching MXFS_PATH _and_ checksum
+   * _and_ file size, then a Right (copy-success) is returned immediately with no copy performed.
+   * If there is a file with matching MXFS_PATH but checksum and/or size do not match, then a new version is created.
+   * If there is a failure while copying, a temporary failure is returned in a Left
+   * @param vault MXS vault to check and copy to
+   * @param fileName name of the file to be copied
+   * @param filePath filesystem path to the file to be copied (as java.nio.Path)
+   * @param objectId existing objectId of the (possibly previous) version
+   * @return a Future that completes when the operation is done, containing either a Right for success (with the MXS ID in it)
+   *         or a Left on error (with an error string in it)
+   */
   def copyFileToMatrixStore(vault: Vault, fileName: String, filePath: Path, objectId: Option[String]): Future[Either[String, String]] = {
     objectId match {
       case Some(id) =>

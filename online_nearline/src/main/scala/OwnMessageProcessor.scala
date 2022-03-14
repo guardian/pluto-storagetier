@@ -160,23 +160,14 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
           case Some(updatedNearlineRecord)=>
             updatedNearlineRecord.vidispineItemId match {
               case Some(itemId)=>
-                logger.info(s"Updating metadata on $itemId to set nearline object id ${updatedNearlineRecord.objectId}")
-                vsCommunicator.setGroupedMetadataValue(itemId, "Asset", "gnm_nearline_id", updatedNearlineRecord.objectId).map({
-                  case None=>
-                    logger.error(s"Item $itemId does not exist in vidispine! (got a 404 trying to update metadata)")
-                    throw new RuntimeException(s"Item $itemId does not exist in Vidispine")
-                  case Some(_)=>
-                    logger.info(s"Successfully updated metadata on $itemId")
-                    Right(updatedNearlineRecord.asJson)
-                }).recover({
-                  case err:Throwable=>
-                    logger.error(s"Could not update item $itemId in Vidispine: ${err.getMessage}", err)
-                    Left(s"Could not update item $itemId in Vidispine")
-                })
+                VidispineHelper.updateVidispineWithMXSId(itemId, updatedNearlineRecord)
               case None=>
                 if(rec.expectingVidispineId) {
-                  logger.info(s"The nearline record for ${rec.originalFilePath} does not have a vidispine id (yet)")
-                  Future(Left("No vidispine id yet"))
+                  //VidispineMessageProcessor has been updated so that once a Vidispine import completes for an existing
+                  //NearlineRecord then the MXS ID gets written. So we don't need to retry-loop here.
+                  logger.info(s"The nearline record for ${rec.originalFilePath} does not have a vidispine id. The MXS ID" +
+                    s" will be written when a Vidispine ingest completes.")
+                  Future(Right(updatedNearlineRecord.asJson))
                 } else {
                   logger.info(s"Not expecting ${rec.originalFilePath} to have a vidispine record")
                   Future.failed(SilentDropMessage(Some("Not expecting a vidispine record for this")))
