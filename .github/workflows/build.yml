@@ -1,0 +1,70 @@
+name: Build and upload pluto-storagetier
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # These permissions are needed to interact with GitHub's OIDC Token endpoint.
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup JDK
+        uses: actions/setup-java@v2
+        with:
+          distribution: temurin
+          java-version: 8
+
+      - name: Make GITHUB_RUN_NUMBER env var available outside of shells
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        shell: bash
+        run: |
+          echo GITHUB_RUN_NUMBER=$GITHUB_RUN_NUMBER>> $GITHUB_ENV
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GHA-build
+
+      - name: ECR Login
+        run: aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Build and test online_nearline
+        env:
+          JAVA_OPTS: "-Dbuild.number=${{ env.GITHUB_RUN_NUMBER }}"
+        run: sbt -v "project online_nearline; test; docker:publishLocal"
+
+      - name: Tag docker image
+        run:  docker tag guardianmultimedia/storagetier-online-nearline:${{ env.GITHUB_RUN_NUMBER }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-online-nearline:${{ env.GITHUB_RUN_NUMBER }}
+
+      - name: Push docker image
+        run: docker push  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-online-nearline:${{ env.GITHUB_RUN_NUMBER }}
+
+      - name: Output build-info.yaml
+        uses: fredex42/pluto-build-info@v1.0
+        with:
+          builtimage: AWS_ACCOUNT_ID.dkr.ecr.AWS_REGION.amazonaws.com/deliverable-receiver:${{ env.GITHUB_RUN_NUMBER }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check the output
+        run: cat build-info.yaml
+
+      - name: Upload build info
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-info
+          path: build-info.yaml
+
