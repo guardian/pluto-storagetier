@@ -4,7 +4,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 
 import java.io.File
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 import java.time.Instant
 import akka.stream.{ClosedShape, Materializer, SourceShape}
 import akka.stream.scaladsl.{Broadcast, FileIO, GraphDSL, RunnableGraph, Sink, Source}
@@ -171,16 +171,23 @@ object Copier {
     } else {
       try {
         val mdToWrite = destFileName match {
-          case Some(fn) => metadata.get
-            .withString("MXFS_PATH",fromFile.getAbsolutePath)
-            .withString("MXFS_FILENAME", fromFile.getName)
-            .withString("MXFS_FILENAME_UPPER", fromFile.getName.toUpperCase)
-          case None => metadata.get.withValue[Int]("dmmyInt",0)
+          case None =>
+            logger.info(s"MXFS_PATH (from filesystem) is ${fromFile.getAbsolutePath}")
+            metadata.get
+              .withString("MXFS_PATH",fromFile.getAbsolutePath)
+              .withString("MXFS_FILENAME", fromFile.getName)
+              .withString("MXFS_FILENAME_UPPER", fromFile.getName.toUpperCase)
+          case Some(fn) =>
+            val p = Paths.get(fn)
+            val filenameOnly = p.getFileName.toString
+            logger.info(s"MXFS_PATH (modified) is $fn")
+            metadata.get
+              .withString("MXFS_PATH", fn)
+              .withString("MXFS_FILENAME", filenameOnly)
+              .withString("MXFS_FILENAME_UPPER", filenameOnly.toUpperCase)
         }
         val timestampStart = Instant.now.toEpochMilli
 
-        logger.debug(s"mdToWrite is $mdToWrite")
-        logger.debug(s"attributes are ${mdToWrite.toAttributes.map(_.toString).mkString(",")}")
         val mxsFile = vault.createObject(mdToWrite.toAttributes.toArray)
 
         logger.debug(s"mxsFile is $mxsFile")
