@@ -186,7 +186,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
               }
             case err:Throwable =>
               // Error contacting ObjectMatrix, log it and retry via the queue
-              logger.info(s"Failed to get object from vault $filePath: ${err.getMessage} for checksum, will retry")
+              logger.warn(s"Failed to get object from vault for checksum $filePath: ${err.getClass.getCanonicalName} ${err.getMessage} , will retry", err)
               Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
             case _ =>
               Future(Left(s"ObjectMatrix error"))
