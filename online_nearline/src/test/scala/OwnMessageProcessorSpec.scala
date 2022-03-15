@@ -261,24 +261,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       result must beLeft
     }
 
-    "return a Left if the vidispine ID is not yet present" in {
-      implicit val actorSystem = mock[ActorSystem]
-      implicit val mat = mock[Materializer]
-      implicit val mxsConnectionBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val vsCommunicator = mock[VidispineCommunicator]
-      vsCommunicator.setMetadataValue(any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
-      implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
-      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234))
-      nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
-      val asLookup = mock[AssetFolderLookup]
-
-      val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
-      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
-
-      there was one(nearlineRecordDAO).getRecord(1234)
-      there was no(vsCommunicator).setMetadataValue(any,any,any)
-      result must beLeft
-    }
+    //"return Left if no vidispine ID present" is no longer the behaviour of the code, a Right is returned in this case as well
+    //since we now ensure that the MXS ID is written to the item following media ingest
 
     "return a failed Future if the record does not exist in the datastore" in {
       implicit val actorSystem = mock[ActorSystem]

@@ -8,7 +8,7 @@ import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
 import com.gu.multimedia.storagetier.messages.{VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.vidispine.{FileDocument, ShapeDocument, VSShapeFile, VidispineCommunicator}
+import com.gu.multimedia.storagetier.vidispine.{FileDocument, ItemResponseSimplified, ShapeDocument, VSShapeFile, VidispineCommunicator}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import org.specs2.mock.Mockito
@@ -106,10 +106,11 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
   }
 
   "VidispineMessageProcessor.uploadIfRequiredAndNotExists" should {
-    "return NearlineRecord when file has been copied to MatrixStore" in {
+    "return NearlineRecord when file has been copied to MatrixStore, and set the Nearline ID in Vidispine" in {
       val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
+      mockVSCommunicator.setGroupedMetadataValue(any,any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
 
       val mockNearlineRecord = NearlineRecord(
         Some(123),
@@ -152,6 +153,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val result = Await.result(toTest.uploadIfRequiredAndNotExists(mockVault, "/absolute/path/to/file", mediaIngested), 2.seconds)
       result must beRight(MessageProcessorReturnValue(mockNearlineRecord.asJson))
+      there was one(mockVSCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id", "object-id")
     }
 
     "return Left when file copy to MatrixStore fail" in {

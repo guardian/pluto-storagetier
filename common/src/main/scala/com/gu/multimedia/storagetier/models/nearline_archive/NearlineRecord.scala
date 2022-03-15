@@ -10,7 +10,7 @@ case class NearlineRecord(id:Option[Int],
                           proxyObjectId:Option[String],
                           metadataXMLObjectId:Option[String],
                           internallyArchived:Option[Boolean]=None,
-                          expectingVidispineId:Boolean=true
+                          expectingVidispineId:Boolean=true,
                          )
 
 object NearlineRecord extends ((Option[Int], String, String, Option[String], Option[Int], Option[String], Option[String], Option[Boolean], Boolean) =>
