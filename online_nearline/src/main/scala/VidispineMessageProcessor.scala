@@ -174,6 +174,8 @@ class VidispineMessageProcessor()
         })
     }).recoverWith({
       case err:Throwable=>
+        logger.error(s"Can't process Vidispine message: ${err.getMessage}", err)
+
         val attemptCount = attemptCountFromMDC() match {
           case Some(count)=>count
           case None=>
@@ -188,6 +190,7 @@ class VidispineMessageProcessor()
           errorComponent = ErrorComponents.Internal,
           retryState = RetryStates.WillRetry)
         failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
+        Future.failed(err)
     })
   }
 
