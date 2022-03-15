@@ -47,7 +47,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
         logger.debug(s"Found ${objects.length} files matching $fileName:")
         objects.foreach(ent=>logger.debug(s"\t${ent.pathOrFilename}"))
         if(objects.length>100) {
-          throw new Exception("Debugging error, not expecting more than 100 matches. Check the filtering functions.")
+          throw new BailOutException("Debugging error, not expecting more than 100 matches. Check the filtering functions.")
         } else {
           //find the highest number that is used as a filename index and add one
           val numberToUse = objects.foldLeft(0)((acc,elem)=>{
@@ -91,10 +91,6 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
     updateFilenameIfRequired(vault, filePath.toString)
       .flatMap(nameToUse=>{
         Copier.doCopyTo(vault, Some(nameToUse), fromFile, 2*1024*1024, "md5").map(value => Right(value._1))
-      }).recover({
-        case err:Throwable=>
-          logger.error(s"Unexpected error occurred when trying to determine filename to use: ${err.getMessage}")
-          Left(err.getMessage)
       })
   }
 
@@ -187,6 +183,9 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
                 logger.error(s"Error validating objectmatrix checksum: ${err.getMessage}", err)
                 Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
               }
+            case err:BailOutException=>
+              logger.error(s"A permanent error occurred: ${err.getMessage}", err)
+              Future.failed(err)
             case err:Throwable =>
               // Error contacting ObjectMatrix, log it and retry via the queue
               logger.warn(s"Failed to get object from vault for checksum $filePath: ${err.getClass.getCanonicalName} ${err.getMessage} , will retry", err)
