@@ -88,7 +88,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "call out to uploadIfRequiredAndNotExists" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Some(Seq("file:///absolute/path/relative/path.mp4")), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 

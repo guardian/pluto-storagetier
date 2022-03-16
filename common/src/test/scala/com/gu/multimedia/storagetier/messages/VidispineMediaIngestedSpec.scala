@@ -1,6 +1,8 @@
 package com.gu.multimedia.storagetier.messages
 
 import org.specs2.mutable.Specification
+import io.circe.syntax._
+import io.circe.generic.auto._
 
 class VidispineMediaIngestedSpec extends Specification {
   "VidispineMediaIngested" should {

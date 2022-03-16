@@ -6,7 +6,11 @@ import java.net.URI
 import scala.util.{Failure, Try}
 
 case class FileItemRef(id:String)
-case class FileDocument(id:String, path:String, uri:Seq[String], state:String, size:Long, hash:Option[String], timestamp:String,refreshFlag:Int, storage:String, item:Option[FileItemRef]) {
+
+/**
+Represents a FileDocument metadata entry from Vidispine. Note that `uri` _can_ be None, e.g. in the case of state==LOST
+ */
+case class FileDocument(id:String, path:String, uri:Option[Seq[String]], state:String, size:Long, hash:Option[String], timestamp:String,refreshFlag:Int, storage:String, item:Option[FileItemRef]) {
   private val logger = LoggerFactory.getLogger(getClass)
   /**
    * tries to parse the given URI string, check if it's a file: url and if so returns the path segment
@@ -27,7 +31,7 @@ case class FileDocument(id:String, path:String, uri:Seq[String], state:String, s
    * @return the path segment or None if there is none available.
    */
   def getAbsolutePath = {
-    val results = uri.map(extractFilePathFromUri)
+    val results = uri.getOrElse(Seq()).map(extractFilePathFromUri)
     val successes = results.collect({case Right(path)=>path})
     if(successes.length==1) {
       Some(successes.head)
