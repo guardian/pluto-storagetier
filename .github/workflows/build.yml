@@ -92,7 +92,7 @@ jobs:
         run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-online-archive:${{ env.GITHUB_RUN_NUMBER }}
 
       - name: Output build-info.yaml
-        uses: fredex42/pluto-build-info@5638f791b6b3fc830a119dc3cfe4f864c843fba0
+        uses: fredex42/pluto-build-info@v1.1
         with:
           builtimage: AWS_ACCOUNT_ID.dkr.ecr.AWS_REGION.amazonaws.com/storagetier-online-nearline:${{ env.GITHUB_RUN_NUMBER }}
           token: ${{ secrets.GITHUB_TOKEN }}
