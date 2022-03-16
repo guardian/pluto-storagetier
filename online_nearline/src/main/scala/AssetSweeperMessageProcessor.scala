@@ -52,21 +52,25 @@ class AssetSweeperMessageProcessor()
               )
             )
         case Left(error) => Future(Left(error))
-      }).recoverWith(err => {
-        val attemptCount = attemptCountFromMDC() match {
-          case Some(count)=>count
-          case None=>
-            logger.warn(s"Could not get attempt count from logging context for $fullPath, creating failure report with attempt 1")
-            1
-        }
+      }).recoverWith({
+        case err:BailOutException=>
+          logger.warn(s"A permanent exception occurred when trying to copy $fullPath: ${err.getMessage}")
+          Future.failed(err)
+        case err:Throwable=>
+          val attemptCount = attemptCountFromMDC() match {
+            case Some(count)=>count
+            case None=>
+              logger.warn(s"Could not get attempt count from logging context for $fullPath, creating failure report with attempt 1")
+              1
+          }
 
-        val rec = FailureRecord(id = None,
-          originalFilePath = fullPath.toString,
-          attempt = attemptCount,
-          errorMessage = err.getMessage,
-          errorComponent = ErrorComponents.Internal,
-          retryState = RetryStates.WillRetry)
-        failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
+          val rec = FailureRecord(id = None,
+            originalFilePath = fullPath.toString,
+            attempt = attemptCount,
+            errorMessage = err.getMessage,
+            errorComponent = ErrorComponents.Internal,
+            retryState = RetryStates.WillRetry)
+          failureRecordDAO.writeRecord(rec).map(_=>Left(err.getMessage))
     })
   }
 
