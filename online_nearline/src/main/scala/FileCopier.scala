@@ -140,6 +140,10 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
       case Some(id) =>
         Future.fromTry(Try { vault.getObject(id) })
           .flatMap({ mxsFile =>
+            val localFileSize = getSizeFromPath(filePath)
+            //get the file size first, as it's possible for our connection to be logged out by the time the checksum finishes
+            val remoteFileSize = getSizeFromMxs(mxsFile)
+
             // File exist in ObjectMatrix check size and md5
             val savedContext = getContextMap  //need to save the debug context for when we go in and out of akka
             val checksumMatchFut = Future.sequence(Seq(
@@ -157,9 +161,8 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
             checksumMatchFut.flatMap({
               case true => //checksums match
                 setContextMap(savedContext)
-                val localFileSize = getSizeFromPath(filePath)
 
-                if (getSizeFromMxs(mxsFile) == localFileSize) { //file size and checksums match, no copy required
+                if (remoteFileSize == localFileSize) { //file size and checksums match, no copy required
                   logger.info(s"Object with object id ${id} and filepath ${filePath} already exists")
                   Future(Right(id))
                 } else { //checksum matches but size does not (unlikely but possible), new copy required
