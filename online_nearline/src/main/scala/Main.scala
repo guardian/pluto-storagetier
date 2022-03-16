@@ -36,6 +36,9 @@ object Main {
     case Right(config)=>config
   }
 
+  //maximum time (in seconds) to keep an idle connection open
+  private val connectionIdleTime = sys.env.getOrElse("CONNECTION_MAX_IDLE", "750").toInt
+
   private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-onlinenearline", defaultExecutionContext=Some
   (executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
@@ -61,7 +64,8 @@ object Main {
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
       accessKeySecret = matrixStoreConfig.accessKeySecret,
-      clusterId = matrixStoreConfig.clusterId
+      clusterId = matrixStoreConfig.clusterId,
+      maxIdleSeconds = connectionIdleTime
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
