@@ -1,5 +1,7 @@
 package com.gu.multimedia.storagetier.messages
 
+import com.gu.multimedia.storagetier.vidispine.QueryableItem
+
 import scala.util.Try
 /*
 {
@@ -38,7 +40,7 @@ import scala.util.Try
 
 case class VidispineField(key: String, value: String)
 
-case class VidispineMediaIngested(field: List[VidispineField]) {
+case class VidispineMediaIngested(field: List[VidispineField]) extends QueryableItem {
   def filePath: Option[String] = getFilePath
   def itemId: Option[String] = getValue("itemId")
   def fileSize: Option[Long] = getValue("bytesWritten").flatMap(value=>Try { value.toLong }.toOption)

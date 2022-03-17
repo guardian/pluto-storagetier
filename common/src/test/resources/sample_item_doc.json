@@ -1,0 +1,462 @@
+{
+  "item": [
+    {
+      "metadata": {
+        "revision": "VX-1000011,VX-1000013,VX-1000063,VX-1000007,VX-1000008",
+        "timespan": [
+          {
+            "field": [
+              {
+                "name": "originalVideoCodec",
+                "value": [
+                  {
+                    "value": "",
+                    "uuid": "fe62ba92-b040-4eae-b4d6-73f1b49218b3",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "49a5d286-baa9-4524-a039-19b186ccd3f9",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "originalFormat",
+                "value": [
+                  {
+                    "value": "wav",
+                    "uuid": "737b1198-deaf-42e9-a6e0-76010aa1b958",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "7dd2bdd4-8ba1-43ab-b2e9-d222ca5d9cf6",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "shapeTag",
+                "value": [
+                  {
+                    "value": "original",
+                    "uuid": "11c6c5bc-e772-4057-91fa-07b3a67bfe80",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:33:37.399+0000",
+                    "change": "VX-1000063"
+                  }
+                ],
+                "uuid": "d85f42e8-9e27-414e-90d1-f56850207642",
+                "user": "system",
+                "timestamp": "2022-03-17T14:33:37.399+0000",
+                "change": "VX-1000063"
+              },
+              {
+                "name": "mimeType",
+                "value": [
+                  {
+                    "value": "audio/x-wav",
+                    "uuid": "8377fe9c-c3ed-4e43-80c7-790232781976",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "d086a818-569b-4d9a-ba2e-ac466f222223",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "durationTimeCode",
+                "value": [
+                  {
+                    "value": "2335483688@1000000",
+                    "uuid": "7d820382-ccf5-4477-b5a4-944094c0bf07",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "709f0731-273d-4fcf-a41d-1822cd43850a",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "mediaType",
+                "value": [
+                  {
+                    "value": "audio",
+                    "uuid": "58cd0766-61d0-4fa6-9e51-6b0be7e32086",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "941c634c-658c-43d5-ae13-33a3deaf06de",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "itemId",
+                "value": [
+                  {
+                    "value": "VX-129678",
+                    "uuid": "74aee9ca-3fde-4301-ba0d-0922e58b824e",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "31010233-f47c-48ad-9ff9-826bc095400c",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "startTimeCode",
+                "value": [
+                  {
+                    "value": "4147152000@48000",
+                    "uuid": "c7afe317-9a07-4065-9fdb-71f29b943191",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "efdf3aff-415d-4bbb-9175-95c523e106b1",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "originalAudioCodec",
+                "value": [
+                  {
+                    "value": "pcm_s16le",
+                    "uuid": "6253d519-d28d-428a-a84e-fb2f0581c7ad",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "18e6fae8-b2e6-4f0c-8aab-7404d88d3663",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "durationSeconds",
+                "value": [
+                  {
+                    "value": "2335.483688",
+                    "uuid": "842408c6-cc96-4772-829a-bbd797e0a143",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "80566193-96f0-414e-b888-4c5beab833fa",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "startSeconds",
+                "value": [
+                  {
+                    "value": "86399.0",
+                    "uuid": "e733a1b9-799b-4ff5-b5c7-c36b2e218978",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.346+0000",
+                    "change": "VX-1000011"
+                  }
+                ],
+                "uuid": "fb487a8e-56dd-4f80-9874-27c7ac3ae9c4",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.346+0000",
+                "change": "VX-1000011"
+              },
+              {
+                "name": "title",
+                "value": [
+                  {
+                    "value": "Mic 1_02.wav (phil_maynard_Mike_Syria_VO_episode_1)",
+                    "uuid": "af5f58ef-549a-4201-b3a1-f22570bf1a82",
+                    "user": "admin",
+                    "timestamp": "2022-03-17T14:30:04.859+0000",
+                    "change": "VX-1000007"
+                  }
+                ],
+                "uuid": "772531f4-03a6-4dd5-9bd0-819d9a7644ed",
+                "user": "admin",
+                "timestamp": "2022-03-17T14:30:04.859+0000",
+                "change": "VX-1000007"
+              },
+              {
+                "name": "originalFilename",
+                "value": [
+                  {
+                    "value": "Mic 1_02.wav",
+                    "uuid": "778d80a1-19a3-4c06-83b3-de2c0d29dc4f",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:05.459+0000",
+                    "change": "VX-1000013"
+                  }
+                ],
+                "uuid": "3af48513-39c6-4e32-90fd-20d233d23771",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:05.459+0000",
+                "change": "VX-1000013"
+              },
+              {
+                "name": "created",
+                "value": [
+                  {
+                    "value": "2022-03-17T14:30:04.726Z",
+                    "uuid": "2d3e2cfb-2ae1-43be-8870-fbd4a255133f",
+                    "user": "system",
+                    "timestamp": "2022-03-17T14:30:04.981+0000",
+                    "change": "VX-1000008"
+                  }
+                ],
+                "uuid": "4b9ddb21-1e2f-4aa6-a823-211f45df31b4",
+                "user": "system",
+                "timestamp": "2022-03-17T14:30:04.981+0000",
+                "change": "VX-1000008"
+              },
+              {
+                "name": "__user",
+                "value": [
+                  {
+                    "value": "admin"
+                  }
+                ]
+              },
+              {
+                "name": "user",
+                "value": [
+                  {
+                    "value": "admin"
+                  }
+                ]
+              },
+              {
+                "name": "__metadata_last_modified",
+                "value": [
+                  {
+                    "value": "2022-03-17T14:33:37.399Z"
+                  }
+                ]
+              },
+              {
+                "name": "__placeholder_shape_size",
+                "value": [
+                  {
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "__shape_size",
+                "value": [
+                  {
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "__shape",
+                "value": [
+                  {
+                    "value": "VX-255717"
+                  }
+                ]
+              },
+              {
+                "name": "__version_count",
+                "value": [
+                  {
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "__version",
+                "value": [
+                  {
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "__shapetag_original_hash",
+                "value": [
+                  {
+                    "value": "c81e7876efa0586e5e682333509d5f83387b7bf2"
+                  }
+                ]
+              },
+              {
+                "name": "__shape_last_added",
+                "value": [
+                  {
+                    "value": "2022-03-17T14:30:05.153Z"
+                  }
+                ]
+              },
+              {
+                "name": "__storage_original",
+                "value": [
+                  {
+                    "value": "VX-4"
+                  }
+                ]
+              },
+              {
+                "name": "__storage_original_size",
+                "value": [
+                  {
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "__storage_size",
+                "value": [
+                  {
+                    "value": "1"
+                  }
+                ]
+              },
+              {
+                "name": "__storage",
+                "value": [
+                  {
+                    "value": "VX-4"
+                  }
+                ]
+              },
+              {
+                "name": "__storagegroup_size",
+                "value": [
+                  {
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "__sequence_size",
+                "value": [
+                  {
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "__collection_size",
+                "value": [
+                  {
+                    "value": "0"
+                  }
+                ]
+              },
+              {
+                "name": "__ancestor_collection_size",
+                "value": [
+                  {
+                    "value": "0"
+                  }
+                ]
+              }
+            ],
+            "group": [
+              {
+                "name": "Asset",
+                "field": [
+                  {
+                    "name": "gnm_owner",
+                    "value": [
+                      {
+                        "value": "1983819026",
+                        "uuid": "9cfa0661-800f-48a7-ae17-d3313ff8764f",
+                        "user": "admin",
+                        "timestamp": "2022-03-17T14:30:04.859+0000",
+                        "change": "VX-1000007"
+                      }
+                    ],
+                    "uuid": "8b7a4be9-8a1d-468c-a94b-30bec38c476a",
+                    "user": "admin",
+                    "timestamp": "2022-03-17T14:30:04.859+0000",
+                    "change": "VX-1000007"
+                  },
+                  {
+                    "name": "original_filename",
+                    "value": [
+                      {
+                        "value": "/srv/Multimedia2/Media Production/Assets/Multimedia_Today_In_Focus/March_2022/phil_maynard_Mike_Syria_VO_episode_1/Audio/Mic 1_02.wav",
+                        "uuid": "828800fb-1b54-4287-831a-54e23377ca0c",
+                        "user": "admin",
+                        "timestamp": "2022-03-17T14:30:04.859+0000",
+                        "change": "VX-1000007"
+                      }
+                    ],
+                    "uuid": "128de1dd-fd7c-4a70-a45b-4203a1238871",
+                    "user": "admin",
+                    "timestamp": "2022-03-17T14:30:04.859+0000",
+                    "change": "VX-1000007"
+                  },
+                  {
+                    "name": "gnm_file_created",
+                    "value": [
+                      {
+                        "value": "2022-03-17T14:21:10Z",
+                        "uuid": "cd61e7e2-d74d-4dcb-b8fe-52aab011db51",
+                        "user": "admin",
+                        "timestamp": "2022-03-17T14:30:04.859+0000",
+                        "change": "VX-1000007"
+                      }
+                    ],
+                    "uuid": "64474e1f-ef07-440d-81e4-763f62e50ec4",
+                    "user": "admin",
+                    "timestamp": "2022-03-17T14:30:04.859+0000",
+                    "change": "VX-1000007"
+                  },
+                  {
+                    "name": "gnm_category",
+                    "value": [
+                      {
+                        "value": "Rushes",
+                        "uuid": "3f335cf0-0ae5-4bd3-a4a8-56367ad96e7d",
+                        "user": "admin",
+                        "timestamp": "2022-03-17T14:30:04.859+0000",
+                        "change": "VX-1000007"
+                      }
+                    ],
+                    "uuid": "e0390946-7c52-4686-b2bc-4f981495ecfa",
+                    "user": "admin",
+                    "timestamp": "2022-03-17T14:30:04.859+0000",
+                    "change": "VX-1000007"
+                  }
+                ],
+                "group": [],
+                "uuid": "f6add134-663d-438f-b415-210fa0517a79",
+                "user": "admin",
+                "timestamp": "2022-03-17T14:30:04.859+0000",
+                "change": "VX-1000007"
+              }
+            ],
+            "start": "-INF",
+            "end": "+INF"
+          }
+        ]
+      },
+      "id": "VX-129678"
+    }
+  ]
+}

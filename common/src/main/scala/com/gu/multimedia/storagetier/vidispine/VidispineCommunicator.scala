@@ -275,6 +275,13 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
         maybeWantedShape.flatMap(_.getLikelyFile)
     })
   }
+
+  def getMetadata(itemId:String) = {
+    val req = HttpRequest(HttpMethods.GET, uri=s"${config.baseUri}/API/item/$itemId/metadata", headers = Seq(
+      Accept(MediaRange(MediaTypes.`application/json`))
+    ))
+    callToVidispine[ItemResponseSimplified](req)
+  }
 }
 
 object VidispineCommunicator {

@@ -12,7 +12,7 @@ import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
-import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
+import com.gu.multimedia.storagetier.vidispine.{QueryableItem, ShapeDocument, VSShapeFile, VidispineCommunicator}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
@@ -75,7 +75,7 @@ class VidispineMessageProcessor()
    * @param shouldSave if set to false, then don't write the record to the database before returning. Defaults to `true`.
    * @return a Future, containing the newly saved NearlineRecord if a record is found or None if not.
    */
-  def checkForPreExistingFiles(vault:Vault, filePath:Path, mediaIngested: VidispineMediaIngested, shouldSave:Boolean=true) = {
+  def checkForPreExistingFiles(vault:Vault, filePath:Path, mediaIngested: QueryableItem, shouldSave:Boolean=true) = {
     val fileSizeFut = (mediaIngested.fileSize, mediaIngested.itemId) match {
       case (Some(fileSize), _) => Future(Some(fileSize))
       case (None, Some(itemId))=>
@@ -121,7 +121,7 @@ class VidispineMessageProcessor()
    * @return String explaining which action took place
    */
   def uploadIfRequiredAndNotExists(vault: Vault, absPath: String,
-                                   mediaIngested: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = {
+                                   mediaIngested: QueryableItem): Future[Either[String, MessageProcessorReturnValue]] = {
     logger.debug(s"uploadIfRequiredAndNotExists: Original file is $absPath")
 
     val fullPath = Paths.get(absPath)
@@ -561,6 +561,67 @@ class VidispineMessageProcessor()
       .map(_.collect({case Some(f)=>f}))
   }
 
+  /**
+   * sent if an old item does not have `gnm_nearline_id` set on it.
+   * We need to check if we have a backup copy of the item and if so update, if not make one
+   * @param vault
+   * @param itemId
+   */
+  def handleVidispineItemNeedsBackup(vault:Vault, itemId:String) = {
+    nearlineRecordDAO.findByVidispineId(itemId).flatMap({
+      case Some(existingRecord) =>
+        logger.info(s"Item $itemId is registered in the nearline database with MXS ID ${existingRecord.objectId}, updating Vidispine...")
+        VidispineHelper.updateVidispineWithMXSId(itemId, existingRecord)
+      case None =>
+        val itemShapesFut = vidispineCommunicator.listItemShapes(itemId).map({
+          case None =>
+            logger.error(s"Can't back up vidispine item $itemId as it has no shapes on it")
+            throw SilentDropMessage(Some("item has no shapes"))
+          case Some(shapes) =>
+            shapes.find(_.tag.contains("original")) match {
+              case None =>
+                logger.error(s"Can't back up vidispine item $itemId as it has no original shape. Shapes were: ${shapes.flatMap(_.tag).mkString("; ")}")
+                throw SilentDropMessage(Some("item has no original shape"))
+              case Some(originalShape) => originalShape
+            }
+        })
+
+        val itemMetadataFut = vidispineCommunicator.getMetadata(itemId).map({
+          case None =>
+            logger.error(s"Can't get any metadata for item $itemId")
+            Left("Can't get metadata")
+          case Some(meta) =>
+            val possibleNearlineIds = meta.valuesForField("gnm_nearline_id", Some("Asset"))
+            if (possibleNearlineIds.isEmpty || possibleNearlineIds.count(_.value.nonEmpty) == 0) {
+              logger.info(s"Item $itemId does not appear to have a regostered nearline copy, attempting to correct")
+              Right(meta)
+            } else {
+              logger.info(s"Item $itemId does have a registered nearline ID: ${possibleNearlineIds.filter(_.value.nonEmpty).map(_.value).mkString("; ")}, not going to do anything")
+              throw SilentDropMessage(Some("item already has a registered nearline copy"))
+            }
+        })
+
+        for {
+          metadata <- itemMetadataFut
+          itemShapes <- itemShapesFut
+          maybePath <- itemShapes.getLikelyFile.map(_.id) match {
+            case Some(fileId)=>
+              vidispineCommunicator.getFileInformation(fileId).map(_.flatMap(_.getAbsolutePath))
+            case None=>
+              Future(None)
+          }
+          result <- (metadata, maybePath) match {
+            case (Right(meta), Some(absPath))=>
+              logger.info(s"$itemId: Checking if there is a matching file in the nearline and uploading if necessary...")
+              uploadIfRequiredAndNotExists(vault, absPath, QueryableVidispineItemResponse(meta, itemShapes))
+            case (_, None)=>
+              Future(Left(s"Could not determine a file path for $itemId"))
+            case (Left(err), _)=>
+              Future(Left(err))
+          }
+        } yield result
+    })
+  }
   def handleMetadataUpdate(metadataUpdated:VidispineMediaIngested):Future[Either[String, MessageProcessorReturnValue]] = {
     metadataUpdated.itemId match {
       case None=>
@@ -661,6 +722,10 @@ class VidispineMessageProcessor()
         }
       case (Right(mediaIngested), "vidispine.item.metadata.modify")=>
         handleMetadataUpdate(mediaIngested)
+      case (Right(mediaItemIdOnly), "vidispine.itemneedsbackup")=>
+        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+          handleVidispineItemNeedsBackup(vault, mediaItemIdOnly.itemId.get)
+        }
       case (Right(shapeUpdate), "vidispine.item.shape.modify")=>
         (shapeUpdate.shapeId, shapeUpdate.shapeTag, shapeUpdate.itemId) match {
           case (None, _, _)=>

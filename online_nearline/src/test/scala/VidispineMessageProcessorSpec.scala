@@ -8,7 +8,7 @@ import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
 import com.gu.multimedia.storagetier.messages.{VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.vidispine.{FileDocument, ItemResponseSimplified, ShapeDocument, VSShapeFile, VidispineCommunicator}
+import com.gu.multimedia.storagetier.vidispine.{FileDocument, ItemResponseSimplified, QueryableItem, ShapeDocument, VSShapeFile, VidispineCommunicator}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import org.specs2.mock.Mockito
@@ -90,12 +90,12 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
       ))
 
-      val mockUploadIfReqd = mock[(Vault, String, VidispineMediaIngested) => Future[Either[String, MessageProcessorReturnValue]]]
+      val mockUploadIfReqd = mock[(Vault, String, QueryableItem) => Future[Either[String, MessageProcessorReturnValue]]]
       val fakeResult = mock[MessageProcessorReturnValue]
       mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
 
       val toTest = new VidispineMessageProcessor() {
-        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: VidispineMediaIngested)
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem)
         : Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(vault, absPath, mediaIngested)
       }
 
@@ -262,7 +262,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       ))
 
 
-      val mockCheckForPreExisting = mock[(Vault, Path, VidispineMediaIngested, Boolean)=>Future[Option[NearlineRecord]]]
+      val mockCheckForPreExisting = mock[(Vault, Path, QueryableItem, Boolean)=>Future[Option[NearlineRecord]]]
 
       val mockNearlineRecord = NearlineRecord(
         Some(123),
@@ -315,7 +315,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
 
-        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: VidispineMediaIngested, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
+        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: QueryableItem, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
       }
 
       val result = Await.result(toTest.handleMetadataUpdate(msg), 2.seconds)
@@ -348,7 +348,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockShape.getLikelyFile returns Some(VSShapeFile("VX-8888","/path/to/some/file",None,"CLOSED",1234L,None,"2012-01-02T03:04:05Z",1, "VX-4"))
       mockVSCommunicator.listItemShapes(any) returns Future(Some(Seq(mockShape)))
 
-      val mockCheckForPreExisting = mock[(Vault, Path, VidispineMediaIngested, Boolean)=>Future[Option[NearlineRecord]]]
+      val mockCheckForPreExisting = mock[(Vault, Path, QueryableItem, Boolean)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExisting(any,any,any,any) returns Future(Some(mockNearlineRecord))
       val msg = VidispineMediaIngested(List(
         VidispineField("itemId","VX-12345")
@@ -396,7 +396,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
 
-        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: VidispineMediaIngested, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
+        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: QueryableItem, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
       }
 
       val result = Await.result(toTest.handleMetadataUpdate(msg), 2.seconds)

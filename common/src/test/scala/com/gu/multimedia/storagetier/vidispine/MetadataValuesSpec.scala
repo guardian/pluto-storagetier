@@ -10,7 +10,17 @@ class MetadataValuesSpec extends Specification {
     "be marshallable from a vidispine item server response" in {
       val maybeParsed = io.circe.parser.parse(exampleParseValue).flatMap(_.as[ItemResponseSimplified])
       maybeParsed must beRight
+    }
 
+    "allow metadata access" in {
+      val maybeParsed = io.circe.parser.parse(exampleParseValue).flatMap(_.as[ItemResponseSimplified])
+      maybeParsed must beRight
+
+      val meta = maybeParsed.right.get
+      meta.valuesForField("gnm_containing_projects",Some("Asset")).map(_.value).headOption must beSome("26")
+      meta.valuesForField("gnm_file_created", Some("Asset")).map(_.value).headOption must beSome("2021-10-11T11:20:39Z")
+      meta.valuesForField("representativeThumbnailNoAuth").map(_.value).headOption must beSome("/APInoauth/thumbnail/VX-2/VX-1559;version=0/1800@60?hash=bb7237ded285975f690995edf6a2f3c9")
+      meta.valuesForField("hfghdfhfh").map(_.value).headOption must beNone
     }
   }
 }
