@@ -87,7 +87,7 @@ object Main {
       ProcessorConfiguration(
         "vidispine-events",
         Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.metadata.modify", "vidispine.item.shape.modify", "vidispine.itemneedsbackup"),
-        Seq("storagetier.nearline.newfile","storagetier.nearline.newfile", "storagetier.nearline.vidispineupdate", "storagetier.nearline.vidispineupdate", "storagetier.nearline.vidispineupdate"),
+        Seq("storagetier.nearline.newfile","storagetier.nearline.newfile", "storagetier.nearline.vidispineupdate", "storagetier.nearline.vidispineupdate", "storagetier.nearline.newfile"),
         new VidispineMessageProcessor()
       )
     )
