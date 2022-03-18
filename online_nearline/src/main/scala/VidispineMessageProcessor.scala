@@ -593,7 +593,7 @@ class VidispineMessageProcessor()
           case Some(meta) =>
             val possibleNearlineIds = meta.valuesForField("gnm_nearline_id", Some("Asset"))
             if (possibleNearlineIds.isEmpty || possibleNearlineIds.count(_.value.nonEmpty) == 0) {
-              logger.info(s"Item $itemId does not appear to have a regostered nearline copy, attempting to correct")
+              logger.info(s"Item $itemId does not appear to have a registered nearline copy, attempting to correct")
               Right(meta)
             } else {
               logger.info(s"Item $itemId does have a registered nearline ID: ${possibleNearlineIds.filter(_.value.nonEmpty).map(_.value).mkString("; ")}, not going to do anything")
@@ -622,6 +622,7 @@ class VidispineMessageProcessor()
         } yield result
     })
   }
+
   def handleMetadataUpdate(metadataUpdated:VidispineMediaIngested):Future[Either[String, MessageProcessorReturnValue]] = {
     metadataUpdated.itemId match {
       case None=>
