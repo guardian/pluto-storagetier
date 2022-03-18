@@ -141,7 +141,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
             val remoteFileSize = getSizeFromMxs(mxsFile)
 
             // File exist in ObjectMatrix check size and md5
-            val savedContext = getContextMap  //need to save the debug context for when we go in and out of akka
+            val savedContext = getContextMap()  //need to save the debug context for when we go in and out of akka
             val checksumMatchFut = Future.sequence(Seq(
               getChecksumFromPath(filePath),
               getOMFileMd5(mxsFile)

@@ -48,12 +48,17 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       })
       .flatMap({
         case Right(Some(entity))=>
+          if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
           Future(Some(entity))
-        case Right(None)=>Future(None)
+        case Right(None)=>
+          if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
+          Future(None)
         case Left(RedirectRequired(newUri))=>
+          if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
           logger.info(s"vidispine redirected to $newUri")
           callToVidispineRaw(req.withUri(newUri), attempt+1, retryLimit)
         case Left(RetryRequired)=>
+          if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get)
           Thread.sleep(500*attempt)
           callToVidispineRaw(req, attempt+1, retryLimit)
       })
