@@ -1508,7 +1508,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         val maybeGroup = args(1).asInstanceOf[Option[String]]
 
         (fieldName: @switch) match {
-          case "gnm_nearline_id"=>Seq(MetadataValuesWrite("abcdefg"))
+          case "gnm_nearline_id"=>Seq()
           case "original_filename"=>Seq(MetadataValuesWrite("/path/to/some.file"))
           case _=>
             throw new RuntimeException(s"unexpected field $fieldName")
@@ -1547,7 +1547,6 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         org.mockito.ArgumentMatchers.eq("/some/path/to/media.file"),
         org.mockito.ArgumentMatchers.any()
       )
-      there was one()
     }
 
     "call out to uploadIfRequiredAndNotExists if the item has no shapes on it" in {
