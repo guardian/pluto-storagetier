@@ -594,10 +594,10 @@ class VidispineMessageProcessor()
             val possibleNearlineIds = meta.valuesForField("gnm_nearline_id", Some("Asset"))
             if (possibleNearlineIds.isEmpty || possibleNearlineIds.count(_.value.nonEmpty) == 0) {
               logger.info(s"Item $itemId does not appear to have a registered nearline copy, attempting to correct")
-              Right(meta)
+              Right( (meta, false) )
             } else {
               logger.info(s"Item $itemId does have a registered nearline ID: ${possibleNearlineIds.filter(_.value.nonEmpty).map(_.value).mkString("; ")}, not going to do anything")
-              throw SilentDropMessage(Some("item already has a registered nearline copy"))
+              Right(  (meta, true) )
             }
         })
 
@@ -611,7 +611,26 @@ class VidispineMessageProcessor()
               Future(None)
           }
           result <- (metadata, maybePath) match {
-            case (Right(meta), Some(absPath))=>
+            case ( Right( (meta, false)) , _)=>
+              logger.info(s"$itemId: Already has nearline ID in Vidispine, checking local record")
+              val possibleNearlineIds = meta.valuesForField("gnm_nearline_id", Some("Asset"))
+              val possibleFilePath = meta.valuesForField("original_filename", Some("Asset"))
+              val possibleVersion = meta.valuesForField("__version")
+              (possibleNearlineIds.headOption.map(_.value), possibleFilePath.headOption.map(_.value)) match {
+                case (Some(nearlineId), Some(filePath))=>
+                  val newRecord = NearlineRecord(None, nearlineId, filePath, Some(itemId), possibleVersion.headOption.map(_.value.toInt), None, None, None, false)
+                  nearlineRecordDAO
+                    .writeRecord(newRecord)
+                    .map(rec=>Right(MessageProcessorReturnValue(rec.asJson)))
+                case (None, _)=>
+                  logger.error(s"Internal error, item detected as having a nearline ID did not have one?? Needs investigating")
+                  throw new RuntimeException(s"Internal consistency error, Vidispine item $itemId passed one check as having a nearline ID and the next time did not have one")
+                case (_, None)=>
+                  logger.error(s"Item $itemId has a nearline ID but no original path so can't create a record for it")
+                  throw SilentDropMessage(Some("Item has no original path stored"))
+              }
+
+            case ( Right( (meta, true) ), Some(absPath))=>
               logger.info(s"$itemId: Checking if there is a matching file in the nearline and uploading if necessary...")
               uploadIfRequiredAndNotExists(vault, absPath, QueryableVidispineItemResponse(meta, itemShapes))
             case (_, None)=>
