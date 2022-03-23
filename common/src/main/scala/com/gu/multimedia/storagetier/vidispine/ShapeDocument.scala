@@ -34,16 +34,19 @@ case class ShapeDocument(
                         mimeType: Option[Seq[String]],
                         containerComponent: Option[SimplifiedComponent],
                         audioComponent: Option[Seq[SimplifiedComponent]],
-                        videoComponent: Option[Seq[SimplifiedComponent]]
+                        videoComponent: Option[Seq[SimplifiedComponent]],
+                        binaryComponent: Option[Seq[SimplifiedComponent]],
                         ) {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def getLikelyFile:Option[VSShapeFile] = {
     val audioFiles = audioComponent.getOrElse(Seq.empty[SimplifiedComponent]).flatMap(_.file)
     val videoFiles = videoComponent.getOrElse(Seq.empty[SimplifiedComponent]).flatMap(_.file)
+    val binaryFiles = binaryComponent.getOrElse(Seq.empty[SimplifiedComponent]).flatMap(_.file)
+
     val allComponentFiles = containerComponent match {
-      case Some(container) => container.file ++ audioFiles ++ videoFiles
-      case None => audioFiles ++ videoFiles
+      case Some(container) => container.file ++ audioFiles ++ videoFiles ++ binaryFiles
+      case None => audioFiles ++ videoFiles ++ binaryFiles
     }
     val fileIdMap = allComponentFiles.foldLeft(Map[String, VSShapeFile]())((acc, elem)=>acc + (elem.id->elem))
     if(fileIdMap.size>1) {
