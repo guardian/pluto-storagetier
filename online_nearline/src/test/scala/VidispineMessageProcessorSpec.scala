@@ -1497,8 +1497,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
             Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
           )),
           None,
+          None,
           None),
-        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None)
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
       )
       mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
 
@@ -1619,8 +1620,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
             Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
           )),
           None,
+          None,
           None),
-        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None)
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
       )
       mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
 
@@ -1685,8 +1687,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
             Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
           )),
           None,
+          None,
           None),
-        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None)
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
       )
       mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
 
@@ -1739,8 +1742,9 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
             Seq()
           )),
           None,
+          None,
           None),
-        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None)
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
       )
       mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
 
