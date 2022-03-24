@@ -65,7 +65,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "call out to uploadIfRequiredAndNotExists" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Some(Seq("file:///absolute/path/relative/path.mp4")), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 
@@ -109,7 +109,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
   "VidispineMessageProcessor.uploadIfRequiredAndNotExists" should {
     "return NearlineRecord when file has been copied to MatrixStore, and set the Nearline ID in Vidispine" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Some(Seq("file:///absolute/path/relative/path.mp4")), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
       mockVSCommunicator.setGroupedMetadataValue(any,any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
@@ -159,7 +159,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "return Left when file copy to MatrixStore fail" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Some(Seq("file:///absolute/path/relative/path.mp4")), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 
@@ -207,7 +207,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
     }
 
     "return FailureRecord when exception is thrown during file copy" in {
-      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Seq("file:///absolute/path/relative/path.mp4"), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
+      val mockVSFile = FileDocument("VX-1234","relative/path.mp4",Some(Seq("file:///absolute/path/relative/path.mp4")), "CLOSED", 123456L, Some("deadbeef"), "2020-01-02T03:04:05Z", 1, "VX-2", None)
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockVSFile))
 
@@ -1484,7 +1484,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       implicit val mockCopier = mock[FileCopier]
 
-      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      val mockedFile = FileDocument("VX-1212","media.file",Some(Seq("file:///some/path/to/media.file")), "CLOSED",12345L, None, "", 0, "VX-7", None)
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
 
       val itemShapes = Seq(
@@ -1494,7 +1494,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           None,
           Some(SimplifiedComponent(
             "VX-1212",
-            Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
           )),
           None,
           None,
@@ -1554,7 +1554,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       implicit val mockCopier = mock[FileCopier]
 
-      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      val mockedFile = FileDocument("VX-1212","media.file",Some(Seq("file:///some/path/to/media.file")), "CLOSED",12345L, None, "", 0, "VX-7", None)
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
 
       val itemShapes = Seq()
@@ -1607,7 +1607,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       implicit val mockCopier = mock[FileCopier]
 
-      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      val mockedFile = FileDocument("VX-1212","media.file",Some(Seq("file:///some/path/to/media.file")), "CLOSED",12345L, None, "", 0, "VX-7", None)
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
 
       val itemShapes = Seq(
@@ -1617,7 +1617,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           None,
           Some(SimplifiedComponent(
             "VX-1212",
-            Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
           )),
           None,
           None,
@@ -1674,7 +1674,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       implicit val mockCopier = mock[FileCopier]
 
-      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      val mockedFile = FileDocument("VX-1212","media.file",Some(Seq("file:///some/path/to/media.file")), "CLOSED",12345L, None, "", 0, "VX-7", None)
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
 
       val itemShapes = Seq(
@@ -1684,7 +1684,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           None,
           Some(SimplifiedComponent(
             "VX-1212",
-            Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
           )),
           None,
           None,
@@ -1729,7 +1729,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
       implicit val mockCopier = mock[FileCopier]
 
-      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      val mockedFile = FileDocument("VX-1212","media.file",Some(Seq("file:///some/path/to/media.file")), "CLOSED",12345L, None, "", 0, "VX-7", None)
       mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
 
       val itemShapes = Seq(
