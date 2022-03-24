@@ -5,11 +5,12 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.gu.multimedia.mxscopy.models.MxsMetadata
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl, MXSConnectionBuilderMock}
-import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
+import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.{VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.vidispine.{FileDocument, ItemResponseSimplified, ShapeDocument, VSShapeFile, VidispineCommunicator}
+import com.gu.multimedia.storagetier.vidispine.{FileDocument, ItemResponseSimplified, MetadataValuesWrite, QueryableItem, ShapeDocument, SimplifiedComponent, VSShapeFile, VidispineCommunicator}
 import com.om.mxs.client.japi.{MxsObject, Vault}
+import io.circe.Json
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
@@ -19,6 +20,7 @@ import io.circe.generic.auto._
 import java.net.URI
 import java.time.{ZoneId, ZonedDateTime}
 import java.nio.file.{Path, Paths}
+import scala.annotation.switch
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -90,12 +92,12 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         VidispineField("filePathMap", "VX-999=some/unknown/path/bla.jpg,VX-456=the/correct/filepath/video.mp4")
       ))
 
-      val mockUploadIfReqd = mock[(Vault, String, VidispineMediaIngested) => Future[Either[String, MessageProcessorReturnValue]]]
+      val mockUploadIfReqd = mock[(Vault, String, QueryableItem) => Future[Either[String, MessageProcessorReturnValue]]]
       val fakeResult = mock[MessageProcessorReturnValue]
       mockUploadIfReqd.apply(any,any,any) returns Future(Right(fakeResult))
 
       val toTest = new VidispineMessageProcessor() {
-        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: VidispineMediaIngested)
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem)
         : Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfReqd(vault, absPath, mediaIngested)
       }
 
@@ -262,7 +264,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       ))
 
 
-      val mockCheckForPreExisting = mock[(Vault, Path, VidispineMediaIngested, Boolean)=>Future[Option[NearlineRecord]]]
+      val mockCheckForPreExisting = mock[(Vault, Path, QueryableItem, Boolean)=>Future[Option[NearlineRecord]]]
 
       val mockNearlineRecord = NearlineRecord(
         Some(123),
@@ -315,7 +317,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
 
-        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: VidispineMediaIngested, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
+        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: QueryableItem, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
       }
 
       val result = Await.result(toTest.handleMetadataUpdate(msg), 2.seconds)
@@ -348,7 +350,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       mockShape.getLikelyFile returns Some(VSShapeFile("VX-8888","/path/to/some/file",None,"CLOSED",1234L,None,"2012-01-02T03:04:05Z",1, "VX-4"))
       mockVSCommunicator.listItemShapes(any) returns Future(Some(Seq(mockShape)))
 
-      val mockCheckForPreExisting = mock[(Vault, Path, VidispineMediaIngested, Boolean)=>Future[Option[NearlineRecord]]]
+      val mockCheckForPreExisting = mock[(Vault, Path, QueryableItem, Boolean)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExisting(any,any,any,any) returns Future(Some(mockNearlineRecord))
       val msg = VidispineMediaIngested(List(
         VidispineField("itemId","VX-12345")
@@ -396,7 +398,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
         override protected def streamVidispineMeta(vault: Vault, itemId: String, objectMetadata: MxsMetadata): Future[Either[String, (String, Some[String])]] = mockStreamVidispineMeta(vault, itemId, objectMetadata)
 
-        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: VidispineMediaIngested, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
+        override def checkForPreExistingFiles(vault: Vault, filePath: Path, mediaIngested: QueryableItem, shouldSave: Boolean): Future[Option[NearlineRecord]] = mockCheckForPreExisting(vault, filePath, mediaIngested, shouldSave)
       }
 
       val result = Await.result(toTest.handleMetadataUpdate(msg), 2.seconds)
@@ -1476,4 +1478,318 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       there was one (mockInternalCheckFile).apply(Paths.get(URI.create("file:///srv/proxy/with/illegal/location/VX-1234.mp4")))
     }
   }
+
+  "VidispineMessageProcessor.handleVidispineItemNeedsBackup" should {
+    "call out to uploadIfRequiredAndNotExists if the item does not exist in the database and does have appropriate metadata" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
+
+      val itemShapes = Seq(
+        ShapeDocument("VX-1111","",
+          Some(0),
+          Seq("original"),
+          None,
+          Some(SimplifiedComponent(
+            "VX-1212",
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+          )),
+          None,
+          None,
+          None),
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
+      )
+      mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
+
+      val mockedMeta = mock[ItemResponseSimplified]
+      mockedMeta.valuesForField(any, any) answers ((args:Array[AnyRef])=>{
+        val fieldName = args.head.asInstanceOf[String]
+        val maybeGroup = args(1).asInstanceOf[Option[String]]
+
+        (fieldName: @switch) match {
+          case "gnm_nearline_id"=>Seq()
+          case "original_filename"=>Seq(MetadataValuesWrite("/path/to/some.file"))
+          case _=>
+            throw new RuntimeException(s"unexpected field $fieldName")
+        }
+      })
+      mockVSCommunicator.getMetadata(any) returns Future(Some(mockedMeta))
+
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+      val mockVault = mock[Vault]
+
+      val mockUploadIfRequiredAndNotExists = mock[(Vault, String, QueryableItem)=>Future[Either[String, MessageProcessorReturnValue]]]
+      mockUploadIfRequiredAndNotExists.apply(any,any,any) returns Future(Right(MessageProcessorReturnValue(Json.fromString("{\"test\":\"ok\""))))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfRequiredAndNotExists(vault, absPath, mediaIngested)
+      }
+
+      val result = Await.result(toTest.handleVidispineItemNeedsBackup(mockVault, "VX-12345"), 5.seconds)
+
+      result must beRight
+
+      there was one(nearlineRecordDAO).findByVidispineId("VX-12345")
+      there was one(mockVSCommunicator).listItemShapes("VX-12345")
+      there was one(mockVSCommunicator).getFileInformation("VX-1212")
+      there was one(mockUploadIfRequiredAndNotExists).apply(
+        org.mockito.ArgumentMatchers.eq(mockVault),
+        org.mockito.ArgumentMatchers.eq("/some/path/to/media.file"),
+        org.mockito.ArgumentMatchers.any()
+      )
+    }
+
+    "call out to uploadIfRequiredAndNotExists if the item has no shapes on it" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
+
+      val itemShapes = Seq()
+      mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
+
+      val mockedMeta = mock[ItemResponseSimplified]
+      mockedMeta.valuesForField(any, any) answers ((args:Array[AnyRef])=>{
+        val fieldName = args.head.asInstanceOf[String]
+        val maybeGroup = args(1).asInstanceOf[Option[String]]
+
+        (fieldName: @switch) match {
+          case "gnm_nearline_id"=>Seq()
+          case _=>
+            throw new RuntimeException(s"unexpected field $fieldName")
+        }
+      })
+      mockVSCommunicator.getMetadata(any) returns Future(Some(mockedMeta))
+
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+      val mockVault = mock[Vault]
+
+      val mockUploadIfRequiredAndNotExists = mock[(Vault, String, QueryableItem)=>Future[Either[String, MessageProcessorReturnValue]]]
+      mockUploadIfRequiredAndNotExists.apply(any,any,any) returns Future(Right(MessageProcessorReturnValue(Json.fromString("{\"test\":\"ok\""))))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfRequiredAndNotExists(vault, absPath, mediaIngested)
+      }
+
+      val result = Try { Await.result(toTest.handleVidispineItemNeedsBackup(mockVault, "VX-12345"), 5.seconds) }
+
+      result must beFailedTry
+      result.failed.get must beAnInstanceOf[SilentDropMessage]
+
+      there was one(nearlineRecordDAO).findByVidispineId("VX-12345")
+      there was one(mockVSCommunicator).listItemShapes("VX-12345")
+      there was no(mockVSCommunicator).getFileInformation(any)
+      there was no(mockUploadIfRequiredAndNotExists).apply(any,any,any)
+    }
+
+    "silently drop the message if the vidispine item already has a nearline id" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
+
+      val itemShapes = Seq(
+        ShapeDocument("VX-1111","",
+          Some(0),
+          Seq("original"),
+          None,
+          Some(SimplifiedComponent(
+            "VX-1212",
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+          )),
+          None,
+          None,
+          None),
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
+      )
+      mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
+
+      val mockedMeta = mock[ItemResponseSimplified]
+      mockedMeta.valuesForField(any, any) answers ((args:Array[AnyRef])=>{
+        val fieldName = args.head.asInstanceOf[String]
+        val maybeGroup = args(1).asInstanceOf[Option[String]]
+
+        (fieldName: @switch) match {
+          case "gnm_nearline_id"=>Seq(MetadataValuesWrite("abcdefg"))
+          case _=>
+            throw new RuntimeException(s"unexpected field $fieldName")
+        }
+      })
+      mockVSCommunicator.getMetadata(any) returns Future(Some(mockedMeta))
+
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+      val mockVault = mock[Vault]
+
+      val mockUploadIfRequiredAndNotExists = mock[(Vault, String, QueryableItem)=>Future[Either[String, MessageProcessorReturnValue]]]
+      mockUploadIfRequiredAndNotExists.apply(any,any,any) returns Future(Right(MessageProcessorReturnValue(Json.fromString("{\"test\":\"ok\""))))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfRequiredAndNotExists(vault, absPath, mediaIngested)
+      }
+
+      val result = Try { Await.result(toTest.handleVidispineItemNeedsBackup(mockVault, "VX-12345"), 5.seconds) }
+
+      //testing the exception this way feels nasty but i can't work out a better way of doing it
+      result must beAFailedTry
+      result.failed.get.getClass.toString mustEqual "class com.gu.multimedia.storagetier.framework.SilentDropMessage"
+
+      there was one(nearlineRecordDAO).findByVidispineId("VX-12345")
+      there was one(mockVSCommunicator).listItemShapes("VX-12345")
+      there was no(mockVSCommunicator).getFileInformation(any)
+      there was no(mockUploadIfRequiredAndNotExists).apply(any,any,any)
+    }
+
+    "return a retryable failure if no metadata is available" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
+
+      val itemShapes = Seq(
+        ShapeDocument("VX-1111","",
+          Some(0),
+          Seq("original"),
+          None,
+          Some(SimplifiedComponent(
+            "VX-1212",
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, Some(mockedFile.uri), mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+          )),
+          None,
+          None,
+          None),
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
+      )
+      mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
+
+      mockVSCommunicator.getMetadata(any) returns Future(None)
+
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+      val mockVault = mock[Vault]
+
+      val mockUploadIfRequiredAndNotExists = mock[(Vault, String, QueryableItem)=>Future[Either[String, MessageProcessorReturnValue]]]
+      mockUploadIfRequiredAndNotExists.apply(any,any,any) returns Future(Right(MessageProcessorReturnValue(Json.fromString("{\"test\":\"ok\""))))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfRequiredAndNotExists(vault, absPath, mediaIngested)
+      }
+
+      val result = Await.result(toTest.handleVidispineItemNeedsBackup(mockVault, "VX-12345"), 5.seconds)
+
+      result must beLeft
+
+      there was one(nearlineRecordDAO).findByVidispineId("VX-12345")
+      there was one(mockVSCommunicator).listItemShapes("VX-12345")
+      there was one(mockVSCommunicator).getFileInformation("VX-1212")
+      there was no(mockUploadIfRequiredAndNotExists).apply(any,any,any)
+    }
+
+
+    "return a retryable failure if the file path cannot be determined" in {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      implicit val mockCopier = mock[FileCopier]
+
+      val mockedFile = FileDocument("VX-1212","media.file",Seq("file:///some/path/to/media.file"), "CLOSED",12345L, None, "", 0, "VX-7", None)
+      mockVSCommunicator.getFileInformation(any) returns Future(Some(mockedFile))
+
+      val itemShapes = Seq(
+        ShapeDocument("VX-1111","",
+          Some(0),
+          Seq("original"),
+          None,
+          Some(SimplifiedComponent(
+            "VX-1212",
+            Seq()
+          )),
+          None,
+          None,
+          None),
+        ShapeDocument("VX-2222","",Some(0),Seq("lowres"),None,None,None,None,None)
+      )
+      mockVSCommunicator.listItemShapes(any) returns Future(Some(itemShapes))
+
+      val mockedMeta = mock[ItemResponseSimplified]
+      mockedMeta.valuesForField(any, any) answers ((args:Array[AnyRef])=>{
+        val fieldName = args.head.asInstanceOf[String]
+        val maybeGroup = args(1).asInstanceOf[Option[String]]
+
+        (fieldName: @switch) match {
+          case "gnm_nearline_id"=>Seq()
+          case _=>
+            throw new RuntimeException(s"unexpected field $fieldName")
+        }
+      })
+      mockVSCommunicator.getMetadata(any) returns Future(Some(mockedMeta))
+
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.findByVidispineId(any) returns Future(None)
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+      val mockVault = mock[Vault]
+
+      val mockUploadIfRequiredAndNotExists = mock[(Vault, String, QueryableItem)=>Future[Either[String, MessageProcessorReturnValue]]]
+      mockUploadIfRequiredAndNotExists.apply(any,any,any) returns Future(Right(MessageProcessorReturnValue(Json.fromString("{\"test\":\"ok\""))))
+
+      val toTest = new VidispineMessageProcessor() {
+        override def uploadIfRequiredAndNotExists(vault: Vault, absPath: String, mediaIngested: QueryableItem): Future[Either[String, MessageProcessorReturnValue]] = mockUploadIfRequiredAndNotExists(vault, absPath, mediaIngested)
+      }
+
+      val result = Await.result(toTest.handleVidispineItemNeedsBackup(mockVault, "VX-12345"), 5.seconds)
+
+      result must beLeft
+
+      there was one(nearlineRecordDAO).findByVidispineId("VX-12345")
+      there was one(mockVSCommunicator).listItemShapes("VX-12345")
+      there was no(mockVSCommunicator).getFileInformation(any)
+      there was no(mockUploadIfRequiredAndNotExists).apply(any,any,any)
+    }
+  }
+
+
 }

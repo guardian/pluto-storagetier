@@ -140,7 +140,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    *         occurred or a Right with a Json object (automatically upcast to MessageProcessorReturnValue) containing
    *         the updated NearlineRecord if successful
    */
-  def handleSuccessfulMetadataWrite(msg: Json) = msg.as[NearlineRecord] match {
+  def handleSuccessfulMetadataWrite(msg: Json):Future[Either[String, MessageProcessorReturnValue]] = msg.as[NearlineRecord] match {
     case Left(err)=>
       Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
     case Right(rec)=>

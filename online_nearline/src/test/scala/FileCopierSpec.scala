@@ -142,7 +142,7 @@ class FileCopierSpec extends Specification with Mockito {
           mockCopyUsingHelper(vault, fileName, filePath)
 
         override protected def getContextMap() = {
-          new util.HashMap[String, String]()
+          Some(new util.HashMap[String, String]())
         }
 
         override protected def setContextMap(contextMap: Map[String, String]) = {
@@ -187,7 +187,7 @@ class FileCopierSpec extends Specification with Mockito {
           mockCopyUsingHelper(vault, fileName, filePath)
 
         override protected def getContextMap() = {
-          new util.HashMap[String, String]()
+          Some(new util.HashMap[String, String]())
         }
 
         override protected def setContextMap(contextMap: Map[String, String]) = {
@@ -232,7 +232,7 @@ class FileCopierSpec extends Specification with Mockito {
           mockCopyUsingHelper(vault, fileName, filePath)
 
         override protected def getContextMap() = {
-          new util.HashMap[String, String]()
+          Some(new util.HashMap[String, String]())
         }
 
         override protected def setContextMap(contextMap: Map[String, String]) = {

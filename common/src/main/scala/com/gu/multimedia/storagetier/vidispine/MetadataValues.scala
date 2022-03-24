@@ -62,4 +62,24 @@ object MetadataWrite {
 
 case class ItemMetadataSimplified(revision:String, timespan:Seq[Timespan])
 case class ItemResponseContentSimplified(metadata:ItemMetadataSimplified)
-case class ItemResponseSimplified(item:Seq[ItemResponseContentSimplified])
+
+case class ItemResponseSimplified(item:Seq[ItemResponseContentSimplified]) {
+
+  /**
+   * Returns the metadata values, as a string, for the given field. By default only "root" level fields are searched
+   * but you can look inside a group instead by setting `maybeGroupname`
+   * @param fieldName field to look for
+   * @param maybeGroupname group name to search within
+   * @return a sequence of `MetadataValuesWrite`
+   */
+  def valuesForField(fieldName:String, maybeGroupname:Option[String]=None) = {
+    val timespans = item.flatMap(_.metadata.timespan.filter(t=>t.start=="-INF" && t.end=="+INF"))
+
+    val fieldsToSearch = maybeGroupname match {
+      case None=>timespans.flatMap(_.field)
+      case Some(groupName)=>timespans.flatMap(_.group.filter(_.name==groupName).flatMap(_.field))
+    }
+
+    fieldsToSearch.filter(_.name==fieldName).flatMap(_.value)
+  }
+}

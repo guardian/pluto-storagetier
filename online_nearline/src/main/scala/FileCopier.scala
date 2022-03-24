@@ -95,7 +95,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
   }
 
   protected def getContextMap() = {
-    MDC.getCopyOfContextMap
+    Option(MDC.getCopyOfContextMap)
   }
 
   protected def setContextMap(contextMap: Map[String, String]) = {
@@ -141,12 +141,12 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
             val remoteFileSize = getSizeFromMxs(mxsFile)
 
             // File exist in ObjectMatrix check size and md5
-            val savedContext = getContextMap  //need to save the debug context for when we go in and out of akka
+            val savedContext = getContextMap()  //need to save the debug context for when we go in and out of akka
             val checksumMatchFut = Future.sequence(Seq(
               getChecksumFromPath(filePath),
               getOMFileMd5(mxsFile)
             )).map(results => {
-              setContextMap(savedContext)
+              if(savedContext.isDefined) setContextMap(savedContext.get)
               val fileChecksum      = results.head.asInstanceOf[Option[String]]
               val applianceChecksum = results(1).asInstanceOf[Try[String]]
               logger.debug(s"fileChecksum is $fileChecksum")
@@ -156,7 +156,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
 
             checksumMatchFut.flatMap({
               case true => //checksums match
-                setContextMap(savedContext)
+                if(savedContext.isDefined) setContextMap(savedContext.get)
 
                 if (remoteFileSize == localFileSize) { //file size and checksums match, no copy required
                   logger.info(s"Object with object id ${id} and filepath ${filePath} already exists")
@@ -167,7 +167,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
                   copyUsingHelper(vault, fileName, filePath)
                 }
               case false =>
-                setContextMap(savedContext)
+                if(savedContext.isDefined) setContextMap(savedContext.get)
                 //checksums don't match, size match undetermined, new copy required
                 logger.info(s"Object with object id ${id} and filepath $filePath exists but checksum does not match, copying fresh " +
                   s"version")

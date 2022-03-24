@@ -143,7 +143,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some(Seq("video/mp4")),
         Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
         Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
-        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
+        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile)))),
+        None
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -196,7 +197,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some(Seq("video/mp4")),
         Some(SimplifiedComponent("VX-111",Seq())),
         Some(Seq(SimplifiedComponent("VX-112",Seq()))),
-        Some(Seq(SimplifiedComponent("VX-113",Seq())))
+        Some(Seq(SimplifiedComponent("VX-113",Seq()))),
+        None
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -292,7 +294,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some(Seq("video/mxf")),
         Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
         Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
-        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
+        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile)))),
+        None
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
@@ -353,7 +356,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some(Seq("video/mp4")),
         Some(SimplifiedComponent("VX-111",Seq(sampleFile))),
         Some(Seq(SimplifiedComponent("VX-112",Seq(sampleFile)))),
-        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile))))
+        Some(Seq(SimplifiedComponent("VX-113",Seq(sampleFile)))),
+        None
       )
 
       implicit val mockArchivedRecordDAO = mock[ArchivedRecordDAO]
