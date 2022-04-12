@@ -32,9 +32,8 @@ class AssetSweeperMessageProcessor()
 
   def copyFile(vault: Vault, file: AssetSweeperNewFile, maybeNearlineRecord: Option[NearlineRecord]): Future[Either[String, Json]] = {
     val fullPath = Paths.get(file.filepath, file.filename)
-    val maybeObjectId = maybeNearlineRecord.map(rec => rec.objectId)
 
-    fileCopier.copyFileToMatrixStore(vault, file.filename, fullPath, maybeObjectId)
+    fileCopier.copyFileToMatrixStore(vault, file.filename, fullPath)
       .flatMap({
         case Right(objectId) =>
           val record = maybeNearlineRecord match {

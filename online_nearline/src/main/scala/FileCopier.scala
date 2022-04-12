@@ -88,7 +88,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
       .map(fileNameMatches=>{
         val nullSizes = fileNameMatches.map(_.maybeGetSize()).collect({case None=>None}).length
         if(nullSizes>0) {
-          throw new RuntimeException(s"Could not check for matching files of $filePath because $nullSizes / ${fileNameMatches.length} had no size")
+          throw new BailOutException(s"Could not check for matching files of $filePath because $nullSizes / ${fileNameMatches.length} had no size")
         }
 
         val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
@@ -132,8 +132,8 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
    * Stops and returns the ID of the first match if it finds one, or returns None if there were no matches.
    * @param filePath local file that is being backed up
    * @param potentialFiles potential backup copies of this file
-   * @param maybeLocalChecksum stored local checksum. Leave this out when calling.
-   * @return a Future containing `true` or `false`
+   * @param maybeLocalChecksum stored local checksum; if set this is used instead of re-calculating. Leave this out when calling.
+   * @return a Future containing the OID of the first matching file if present or None otherwise
    */
   protected def verifyChecksumMatch(filePath:Path, potentialFiles:Seq[MxsObject], maybeLocalChecksum:Option[String]=None):Future[Option[String]] = potentialFiles.headOption match {
     case None=>
@@ -167,7 +167,17 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
 
   protected def openMxsObject(vault:Vault, oid:String) = Try { vault.getObject(oid) }
 
-  def copyFileToMatrixStore(vault: Vault, fileName: String, filePath: Path, objectId: Option[String]): Future[Either[String, String]] = {
+  /**
+   * Copies the given file from the filesystem to MXS.
+   * If the given file already exists in the MXS vault (i.e., there is a file with a matching MXFS_PATH _and_ checksum
+   * _and_ file size, then a Right (copy-success) is returned immediately with no copy performed.
+   * If there is a file with matching MXFS_PATH but checksum and/or size do not match, then a new version is created.
+   * If there is a failure while copying, a temporary failure is returned in a Left
+   * @param vault Vault to copy to
+   * @param fileName file name to use on the Vault
+   * @param filePath java.nio.Path giving the filepath of the item to back up
+   * */
+  def copyFileToMatrixStore(vault: Vault, fileName: String, filePath: Path): Future[Either[String, String]] = {
     ( for {
       fileSize <- Future.fromTry(Try { getSizeFromPath(filePath) })
       potentialMatches <- findMatchingFilesOnNearline(vault, filePath, fileSize)
@@ -204,84 +214,4 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
       })
   }
 
-  /**
-   * Copies the given file from the filesystem to MXS.
-   * If the given file already exists in the MXS vault (i.e., there is a file with a matching MXFS_PATH _and_ checksum
-   * _and_ file size, then a Right (copy-success) is returned immediately with no copy performed.
-   * If there is a file with matching MXFS_PATH but checksum and/or size do not match, then a new version is created.
-   * If there is a failure while copying, a temporary failure is returned in a Left
-   * @param vault MXS vault to check and copy to
-   * @param fileName name of the file to be copied
-   * @param filePath filesystem path to the file to be copied (as java.nio.Path)
-   * @param objectId existing objectId of the (possibly previous) version
-   * @return a Future that completes when the operation is done, containing either a Right for success (with the MXS ID in it)
-   *         or a Left on error (with an error string in it)
-   */
-//  def OLDcopyFileToMatrixStore(vault: Vault, fileName: String, filePath: Path, objectId: Option[String]): Future[Either[String, String]] = {
-//    objectId match {
-//      case Some(id) =>
-//        Future.fromTry(Try { vault.getObject(id) })
-//          .flatMap({ mxsFile =>
-//            val localFileSize = getSizeFromPath(filePath)
-//            //get the file size first, as it's possible for our connection to be logged out by the time the checksum finishes
-//            val remoteFileSize = getSizeFromMxs(mxsFile)
-//
-//            // File exist in ObjectMatrix check size and md5
-//            val savedContext = getContextMap()  //need to save the debug context for when we go in and out of akka
-//            val checksumMatchFut = Future.sequence(Seq(
-//              getChecksumFromPath(filePath),
-//              getOMFileMd5(mxsFile)
-//            )).map(results => {
-//              if(savedContext.isDefined) setContextMap(savedContext.get)
-//              val fileChecksum      = results.head.asInstanceOf[Option[String]]
-//              val applianceChecksum = results(1).asInstanceOf[Try[String]]
-//              logger.debug(s"fileChecksum is $fileChecksum")
-//              logger.debug(s"applianceChecksum is $applianceChecksum")
-//              fileChecksum == applianceChecksum.toOption
-//            })
-//
-//            checksumMatchFut.flatMap({
-//              case true => //checksums match
-//                if(savedContext.isDefined) setContextMap(savedContext.get)
-//
-//                if (remoteFileSize == localFileSize) { //file size and checksums match, no copy required
-//                  logger.info(s"Object with object id ${id} and filepath ${filePath} already exists")
-//                  Future(Right(id))
-//                } else { //checksum matches but size does not (unlikely but possible), new copy required
-//                  logger.info(s"Object with object id ${id} and filepath $filePath exists but size does not match, copying" +
-//                    s" fresh version")
-//
-//                  copyUsingHelper(vault, fileName, filePath)
-//                }
-//              case false =>
-//                if(savedContext.isDefined) setContextMap(savedContext.get)
-//                //checksums don't match, size match undetermined, new copy required
-//                logger.info(s"Object with object id ${id} and filepath $filePath exists but checksum does not match, copying fresh " +
-//                  s"version")
-//                copyUsingHelper(vault, fileName, filePath)
-//            })
-//          }).recoverWith({
-//            case err:java.io.IOException =>
-//              if(err.getMessage.contains("does not exist (error 306)")) {
-//                copyUsingHelper(vault, fileName, filePath)
-//              } else {
-//                //the most likely cause of this is that the sdk threw because the appliance is under heavy load and
-//                //can't do the checksum at this time
-//                logger.error(s"Error validating objectmatrix checksum: ${err.getMessage}", err)
-//                Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
-//              }
-//            case err:BailOutException=>
-//              logger.error(s"A permanent error occurred: ${err.getMessage}", err)
-//              Future.failed(err)
-//            case err:Throwable =>
-//              // Error contacting ObjectMatrix, log it and retry via the queue
-//              logger.warn(s"Failed to get object from vault for checksum $filePath: ${err.getClass.getCanonicalName} ${err.getMessage} , will retry", err)
-//              Future(Left(s"ObjectMatrix error: ${err.getMessage}"))
-//            case _ =>
-//              Future(Left(s"ObjectMatrix error"))
-//          })
-//      case None =>
-//        copyUsingHelper(vault, fileName, filePath)
-//    }
-//  }
 }

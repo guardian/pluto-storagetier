@@ -47,7 +47,7 @@ case class ObjectMatrixEntry(oid:String, attributes:Option[MxsMetadata], fileAtt
     case (_,_,_,Some(sizeString), _)=>
       sizeString.toLongOption
     case (_,_,_,_, attrs)=>
-      Some(attrs.size)
+      attrs.map(_.size)
   }
 }
 
