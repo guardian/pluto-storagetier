@@ -130,21 +130,8 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
 object MXSConnectionBuilderImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  protected def withVault[T](mxs: MatrixStore, vaultId: String)(cb: (Vault) => Try[Either[String, T]]) = {
-    Try {
-      mxs.openVault(vaultId)
-    } match {
-      case Success(vault) =>
-        val result = cb(vault)
-        vault.dispose()
-        result
-      case Failure(err) =>
-        logger.error(s"Could not establish vault connection: ${err.getMessage}", err)
-        Success(Left(err.toString))
-    }
-  }
-
-  protected def withVaultFuture[T](mxs:MatrixStore, vaultId: String)(cb: (Vault) => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
+  @deprecated("From external code, you should be going via an instance of MXSConnectionBuilderImpl not the static object")
+  def withVaultFuture[T](mxs:MatrixStore, vaultId: String)(cb: (Vault) => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Try {
       mxs.openVault(vaultId)
     } match {
