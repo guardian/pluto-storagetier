@@ -188,7 +188,7 @@ class FileCopier()(implicit ec:ExecutionContext, mat:Materializer) {
           logger.info(s"$filePath: Object already exists with object id ${existingId}")
           Future(Right(existingId))
         case None=>
-          logger.info(s"$filePath: Out of $potentialMatches remote matches, none matched the checksum so creating new copy")
+          logger.info(s"$filePath: Out of ${potentialMatches.length} remote matches, none matched the checksum so creating new copy")
           copyUsingHelper(vault, fileName, filePath)
       }
     } yield result )
