@@ -53,13 +53,11 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
       case Some(connection)=>
         logger.debug("Using cached MXS datastore connection")
         connectionLastRetrieved = Instant.now()
-        isInUse = true
         Success(connection)
       case None=>
         logger.debug("Building new MXS datastore connection")
         connectionLastRetrieved = Instant.now()
         build().map(mxs=>{
-          isInUse = true
           cachedConnection = Some(mxs)
           mxs
         })
@@ -100,6 +98,7 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
    */
   def withVaultFuture[T](vaultId:String)(cb: Vault => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Future.fromTry(getConnection()).flatMap(mxs=>{
+      isInUse = true
       val result = MXSConnectionBuilderImpl.withVaultFuture(mxs, vaultId)(cb)
       isInUse = false
       result
@@ -118,6 +117,7 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
    */
   def withVaultsFuture[T](vaultIds:Seq[String])(cb: Seq[Vault]=>Future[T])(implicit ec:ExecutionContext) = {
     Future.fromTry(getConnection()).flatMap(mxs=>{
+      isInUse = true
       val result = Future
         .sequence(vaultIds.map(vid=>Future.fromTry(Try{mxs.openVault(vid)})))
         .flatMap(cb)
