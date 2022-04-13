@@ -99,12 +99,11 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
   def withVaultFuture[T](vaultId:String)(cb: Vault => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Future.fromTry(getConnection()).flatMap(mxs=>{
       isInUse = true
-      val result = MXSConnectionBuilderImpl
+      MXSConnectionBuilderImpl
         .withVaultFuture(mxs, vaultId)(cb)
         .andThen(_=>{
           isInUse = false
         })
-      result
     })
   }
 
