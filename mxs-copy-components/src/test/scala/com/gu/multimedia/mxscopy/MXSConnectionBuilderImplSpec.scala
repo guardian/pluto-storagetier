@@ -9,60 +9,6 @@ import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 
 class MXSConnectionBuilderImplSpec extends Specification with Mockito {
-  "MXSConnectionBuilderImpl.withVault" should {
-    "call the provided function and dispose the vault afterwards" in {
-      val mockVault = mock[Vault]
-
-      val mxs = mock[MatrixStore]
-      mxs.openVault(any) returns mockVault
-
-      val checker = mock[Vault=>Unit]
-
-      MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
-        checker(v)
-        Success(Right("Hooray"))
-      }
-
-      there was one(checker).apply(mockVault)
-      there was one(mockVault).dispose()
-      there was one(mxs).openVault("some-vault")
-    }
-
-    "dispose the vault if the callback fails" in {
-      val mockVault = mock[Vault]
-
-      val mxs = mock[MatrixStore]
-      mxs.openVault(any) returns mockVault
-
-      val checker = mock[Vault=>Unit]
-
-      MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
-        checker(v)
-        Failure(new RuntimeException("boo"))
-      }
-
-      there was one(checker).apply(mockVault)
-      there was one(mockVault).dispose()
-      there was one(mxs).openVault("some-vault")
-    }
-
-    "return a Left instead of a Failure if the vault connection fails" in {
-      val mxs = mock[MatrixStore]
-      mxs.openVault(any) throws new RuntimeException("oh no!")
-
-      val checker = mock[Vault=>Unit]
-
-      val result = MXSConnectionBuilderImpl.withVault(mxs, "some-vault") { v=>
-        checker(v)
-        Success(Right("this should not happen"))
-      }
-
-      result must beSuccessfulTry(Left("java.lang.RuntimeException: oh no!"))
-      there was one(mxs).openVault("some-vault")
-      there was no(checker).apply(any)
-    }
-  }
-
   "MXSConnectionBuilderImpl.withVaultFuture" should {
     "call the provided function and dispose the vault afterwards" in {
       val mockVault = mock[Vault]

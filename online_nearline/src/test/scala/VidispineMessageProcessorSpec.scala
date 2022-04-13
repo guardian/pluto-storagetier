@@ -133,7 +133,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("object-id"))
+      mockCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("object-id"))
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -182,7 +182,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Something went wrong!!"))
+      mockCopier.copyFileToMatrixStore(any, any, any) returns Future(Left("Something went wrong!!"))
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -230,7 +230,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) throws new RuntimeException("Crash during copy!!!")
+      mockCopier.copyFileToMatrixStore(any, any, any) throws new RuntimeException("Crash during copy!!!")
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -978,7 +978,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+      mockCopier.copyFileToMatrixStore(any, any, any) returns Future(Left("Error copying file"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -1090,7 +1090,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+      mockCopier.copyFileToMatrixStore(any, any, any) returns Future(Left("Error copying file"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -1218,7 +1218,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left("Error copying file"))
+      mockCopier.copyFileToMatrixStore(any, any, any) returns Future(Left("Error copying file"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
@@ -1279,7 +1279,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockCopier = mock[FileCopier]
-      mockCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("VX-1234"))
+      mockCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("VX-1234"))
 
       implicit val mockBuilder = mock[MXSConnectionBuilder]
       implicit val mockVSCommunicator = mock[VidispineCommunicator]

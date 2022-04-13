@@ -139,7 +139,7 @@ class VidispineMessageProcessor()
 
       showPreviousFailure(maybeFailureRecord, absPath)
 
-      fileCopier.copyFileToMatrixStore(vault, fullPath.getFileName.toString, fullPath, maybeObjectId)
+      fileCopier.copyFileToMatrixStore(vault, fullPath.getFileName.toString, fullPath)
         .flatMap({
           case Right(objectId) =>
             val record = maybeNearlineRecord match {
@@ -341,7 +341,7 @@ class VidispineMessageProcessor()
     val proxyFileName = uploadKeyForProxy(nearlineRecord, proxyFile)
 
     val copyResult = for {
-      copyResult <- fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath, None)
+      copyResult <- fileCopier.copyFileToMatrixStore(vault, proxyFileName, fullPath)
       metadataUpdate <- buildMetadataForProxy(vault, nearlineRecord)
       writeResult <- Future.fromTry((copyResult, metadataUpdate) match {
         case (Left(_), _)=>Success( () ) //ignore

@@ -25,11 +25,14 @@ trait MXSConnectionBuilder {
  * @param clusterId cluster ID
  * @param accessKeyId access key ID for the service account to use to connect
  * @param accessKeySecret access key secret for the service account to use to connect
+ * @param maxIdleSeconds timeout, in seconds, after which an idle connection will be cloased
+ * @param loanLimitWarning timeout, in seconds, after warnings will be emitted if a connection is still "in-use"
  */
-class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String, maxIdleSeconds:Int=300)(implicit actorSystem: ActorSystem) extends MXSConnectionBuilder {
+class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKeyId:String, accessKeySecret:String, maxIdleSeconds:Int=300, loanLimitWarning:Int=14400)(implicit actorSystem: ActorSystem) extends MXSConnectionBuilder {
   //private vars are synchronised to object instance on access - that's why they need to be private and final
   private final var cachedConnection:Option[MatrixStore] = None
   private final var connectionLastRetrieved:Instant = Instant.now()
+  private final var isInUse = false
 
   private implicit val ec:ExecutionContext = actorSystem.dispatcher
   private val logger = LoggerFactory.getLogger(getClass)
@@ -69,11 +72,13 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
             logger.debug("No current MXS connection")
           case Some(mxs)=>
             val idleTime = Instant.now().getEpochSecond - connectionLastRetrieved.getEpochSecond
-            logger.debug(s"Idle time of cached connection is $idleTime seconds")
-            if(idleTime>=maxIdleSeconds) {
+            logger.debug(s"Idle time of cached connection is $idleTime seconds, in-use flag $isInUse")
+            if(idleTime>=maxIdleSeconds && !isInUse) {
               logger.info(s"Terminating MXS connection as it has been idle for $idleTime seconds")
               mxs.dispose()
               cachedConnection = None
+            } else if(idleTime>=loanLimitWarning && isInUse) {
+              logger.warn(s"MXS connection is still marked as being-in use after $idleTime seconds, this is most likely a bug")
             }
         }
       }
@@ -93,8 +98,12 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
    */
   def withVaultFuture[T](vaultId:String)(cb: Vault => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Future.fromTry(getConnection()).flatMap(mxs=>{
+      isInUse = true
       MXSConnectionBuilderImpl
         .withVaultFuture(mxs, vaultId)(cb)
+        .andThen(_=>{
+          isInUse = false
+        })
     })
   }
 
@@ -110,9 +119,12 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
    */
   def withVaultsFuture[T](vaultIds:Seq[String])(cb: Seq[Vault]=>Future[T])(implicit ec:ExecutionContext) = {
     Future.fromTry(getConnection()).flatMap(mxs=>{
-      Future
+      isInUse = true
+      val result = Future
         .sequence(vaultIds.map(vid=>Future.fromTry(Try{mxs.openVault(vid)})))
         .flatMap(cb)
+      isInUse = false
+      result
     })
   }
 }
@@ -120,20 +132,7 @@ class MXSConnectionBuilderImpl(hosts: Array[String], clusterId:String, accessKey
 object MXSConnectionBuilderImpl {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def withVault[T](mxs: MatrixStore, vaultId: String)(cb: (Vault) => Try[Either[String, T]]) = {
-    Try {
-      mxs.openVault(vaultId)
-    } match {
-      case Success(vault) =>
-        val result = cb(vault)
-        vault.dispose()
-        result
-      case Failure(err) =>
-        logger.error(s"Could not establish vault connection: ${err.getMessage}", err)
-        Success(Left(err.toString))
-    }
-  }
-
+  @deprecated("From external code, you should be going via an instance of MXSConnectionBuilderImpl not the static object")
   def withVaultFuture[T](mxs:MatrixStore, vaultId: String)(cb: (Vault) => Future[Either[String, T]])(implicit ec:ExecutionContext) = {
     Try {
       mxs.openVault(vaultId)

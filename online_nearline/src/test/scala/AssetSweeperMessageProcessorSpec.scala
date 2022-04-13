@@ -32,7 +32,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
-      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
+      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -86,7 +86,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
-      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
+      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
 
       val mockVault = mock[Vault]
       //workaround from https://stackoverflow.com/questions/3762047/throw-checked-exceptions-from-mocks-with-mockito
@@ -125,7 +125,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
-      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Right("some-object-id"))
+      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
 
       val mockVault = mock[Vault]
       //workaround from https://stackoverflow.com/questions/3762047/throw-checked-exceptions-from-mocks-with-mockito
@@ -143,7 +143,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.processFile(mockFile, mockVault), 3.seconds)
 
       there was one(mockCheckPreExisting).apply(mockVault, mockFile)
-      there was no(fileCopier).copyFileToMatrixStore(any,any,any,any)
+      there was no(fileCopier).copyFileToMatrixStore(any,any,any)
       result must beRight(rec.asJson)
     }
 
@@ -172,7 +172,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val fileCopier = mock[FileCopier]
 
       val mockExc = new RuntimeException("ObjectMatrix out of office right now!!")
-      fileCopier.copyFileToMatrixStore(any, any, any, any) returns Future(Left(s"ObjectMatrix error: ${mockExc.getMessage}"))
+      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Left(s"ObjectMatrix error: ${mockExc.getMessage}"))
 
       val mockVault = mock[Vault]
       mockVault.getObject(any) throws mockExc
