@@ -38,7 +38,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   failedQueueName:String,
                                   handlers:Seq[ProcessorConfiguration],
                                   maximumDelayTime:Int=120000,
-                                  maximumRetryLimit:Int=500)
+                                  maximumRetryLimit:Int=200)
                                  (channel:Channel, conn:Connection)(implicit ec:ExecutionContext){
   private val logger = LoggerFactory.getLogger(getClass)
   private val cs = Charset.forName("UTF-8")
