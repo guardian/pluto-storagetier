@@ -142,11 +142,19 @@ if args.count:
 
 ctr = 0
 for item in action.results(shouldPopulate=False):
-    ctr += 1
-    logger.info("Sending event {0}/{1} for {2}....".format(ctr, action.totalItems, item.name))
-    send_message(rmq_chan, item.name)
-    if args.limit is not None and ctr>=int(args.limit):
-        logger.info("Hit limit of {0} items, completing".format(args.limit))
-        break
+    try:
+        orig = item.get_shape("original")
+        if len(orig.fileURIs())<1:
+            logger.info("Original shape exists on {0} but without a file URI".format(item.name))
+            continue
+
+        ctr += 1
+        logger.info("Sending event {0}/{1} for {2}....".format(ctr, action.totalItems, item.name))
+        send_message(rmq_chan, item.name)
+        if args.limit is not None and ctr>=int(args.limit):
+            logger.info("Hit limit of {0} items, completing".format(args.limit))
+            break
+    except VSNotFound:
+        logger.info("No original shape on {0}, skipping it".format(item.name))
 
 logger.info("All done.")
