@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from gnmvidispine.vs_search import *
+from gnmvidispine.vs_shape import VSShape
 from argparse import ArgumentParser
 import pika
 import logging
@@ -92,6 +93,20 @@ class RMQCredentials(object):
             )
 
 
+def vsshape_has_files(shape:VSShape) -> bool:
+    """
+    Returns True if the given VSShape has any file URIs on it, or false otherwise.
+    Note that this does NOT include any non-file:// style URIs.
+    :param shape: VSShape
+    :return: True if the shape has at least one non-file:// URI present. Existence of the file is NOT checked.
+    """
+    for f in shape.fileURIs():
+        if f!="":
+            return True
+
+    return False
+
+
 ##START MAIN
 parser = ArgumentParser(description="Searches Vidispine for items that have no gnm_vidispine_id and requests updates for them")
 parser.add_argument("--vshost", default="localhost", help="Vidispine host")
@@ -142,11 +157,19 @@ if args.count:
 
 ctr = 0
 for item in action.results(shouldPopulate=False):
-    ctr += 1
-    logger.info("Sending event {0}/{1} for {2}....".format(ctr, action.totalItems, item.name))
-    send_message(rmq_chan, item.name)
-    if args.limit is not None and ctr>=int(args.limit):
-        logger.info("Hit limit of {0} items, completing".format(args.limit))
-        break
+    try:
+        orig = item.get_shape("original")
+        if not vsshape_has_files(orig):
+            logger.info("Original shape exists on {0} but without a file URI".format(item.name))
+            continue
+
+        ctr += 1
+        logger.info("Sending event {0}/{1} for {2}....".format(ctr, action.totalItems, item.name))
+        send_message(rmq_chan, item.name)
+        if args.limit is not None and ctr>=int(args.limit):
+            logger.info("Hit limit of {0} items, completing".format(args.limit))
+            break
+    except VSNotFound:
+        logger.info("No original shape on {0}, skipping it".format(item.name))
 
 logger.info("All done.")
