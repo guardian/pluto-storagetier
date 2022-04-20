@@ -57,6 +57,8 @@ object Main {
     case Right(config)=>config
   }
 
+  private lazy val retryLimit = sys.env.get("RETRY_LIMIT").map(_.toInt).getOrElse(200)
+
   def main(args:Array[String]):Unit = {
     implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
@@ -99,7 +101,8 @@ object Main {
       "storagetier-online-nearline-retry",
       "storagetier-online-nearline-fail",
       "storagetier-online-nearline-dlq",
-      config
+      config,
+      maximumRetryLimit = retryLimit
     ) match {
       case Left(err) =>
         logger.error(s"Could not initiate message processing framework: $err")

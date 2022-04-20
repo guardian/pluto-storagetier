@@ -419,7 +419,9 @@ object MessageProcessingFramework {
             retryExchangeName:String,
             failedExchangeName:String,
             failedQueueName:String,
-            handlers:Seq[ProcessorConfiguration])
+            handlers:Seq[ProcessorConfiguration],
+            maximumDelayTime:Int=120000,
+            maximumRetryLimit:Int=200)
            (implicit connectionFactoryProvider: ConnectionFactoryProvider, ec:ExecutionContext) = {
     val exchangeNames = handlers.map(_.exchangeName)
     if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
@@ -438,7 +440,9 @@ object MessageProcessingFramework {
               retryExchangeName,
               failedExchangeName,
               failedQueueName,
-              handlers)(channel, conn)
+              handlers,
+              maximumDelayTime,
+              maximumRetryLimit)(channel, conn)
           )
       }
     }
