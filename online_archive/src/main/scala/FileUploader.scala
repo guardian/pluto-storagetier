@@ -1,6 +1,6 @@
 import akka.http.scaladsl.model.{ContentType, Uri}
 import akka.stream.Materializer
-import akka.stream.alpakka.s3.{MultipartUploadResult, S3Headers}
+import akka.stream.alpakka.s3.{MetaHeaders, MultipartUploadResult, S3Headers}
 import akka.stream.alpakka.s3.scaladsl.S3
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
@@ -136,45 +136,12 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    */
   private def uploadFile(file: File, keyName: String): Try[(String, Long)] = Try {
       val upload = transferManager.upload(bucketName, keyName, file)
+
       upload.waitForCompletion
       val bytes = upload.getProgress.getBytesTransferred
 
       (keyName, bytes)
     }
-
-  /**
-   * Uploads the given stream, closing the InputStream once upload is complete.
-   * Any prior existing file is over-written (or reversioned, depending on bucket settings).
-   * DEPRECATED: You should be using the Akka stream directly, via the `uploadAkkaStream` method
-   * @param stream InputStream to write
-   * @param keyName key to write within the bucket
-   * @param mimeType MIME type
-   * @param size size of the data that will be streamed.  While this is optional, it's highly recommended as the S3 Transfer library will buffer the whole contents into memory in this case
-   * @param vsMD5 MD5 checksum of the data that will be streamed. While this is optional, it's highly recommended so that the transfer library can verify data integrity
-   * @return a Try, containing a tuple of the uploaded file path and total number of bytes transferred. On error, the Try will fail.
-   */
-  @deprecated("Use uploadAkkaStream instead of an InputStream")
-  def uploadStreamNoChecks(stream:InputStream, keyName:String, mimeType:String, size:Option[Long], vsMD5:Option[String]): Try[(String, Long)] = Try {
-    val meta = new ObjectMetadata()
-    meta.setContentType(mimeType)
-    size.map(meta.setContentLength)
-
-    vsMD5.map(vsMD5toS3MD5) match {
-      case None=>
-      case Some(Failure(err))=>
-        logger.error(s"Could not convert vidispine MD5 value $vsMD5 to base64: $err")
-      case Some(Success(b64))=>
-        meta.setContentMD5(b64)
-    }
-
-    try {
-      val upload = transferManager.upload(bucketName, keyName, stream, meta)
-      upload.waitForCompletion()
-      (keyName, upload.getProgress.getBytesTransferred)
-    } finally {
-      stream.close()
-    }
-  }
 
   private def generateS3Uri(bucket:String, keyToUpload:String) = {
     val fixedKeyToUpload = if(keyToUpload.startsWith("/")) keyToUpload else "/" + keyToUpload //fix "could not generate URI" error
