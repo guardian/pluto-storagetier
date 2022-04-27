@@ -51,7 +51,8 @@ class FileUploaderSpec extends Specification with Mockito {
 
       val fakeUploadedInfo = HeadObjectResponse.builder().contentLength(100).build()
       val mockedS3 = mock[S3Client]
-      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) throws NoSuchKeyException.builder().build() thenReturns fakeUploadedInfo
+      //we are not doing an initial headObject check any more, HeadObject is now only done _after_ upload.
+      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) returns fakeUploadedInfo
 
       val putResponse = PutObjectResponse.builder().build()
       val completedUpload = CompletedUpload.builder().response(putResponse).build()
@@ -86,11 +87,12 @@ class FileUploaderSpec extends Specification with Mockito {
     val uploadedFileMetadata = HeadObjectResponse.builder().contentLength(20).build()
     val expectedExc = NoSuchKeyException.builder().statusCode(404).build()
 
-    mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) returns existingFileMetadata thenThrows expectedExc thenReturns uploadedFileMetadata
+    //we are not incrementing the filename any more, instead relying on bucket versioning
+    mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) returns uploadedFileMetadata
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) } must beASuccessfulTry(("filePath-1", 20))
+    Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) } must beASuccessfulTry(("filePath", 20))
   }
 
   "File not uploaded when an already existing file with same file size exists i bucket" in {
