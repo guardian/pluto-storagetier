@@ -1,18 +1,21 @@
-import akka.stream.alpakka.s3.scaladsl.S3
-import com.amazonaws.services.s3.AmazonS3
-import com.amazonaws.services.s3.internal.AmazonS3ExceptionBuilder
-import com.amazonaws.services.s3.model.ObjectMetadata
-import com.amazonaws.services.s3.transfer.{TransferManager, TransferProgress, Upload}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, PutObjectResponse, S3Exception}
+import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3TransferManager, Upload, UploadRequest}
 
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 import java.io.File
+import scala.concurrent.{Await, Future}
+import scala.util.Try
+import scala.jdk.FutureConverters._
 
 class FileUploaderSpec extends Specification with Mockito {
   "FileUploader" should {
     "Failure when file doesn't exist" in {
-      val mockedS3 = mock[AmazonS3]
-      val mockTransferManager = mock[TransferManager]
+      val mockedS3 = mock[S3Client]
+      val mockTransferManager = mock[S3TransferManager]
       val file = mock[File]
       file.getAbsolutePath returns "non-existing-file"
       file.exists returns false
@@ -20,7 +23,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-      fileUploader.copyFileToS3(file) must beAFailedTry
+      Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) } must beAFailedTry
     }
 
     "Failure when Exception with wrong status code returned from S3" in {
@@ -29,18 +32,14 @@ class FileUploaderSpec extends Specification with Mockito {
       file.exists returns true
       file.isFile returns true
 
-      val mockedS3 = mock[AmazonS3]
-      val mockTransferManager = mock[TransferManager]
-      val builder = new AmazonS3ExceptionBuilder()
-      builder.setStatusCode(400)
-      builder.setErrorCode("400 Unknown")
+      val mockedS3 = mock[S3Client]
+      val mockTransferManager = mock[S3TransferManager]
 
-      val mockExc = builder.build()
-      mockedS3.getObjectMetadata(any[String],any[String]) throws mockExc
+      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) throws NoSuchKeyException.builder().build()
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-      fileUploader.copyFileToS3(file) must beAFailedTry
+      Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) } must beAFailedTry
     }
 
     "File uploaded when it doesn't already exist in bucket" in {
@@ -50,25 +49,21 @@ class FileUploaderSpec extends Specification with Mockito {
       file.isFile returns true
       file.length returns 100
 
-      val mockedS3 = mock[AmazonS3]
+      val fakeUploadedInfo = HeadObjectResponse.builder().contentLength(100).build()
+      val mockedS3 = mock[S3Client]
+      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) throws NoSuchKeyException.builder().build() thenReturns fakeUploadedInfo
+
+      val putResponse = PutObjectResponse.builder().build()
+      val completedUpload = CompletedUpload.builder().response(putResponse).build()
       val mockUpload = mock[Upload]
-      val mockProgress = mock[TransferProgress]
-      mockProgress.getBytesTransferred returns 100
-      mockUpload.waitForCompletion()
-      mockUpload.getProgress returns mockProgress
-      val mockTransferManager = mock[TransferManager]
-      mockTransferManager.upload(any[String], any[String], any[File]) returns mockUpload
-
-      val builder = new AmazonS3ExceptionBuilder()
-      builder.setStatusCode(404)
-      builder.setErrorCode("404 Not Found")
-      val mockExc = builder.build()
-
-      mockedS3.getObjectMetadata(any[String],any[String]) throws mockExc
+      mockUpload.completionFuture() returns Future(completedUpload).asJava.toCompletableFuture
+      val mockTransferManager = mock[S3TransferManager]
+      mockTransferManager.upload(org.mockito.ArgumentMatchers.any[UploadRequest]) returns mockUpload
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-      fileUploader.copyFileToS3(file) must beASuccessfulTry(("filePath", 100))
+      val result = Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) }
+      result must beASuccessfulTry(("filePath", 100))
     }
   }
 
@@ -79,27 +74,23 @@ class FileUploaderSpec extends Specification with Mockito {
     file.isFile returns true
     file.length returns 20
 
-    val mockedS3 = mock[AmazonS3]
+    val mockedS3 = mock[S3Client]
+    val putResponse = PutObjectResponse.builder().build()
+    val completedUpload = CompletedUpload.builder().response(putResponse).build()
     val mockUpload = mock[Upload]
-    val mockProgress = mock[TransferProgress]
-    mockProgress.getBytesTransferred returns 20
-    mockUpload.waitForCompletion()
-    mockUpload.getProgress returns mockProgress
-    val mockTransferManager = mock[TransferManager]
-    mockTransferManager.upload(any[String], any[String], any[File]) returns mockUpload
+    mockUpload.completionFuture() returns Future(completedUpload).asJava.toCompletableFuture
+    val mockTransferManager = mock[S3TransferManager]
+    mockTransferManager.upload(org.mockito.ArgumentMatchers.any[UploadRequest]) returns mockUpload
 
-    val builder = new AmazonS3ExceptionBuilder()
-    builder.setStatusCode(404)
-    builder.setErrorCode("404 Not Found")
-    val mockExc = builder.build()
-    val someMetadata = mock[ObjectMetadata]
-    someMetadata.getContentLength returns 10
+    val existingFileMetadata = HeadObjectResponse.builder().contentLength(10).build()
+    val uploadedFileMetadata = HeadObjectResponse.builder().contentLength(20).build()
+    val expectedExc = NoSuchKeyException.builder().statusCode(404).build()
 
-    mockedS3.getObjectMetadata(any[String],any[String]) returns someMetadata thenThrows mockExc
+    mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) returns existingFileMetadata thenThrows expectedExc thenReturns uploadedFileMetadata
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    fileUploader.copyFileToS3(file) must beASuccessfulTry(("filePath-1", 20))
+    Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) } must beASuccessfulTry(("filePath-1", 20))
   }
 
   "File not uploaded when an already existing file with same file size exists i bucket" in {
@@ -109,35 +100,31 @@ class FileUploaderSpec extends Specification with Mockito {
     file.isFile returns true
     file.length returns 10
 
-    val mockedS3 = mock[AmazonS3]
+    val mockedS3 = mock[S3Client]
+    val putResponse = PutObjectResponse.builder().build()
+    val completedUpload = CompletedUpload.builder().response(putResponse).build()
     val mockUpload = mock[Upload]
-    val mockProgress = mock[TransferProgress]
-    mockProgress.getBytesTransferred returns 10
-    mockUpload.waitForCompletion()
-    mockUpload.getProgress returns mockProgress
-    val mockTransferManager = mock[TransferManager]
-    mockTransferManager.upload(any[String], any[String], any[File]) returns mockUpload
+    mockUpload.completionFuture() returns Future(completedUpload).asJava.toCompletableFuture
+    val mockTransferManager = mock[S3TransferManager]
+    mockTransferManager.upload(org.mockito.ArgumentMatchers.any[UploadRequest]) returns mockUpload
 
-    val builder = new AmazonS3ExceptionBuilder()
-    builder.setStatusCode(404)
-    builder.setErrorCode("404 Not Found")
-    val mockExc = builder.build()
-    val someMetadata = mock[ObjectMetadata]
-    someMetadata.getContentLength returns 10
+    val someMetadata = HeadObjectResponse.builder().contentLength(10).build()
 
-    mockedS3.getObjectMetadata(any[String],any[String]) returns someMetadata thenThrows mockExc
+    val expectedExc = NoSuchKeyException.builder().statusCode(404).build()
+    mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) returns someMetadata thenThrows expectedExc
 
     val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
-    fileUploader.copyFileToS3(file) must beASuccessfulTry(("filePath", 10))
+    Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) } must beASuccessfulTry(("filePath", 10))
   }
 
   "FileUploader.objectExists" should {
     "return true when object exists in bucket" in {
-      val mockedS3 = mock[AmazonS3]
-      val someMetadata = mock[ObjectMetadata]
-      mockedS3.getObjectMetadata(any, any) returns someMetadata
-      val mockTransferManager = mock[TransferManager]
+      val mockedS3 = mock[S3Client]
+      val someMetadata = HeadObjectResponse.builder().build()
+      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) returns someMetadata
+
+      val mockTransferManager = mock[S3TransferManager]
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
@@ -145,14 +132,11 @@ class FileUploaderSpec extends Specification with Mockito {
     }
 
     "return false when object don't exist in bucket" in {
-      val mockedS3 = mock[AmazonS3]
-      val builder = new AmazonS3ExceptionBuilder()
-      builder.setStatusCode(404)
-      builder.setErrorCode("404 Not Found")
-      val mockExc = builder.build()
+      val mockedS3 = mock[S3Client]
+      val expectedExc = NoSuchKeyException.builder().statusCode(404).build()
+      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) throws expectedExc
 
-      mockedS3.getObjectMetadata(any, any) throws mockExc
-      val mockTransferManager = mock[TransferManager]
+      val mockTransferManager = mock[S3TransferManager]
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 
@@ -160,14 +144,12 @@ class FileUploaderSpec extends Specification with Mockito {
     }
 
     "return Failure when there is an unknown error from S3" in {
-      val mockedS3 = mock[AmazonS3]
-      val builder = new AmazonS3ExceptionBuilder()
-      builder.setStatusCode(500)
-      builder.setErrorCode("Unknown error")
-      val mockExc = builder.build()
+      val mockExc = S3Exception.builder().statusCode(500).build()
 
-      mockedS3.getObjectMetadata(any, any) throws mockExc
-      val mockTransferManager = mock[TransferManager]
+      val mockedS3 = mock[S3Client]
+      mockedS3.headObject(org.mockito.ArgumentMatchers.any[HeadObjectRequest]) throws mockExc
+
+      val mockTransferManager = mock[S3TransferManager]
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
 

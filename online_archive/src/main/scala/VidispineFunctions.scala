@@ -74,9 +74,8 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
   private def uploadCreateOrUpdateRecord(filePath:String, relativePath:String, mediaIngested: VidispineMediaIngested,
                                          archivedRecord: Option[ArchivedRecord]) = {
     logger.info(s"Archiving file '$filePath' to s3://${mediaFileUploader.bucketName}/$relativePath")
-    Future.fromTry(
-      mediaFileUploader.copyFileToS3(new File(filePath), Some(relativePath))
-    ).flatMap(fileInfo => {
+
+    mediaFileUploader.copyFileToS3(new File(filePath), Some(relativePath)).flatMap(fileInfo => {
       val (fileName, fileSize) = fileInfo
       logger.debug(s"$filePath: Upload completed")
       val record = archivedRecord match {
@@ -243,7 +242,7 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
           firstCheckedFilepath(filePaths) match {
             case Some(filePath)=>
               logger.info(s"Starting upload of $filePath to s3://${proxyFileUploader.bucketName}/$uploadKey")
-              Future.fromTry(proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey)))
+              proxyFileUploader.copyFileToS3(filePath.toFile, Some(uploadKey))
             case None=>
               logger.error(s"Could not find path for URI ${fileInfo.uri} on-disk")
               Future.failed(new RuntimeException(s"File $fileInfo could not be found"))
