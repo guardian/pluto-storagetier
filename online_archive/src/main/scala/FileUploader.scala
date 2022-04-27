@@ -4,18 +4,20 @@ import akka.stream.alpakka.s3.{MetaHeaders, MultipartUploadResult, S3Headers}
 import akka.stream.alpakka.s3.scaladsl.S3
 import akka.stream.scaladsl.{Sink, Source}
 import akka.util.ByteString
-import com.amazonaws.services.s3.{AmazonS3, AmazonS3ClientBuilder}
-import com.amazonaws.services.s3.model.{AmazonS3Exception, ObjectMetadata}
-import com.amazonaws.services.s3.transfer.{TransferManager, TransferManagerBuilder}
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.{LoggerFactory, MDC}
+import software.amazon.awssdk.core.async.AsyncRequestBody
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, PutObjectRequest}
+import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
 
 import java.io.{File, InputStream}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucketName: String) {
+class FileUploader(transferManager: S3TransferManager, client: S3Client, var bucketName: String)(implicit ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
   import FileUploader._
 
@@ -32,13 +34,18 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @return a Try, containing a Tuple where the first value is a String containing the uploaded file name and the second value is a
    *         Long containing the file size.
    */
-  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Try[(String, Long)] = {
+  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Future[(String, Long)] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
-      Failure(new Exception(s"File ${file.getAbsolutePath} doesn't exist"))
+      Future.failed(new RuntimeException(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
       tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
+  }
+
+  private def getObjectMetadata(bucketName: String, key: String) = Try {
+    val req = HeadObjectRequest.builder().bucket(bucketName).key(key).build()
+    client.headObject(req)
   }
 
   /**
@@ -48,18 +55,10 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    *         unknown reason.
    */
   def objectExists(objectKey: String): Try[Boolean] = {
-    Try {
-      client.getObjectMetadata(bucketName, objectKey)
-    } match {
+    getObjectMetadata(bucketName, objectKey) match {
       case Success(_) => Success(true)
-      case Failure(s3e: AmazonS3Exception) =>
-        if (fileNotFound(s3e)) {
-          Success(false)
-        } else {
-          Failure(s3e)
-        }
-      case Failure(e) =>
-        Failure(e)
+      case Failure(_: NoSuchKeyException) => Success(false)
+      case Failure(e) => Failure(e)
     }
   }
 
@@ -70,16 +69,18 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param increment iteration number
    * @return
    */
-  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Try[(String, Long)] = {
-    findFreeFilename(file.length(), filePath, increment).flatMap(result=>{
-      if(result._3) { //should copy==true
-        val uploadName = result._1
-        uploadFile(file, uploadName)
+  private def tryUploadFile(file: File, filePath:String, increment: Int = 0): Future[(String, Long)] = {
+    for {
+      copyInfo <- Future.fromTry(findFreeFilename(file.length(), filePath, increment))
+      uploadedObject <- if(copyInfo._3) { //should copy==true
+        val uploadName = copyInfo._1
+        uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
       } else {
-        Success((result._1, result._2))
+        Future( (copyInfo._1, copyInfo._2) )
       }
-    })
-    }
+    } yield uploadedObject
+  }
+
 
   /**
    * Internal method, that recursively finds a free filename to upload to, or will return a successful upload
@@ -96,11 +97,9 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
       if (pos > 0) filePath.patch(pos, s"-$increment", 0) else s"$filePath-$increment"
     }
 
-    Try {
-      client.getObjectMetadata(bucketName, newFilePath)
-    } match {
+    getObjectMetadata(bucketName, newFilePath) match {
       case Success(metadata) =>
-        val objectSize = metadata.getContentLength
+        val objectSize = metadata.contentLength()
         if (contentLength == objectSize) {
           logger.info(s"Object $newFilePath already exists on S3")
           Success((newFilePath, objectSize, false))
@@ -108,25 +107,12 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
           logger.warn(s"Object $newFilePath with different size already exist on S3, creating file with incremented name instead")
           findFreeFilename(contentLength, filePath, increment + 1)
         }
-      case Failure(s3e: AmazonS3Exception) =>
-        if (fileNotFound(s3e)) {
-          Success((newFilePath, 0, true))
-        } else {
-          Failure(s3e)
-        }
+      case Failure(_: NoSuchKeyException) => Success((newFilePath, 0, true))
       case Failure(e) =>
         Failure(e)
     }
   }
 
-  /**
-   * returns `true` if the given AmazonS3Exception represents "file not found
-   * @param s3e AmazonS3Exception to inspect
-   * @return
-   */
-  private def fileNotFound(s3e: AmazonS3Exception): Boolean = {
-    s3e.getStatusCode == 404 && s3e.getErrorCode == "404 Not Found"
-  }
 
   /**
    * performs an upload via S3 TransferManager, blocking the current thread until it is ready
@@ -134,14 +120,25 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
    * @param keyName S3 key name to upload to
    * @return
    */
-  private def uploadFile(file: File, keyName: String): Try[(String, Long)] = Try {
-      val upload = transferManager.upload(bucketName, keyName, file)
+  private def uploadFile(file: File, keyName: String): Future[HeadObjectResponse] = {
+    import scala.jdk.FutureConverters._
 
-      upload.waitForCompletion
-      val bytes = upload.getProgress.getBytesTransferred
+    for {
+      job <- Future.fromTry(Try {
+        val req = UploadRequest.builder().putObjectRequest(
+          PutObjectRequest.builder()
+            .bucket(bucketName)
+            .key(keyName)
+            .build()
+        ).requestBody(AsyncRequestBody.fromFile(file))
+          .build()
 
-      (keyName, bytes)
-    }
+        transferManager.upload(req)
+      })
+      _ <- job.completionFuture().asScala
+      result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
+    } yield result
+  }
 
   private def generateS3Uri(bucket:String, keyToUpload:String) = {
     val fixedKeyToUpload = if(keyToUpload.startsWith("/")) keyToUpload else "/" + keyToUpload //fix "could not generate URI" error
@@ -210,12 +207,32 @@ class FileUploader(transferManager: TransferManager, client: AmazonS3, var bucke
 }
 
 object FileUploader {
-  private def initTransferManager = wrapJavaMethod(()=>TransferManagerBuilder.defaultTransferManager())
-  private def initS3Client = wrapJavaMethod(()=>AmazonS3ClientBuilder.defaultClient())
+  private def s3ClientConfig = {
+    val b = S3ClientConfiguration.builder()
+    val withRegion = sys.env.get("AWS_REGION") match {
+      case Some(rgn)=>b.region(Region.of(rgn))
+      case None=>b
+    }
+    withRegion.build()
+  }
+  private def initTransferManager = wrapJavaMethod(()=>
+    S3TransferManager.builder()
+      .s3ClientConfiguration(s3ClientConfig)
+      .build()
+  )
+
+  private def initS3Client = wrapJavaMethod(()=>{
+    val b = S3Client.builder()
+    val withRegion = sys.env.get("AWS_REGION") match {
+      case Some(rgn)=>b.region(Region.of(rgn))
+      case None=>b
+    }
+    withRegion.build()
+  })
 
   private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
 
-  def createFromEnvVars(varName:String):Either[String, FileUploader] =
+  def createFromEnvVars(varName:String)(implicit ec:ExecutionContext):Either[String, FileUploader] =
     sys.env.get(varName) match {
       case Some(mediaBucket) =>
         for {

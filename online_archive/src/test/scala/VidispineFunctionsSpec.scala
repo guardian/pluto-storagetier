@@ -160,7 +160,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
       val mockMediaUploader = mock[FileUploader]
       val mockProxyUploader = mock[FileUploader]
       mockProxyUploader.bucketName returns "proxy-bucket"
-      mockProxyUploader.copyFileToS3(any,any) returns Success("path/to/uploaded/file_prox.mp4", 1234L)
+      mockProxyUploader.copyFileToS3(any,any) returns Future("path/to/uploaded/file_prox.mp4", 1234L)
       val toTest = new VidispineFunctions(mockMediaUploader, mockProxyUploader) {
         override protected def internalCheckFile(filePath: Path): Boolean = true
       }

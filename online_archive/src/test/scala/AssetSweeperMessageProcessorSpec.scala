@@ -34,7 +34,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.copyFileToS3(any,any) returns Success(("uploaded/path/to/file.ext", 100))
+      uploader.copyFileToS3(any,any) returns Future(("uploaded/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
       val projectRecord = ProjectRecord(
@@ -79,7 +79,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.copyFileToS3(any,any) returns Success(("media/assets/path/to/file.ext", 100))
+      uploader.copyFileToS3(any,any) returns Future(("media/assets/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
       val projectRecord = ProjectRecord(
@@ -125,7 +125,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val uploader:FileUploader = mock[FileUploader]
-      uploader.copyFileToS3(any,any) returns Success(("uploaded/path/to/file.ext", 100))
+      uploader.copyFileToS3(any,any) returns Future(("uploaded/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
       val basePath = Paths.get("/media/assets")
@@ -151,7 +151,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val uploader:FileUploader = mock[FileUploader]
       implicit val vidispineFunctions = mock[VidispineFunctions]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
-      uploader.copyFileToS3(any,any) returns Success(("uploaded/path/to/file.ext", 100))
+      uploader.copyFileToS3(any,any) returns Future(("uploaded/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
       val projectRecord = ProjectRecord(
@@ -193,7 +193,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val uploader:FileUploader = mock[FileUploader]
       implicit val vidispineFunctions = mock[VidispineFunctions]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
-      uploader.copyFileToS3(any,any) returns Success(("uploaded/path/to/file.ext", 100))
+      uploader.copyFileToS3(any,any) returns Future(("uploaded/path/to/file.ext", 100))
       uploader.bucketName returns "somebucket"
 
       val projectRecord = ProjectRecord(
@@ -235,7 +235,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val uploader:FileUploader = mock[FileUploader]
       implicit val vidispineFunctions = mock[VidispineFunctions]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
-      uploader.copyFileToS3(any,any) returns Failure(new RuntimeException("My hovercraft is full of eels"))
+      uploader.copyFileToS3(any,any) returns Future.failed(new RuntimeException("My hovercraft is full of eels"))
       uploader.bucketName returns "somebucket"
 
       val projectRecord = ProjectRecord(
