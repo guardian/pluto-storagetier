@@ -5,7 +5,7 @@ import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcess
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.VidispineMediaIngested
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
 import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VSShapeFile, VidispineCommunicator}
 import io.circe.Json
@@ -16,6 +16,7 @@ import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConf
 import plutodeliverables.PlutoDeliverablesConfig
 import utils.ArchiveHunter
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+
 import java.io.File
 import java.net.URI
 import java.nio.file.{Files, Path, Paths}
@@ -113,6 +114,23 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
   }
 
   /**
+   * Creates an "ignore" record in the database so that subsequent VS events on this item are dropped and don't loop
+   * @param fullPath absolute path of the file on SAN
+   * @param vidispineItemId vidispine item ID. This is taken as an option because it comes through from the notification as
+   *                        an option, but is not expected to be null.
+   * @param vidispineVersion vidispine version ID as passed from the notification
+   * @param reason string reason why the item was ignored.
+   * @return a Future containing the saved IgnoreRecord
+   */
+  private def setIgnoredRecord(fullPath:String, vidispineItemId:Option[String], vidispineVersion:Option[Int], reason:String) = {
+    val rec = IgnoredRecord(None, fullPath, reason, vidispineItemId, vidispineVersion)
+    //record the fact we ignored the file to the database. This should not raise duplicate record errors.
+    ignoredRecordDAO
+      .writeRecord(rec)
+      .map(recId=>rec.copy(id=Some(recId)))
+  }
+
+  /**
    * Verify status of the ingested media and return an Exception if status is failed
    * and continue to potentially upload the ingested media.
    *
@@ -141,7 +159,10 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
                 Future.failed(new RuntimeException(s"Could not get absolute filepath for file $fileId"))
               case (Some(absPath), Some(projectInfo)) =>
                 if(projectInfo.deletable.contains(true) || projectInfo.sensitive.contains(true)) {
-                  Future.failed(SilentDropMessage(Some(s"$absPath is from project ${projectInfo.id} which is either deletable or sensitive")))
+                  setIgnoredRecord(absPath, mediaIngested.itemId, mediaIngested.essenceVersion, "Project was either deletable or sensitive")
+                    .flatMap(_=>
+                      Future.failed(SilentDropMessage(Some(s"$absPath is from project ${projectInfo.id} which is either deletable or sensitive")))
+                    )
                 } else {
                   getRelativePath(absPath, mediaIngested.importSource) match {
                     case Left(err) =>
