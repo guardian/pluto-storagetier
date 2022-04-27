@@ -10,7 +10,12 @@ case class FileItemRef(id:String)
 /**
 Represents a FileDocument metadata entry from Vidispine. Note that `uri` _can_ be None, e.g. in the case of state==LOST
  */
-case class FileDocument(id:String, path:String, uri:Option[Seq[String]], state:String, size:Long, hash:Option[String], timestamp:String,refreshFlag:Int, storage:String, item:Option[FileItemRef]) {
+case class FileDocument(id:String, path:String, uri:Option[Seq[String]], state:String, size:Long, hash:Option[String], timestamp:String,refreshFlag:Int, storage:String, item:Option[FileItemRef]) extends FileDocumentUtils
+
+trait FileDocumentUtils {
+  val uri:Option[Seq[String]]
+  val id:String
+
   private val logger = LoggerFactory.getLogger(getClass)
   /**
    * tries to parse the given URI string, check if it's a file: url and if so returns the path segment

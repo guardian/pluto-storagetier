@@ -15,7 +15,7 @@ case class VSShapeFile(
                       //field and it can cause parsing issues, keeping it as a String for the time being.
                       refreshFlag: Int,
                       storage: String,
-                      ) {
+                      ) extends FileDocumentUtils {
   def sizeOption = if(size == -1) None else Some(size)
 }
 
