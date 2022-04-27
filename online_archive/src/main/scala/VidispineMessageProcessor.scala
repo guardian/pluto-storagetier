@@ -145,18 +145,20 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
     logger.debug(s"Received message content $mediaIngested")
     if (status.contains("FAILED") || itemId.isEmpty) {
       logger.error(s"Import status not in correct state for archive $status itemId=${itemId}")
-      Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
+      Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=$itemId"))
     } else {
-      mediaIngested.sourceOrDestFileId match {
-        case Some(fileId)=>
-          logger.debug(s"Got ingested file ID $fileId from the message")
+      mediaIngested.itemId match {
+        case Some(itemId)=> //unfortunately we can't accurately determine the _original_ file from an essence_version message so we need to go back to the item
+                            //and query that
+          logger.debug(s"Got ingested item ID $itemId from the message")
           for {
-            absPath <- vidispineCommunicator.getFileInformation(fileId).map(_.flatMap(_.getAbsolutePath))
+            shapeFileInfo <- vidispineCommunicator.findItemFile(itemId, "original")
+            absPath <- Future(shapeFileInfo.flatMap(_.getAbsolutePath))
             maybeProject <- absPath.map(Paths.get(_)).map(asLookup.assetFolderProjectLookup).getOrElse(Future(None))
             result <- (absPath, maybeProject) match {
               case (None, _)=>
-                logger.error(s"Could not get absolute filepath for file $fileId")
-                Future.failed(new RuntimeException(s"Could not get absolute filepath for file $fileId"))
+                logger.error(s"Could not get absolute filepath for item $itemId")
+                Future.failed(new RuntimeException(s"Could not get absolute filepath for file $itemId"))
               case (Some(absPath), Some(projectInfo)) =>
                 if(projectInfo.deletable.contains(true) || projectInfo.sensitive.contains(true)) {
                   setIgnoredRecord(absPath, mediaIngested.itemId, mediaIngested.essenceVersion, "Project was either deletable or sensitive")
@@ -173,7 +175,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
                   }
                 }
               case (_, None) =>
-                Future(Left(s"Could not look up a project for fileId $fileId ($absPath)"))
+                Future(Left(s"Could not look up a project for itemId $itemId ($absPath)"))
             }
           } yield result.map(MessageProcessorReturnValue.apply)
         case None=>
