@@ -7,6 +7,7 @@ import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.{LoggerFactory, MDC}
 import software.amazon.awssdk.core.async.AsyncRequestBody
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, PutObjectRequest}
@@ -222,7 +223,8 @@ object FileUploader {
   )
 
   private def initS3Client = wrapJavaMethod(()=>{
-    val b = S3Client.builder()
+    val b = S3Client.builder().httpClientBuilder(UrlConnectionHttpClient.builder())
+
     val withRegion = sys.env.get("AWS_REGION") match {
       case Some(rgn)=>b.region(Region.of(rgn))
       case None=>b
