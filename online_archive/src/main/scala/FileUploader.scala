@@ -40,7 +40,10 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Future.failed(new RuntimeException(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
-      tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
+      //object lock and bucket versioning will ensure that nothing gets over-written and we don't have to change filename.
+      val uploadName = maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/")
+      uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
+      //tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
 
@@ -116,10 +119,10 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
 
   /**
-   * performs an upload via S3 TransferManager, blocking the current thread until it is ready
+   * performs an upload via S3 TransferManager
    * @param file java.nio.file to upload
    * @param keyName S3 key name to upload to
-   * @return
+   * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
   private def uploadFile(file: File, keyName: String): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._

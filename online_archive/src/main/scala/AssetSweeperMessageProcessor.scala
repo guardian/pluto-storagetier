@@ -189,16 +189,11 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(newFile)=>
-        if (routingKey=="assetsweeper.asset_folder_importer.file.update") {
-          logger.warn("Received an update message, these are not implemented yet")
-          Future(Left("not implemented yet"))
-        } else {
-          for {
+        ( for {
             fullPath <- compositingGetPath(newFile)
             projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
             result <- processFileAndProject(fullPath, projectRecord)
-          } yield result
-        }.recoverWith({
+          } yield result ).recoverWith({
           case err:Throwable=>
             val failure = FailureRecord(
               None,
