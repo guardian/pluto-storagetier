@@ -1,8 +1,6 @@
 import akka.http.scaladsl.model.{ContentType, Uri}
 import akka.stream.Materializer
-import akka.stream.alpakka.s3.{MetaHeaders, MultipartUploadResult, S3Headers}
-import akka.stream.alpakka.s3.scaladsl.S3
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.{LoggerFactory, MDC}
@@ -14,6 +12,7 @@ import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectRe
 import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
 
 import java.io.{File, InputStream}
+import java.nio.file.{Files, Paths}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -124,18 +123,22 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @param keyName S3 key name to upload to
    * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
-  private def uploadFile(file: File, keyName: String): Future[HeadObjectResponse] = {
+  private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
     val loggerContext = Option(MDC.getCopyOfContextMap)
 
+    val basePutReq = PutObjectRequest.builder()
+      .bucket(bucketName)
+      .key(keyName)
+
+    val putReq = contentType match {
+      case Some(contentType)=>basePutReq.contentType(contentType)
+      case None=>basePutReq
+    }
+
     val response = for {
       job <- Future.fromTry(Try {
-        val req = UploadRequest.builder().putObjectRequest(
-          PutObjectRequest.builder()
-            .bucket(bucketName)
-            .key(keyName)
-            .build()
-        ).requestBody(AsyncRequestBody.fromFile(file))
+        val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AsyncRequestBody.fromFile(file))
           .build()
 
         transferManager.upload(req)
@@ -155,100 +158,16 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     Uri().withScheme("s3").withHost(bucket).withPath(Uri.Path(fixedKeyToUpload))
   }
 
-  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long])(implicit mat:Materializer, ec:ExecutionContext) = {
-    import scala.jdk.FutureConverters._
-    val loggerContext = Option(MDC.getCopyOfContextMap)
-
-    val pub = src.map(_.toByteBuffer).runWith(Sink.asPublisher(false))
-
-    val response = for {
-      job <- Future.fromTry(Try {
-        logger.info(s"Preparing to upload from akka stream source to $keyName")
-        val basePutReq = PutObjectRequest.builder()
-          .bucket(bucketName)
-          .key(keyName)
-          .contentType(contentType.toString())
-        val putReq = sizeHint match {
-          case Some(s)=>basePutReq.contentLength(s)
-          case None=>basePutReq
-        }
-
-        val req = UploadRequest.builder()
-          .putObjectRequest(putReq.build())
-          .requestBody(AsyncRequestBody.fromPublisher(pub))
-          .build()
-
-        transferManager.upload(req)
-      })
-      completion <- job.completionFuture().asScala
-      _ <- Future(logger.info(s"Akka stream source upload to $keyName completed: ${completion.toString}"))
-      result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
+  def uploadAkkaStreamViaTempfile(src:Source[ByteString, Any], keyName:String, contentType:ContentType)(implicit mat:Materializer, ec:ExecutionContext) = {
+    val tempFilePath = Files.createTempFile(Paths.get(keyName).getFileName.toString, ".temp")
+    val resultFuture = for {
+      copyResult <- src.runWith(FileIO.toPath(tempFilePath))
+      _ <- Future.fromTry(copyResult.status)
+      result <- uploadFile(tempFilePath.toFile, keyName, Some(contentType.toString()))
     } yield result
 
-    response.map(result=>{
-      loggerContext.map(MDC.setContextMap)
-      result
-    })
+   resultFuture.andThen({case _=>Files.delete(tempFilePath)})
   }
-//  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map(), allowOverwrite:Boolean=false)(implicit mat:Materializer, ec:ExecutionContext) = {
-//    val baseHeaders = S3Headers.empty
-//    val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
-//
-//    //make sure we preserve the logger context for when we return from Akka
-//    val loggerContext = Option(MDC.getCopyOfContextMap)
-//
-//    def performUpload(keyForUpload:String) = {
-//      sizeHint match {
-//        case Some(sizeHint) =>
-//          if (sizeHint > 5242880) {
-//            val chunkSize = calculateChunkSize(sizeHint).toInt
-//            logger.info(s"$keyForUpload - SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize / 1048576}Mb")
-//            src
-//              .runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, chunkSize = chunkSize, s3Headers = applyHeaders))
-//          } else {
-//            logger.info(s"$keyForUpload - SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
-//            S3
-//              .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
-//              .runWith(Sink.head)
-//              .map(objectMetadata => {
-//                Try { Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)) } match {
-//                  case Success(uri)=>
-//                    MultipartUploadResult(
-//                      uri,
-//                      bucketName,
-//                      keyForUpload,
-//                      objectMetadata.eTag.getOrElse(""),
-//                      objectMetadata.versionId)
-//                  case Failure(err)=>
-//                    logger.error(s"Could not generate a URI for bucket $bucketName and path $keyForUpload: $err")
-//                    throw err
-//                }
-//              })
-//          }
-//        case None =>
-//          logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyForUpload. Trying default multipart upload, this may fail!")
-//          src.runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, s3Headers = applyHeaders))
-//      }
-//    }
-//
-//    if(allowOverwrite) {
-//      performUpload(keyName).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
-//    } else {
-//      for {
-//        (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
-//        result <- if(shouldUpload) {
-//          performUpload(keyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
-//        } else {
-//          Future(MultipartUploadResult(generateS3Uri(bucketName, keyToUpload),
-//            bucketName,
-//            keyToUpload,
-//            etag="",
-//            versionId = None)
-//          ).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
-//        }
-//      } yield result
-//    }
-//  }
 }
 
 object FileUploader {

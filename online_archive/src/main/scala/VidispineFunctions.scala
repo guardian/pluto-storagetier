@@ -294,7 +294,7 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
         val uploadedPathXtn = FilenameSplitter(archivedRecord.uploadedPath)
         val thumbnailPath = uploadedPathXtn._1 + "_thumb.jpg"
         val result = for {
-          uploadResult <- proxyFileUploader.uploadAkkaStream(streamSource.dataBytes, thumbnailPath, streamSource.contentType, streamSource.contentLengthOption)
+          uploadResult <- proxyFileUploader.uploadAkkaStreamViaTempfile(streamSource.dataBytes, thumbnailPath, streamSource.contentType)
           _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, thumbnailPath, proxyFileUploader.bucketName, ArchiveHunter.ProxyType.THUMBNAIL)
         } yield uploadResult
         result.map(_=>Right( () ) ) //throw away the final result, we just need to know it worked.
@@ -312,7 +312,7 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
         val metadataPath = uploadedPathXtn._1 + "_metadata.xml"
 
         for {
-          uploadResult <- proxyFileUploader.uploadAkkaStream(entity.dataBytes, metadataPath, entity.contentType, entity.contentLengthOption)
+          uploadResult <- proxyFileUploader.uploadAkkaStreamViaTempfile(entity.dataBytes, metadataPath, entity.contentType)
           _ <- archiveHunterCommunicator.importProxy(archivedRecord.archiveHunterID, metadataPath, proxyFileUploader.bucketName, ArchiveHunter.ProxyType.METADATA)
           updatedRecord <- Future(archivedRecord.copy(
             proxyBucket = Some(proxyFileUploader.bucketName),
