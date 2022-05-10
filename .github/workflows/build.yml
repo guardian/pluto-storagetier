@@ -78,6 +78,8 @@ jobs:
         if: always()  #runs even if there is a test failure
         with:
           files: junit-tests/*.xml
+          check_name: Online-Archive Tests
+          comment_title: Online-Archive Tests
 
       - name: Tag docker image online-archive
         run:  docker tag guardianmultimedia/storagetier-online-archive:${{ env.GITHUB_RUN_NUMBER }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-online-archive:${{ env.GITHUB_RUN_NUMBER }}
@@ -171,7 +173,8 @@ jobs:
         if: always()  #runs even if there is a test failure
         with:
           files: junit-tests/*.xml
-
+          check_name: Online-Nearline Tests
+          comment_title: Online-Nearline Tests
       - name: Tag docker image online-nearline
         run:  docker tag guardianmultimedia/storagetier-online-nearline:${{ env.GITHUB_RUN_NUMBER }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-online-nearline:${{ env.GITHUB_RUN_NUMBER }}
 
