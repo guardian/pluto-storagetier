@@ -99,7 +99,7 @@ jobs:
       - name: Upload build info
         uses: actions/upload-artifact@v3
         with:
-          name: build-info
+          name: online_archive
           path: build-info.yaml
 
   online_nearline:
@@ -193,5 +193,5 @@ jobs:
       - name: Upload build info
         uses: actions/upload-artifact@v3
         with:
-          name: build-info
+          name: online_nearline
           path: build-info.yaml
