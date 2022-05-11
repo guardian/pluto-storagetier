@@ -8,7 +8,7 @@ import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, PutObjectRequest}
+import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, NoSuchKeyException, PutObjectRequest}
 import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
 
 import java.io.{File, InputStream}
@@ -16,6 +16,7 @@ import java.nio.file.{Files, Paths}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import scala.jdk.CollectionConverters._
 
 class FileUploader(transferManager: S3TransferManager, client: S3Client, var bucketName: String)(implicit ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -41,7 +42,17 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     } else {
       //object lock and bucket versioning will ensure that nothing gets over-written and we don't have to change filename.
       val uploadName = maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/")
-      uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
+
+      objectExistsWithSize(uploadName, file.length()) match {
+        case Success(true)=>
+          logger.info(s"No upload needed for ${file.getAbsolutePath} as a matching copy already exists")
+          Future(uploadName, file.length())
+        case Success(false)=>
+          logger.info(s"Uploading ${file.getAbsolutePath} as there is no previously matching copy")
+          uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
+        case Failure(err)=>
+          Future.failed(err)
+      }
       //tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
@@ -65,6 +76,36 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     }
   }
 
+  /**
+   * Checks if a version of the given object key exists with the specified file size
+   * @param objectKey key to check
+   * @param fileSize file size that must match
+   * @return a Try that fails if the underlying S3 operation fails. Otherwise it returns `true` if there is a pre-existing
+   *         version and `false` if not.
+   */
+  def objectExistsWithSize(objectKey:String, fileSize:Long): Try[Boolean] = {
+    logger.info(s"Checking for existing versions of s3://$bucketName/$objectKey with size $fileSize")
+    val req = ListObjectVersionsRequest.builder().bucket(bucketName).prefix(objectKey).build()
+
+    Try { client.listObjectVersions(req) } match {
+      case Success(response)=>
+        val versions = response.versions().asScala
+        logger.info(s"s3://$bucketName/$objectKey has ${versions.length} versions")
+        versions.foreach(v=>logger.info(s"s3://$bucketName/$objectKey @${v.versionId()} with size ${v.size()} and checksum ${v.checksumAlgorithmAsStrings()}"))
+        val matches = versions.filter(_.size()==fileSize)
+        if(matches.nonEmpty) {
+          logger.info(s"Found ${matches.length} existing entries for s3://$bucketName/$objectKey with size $fileSize, not creating a new one")
+          Success(true)
+        } else {
+          logger.info(s"Found no entries for s3://$bucketName/$objectKey with size $fileSize, copy is required")
+          Success(false)
+        }
+      case Failure(_:NoSuchKeyException)=>Success(false)
+      case Failure(err)=>
+        logger.error(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: ${err.getMessage}", err)
+        Failure(err)
+    }
+  }
   /**
    * internal method. Recursively checks for an existing file and starts the upload when it finds a 'free' filename
    * @param file java.nio.File to upload
