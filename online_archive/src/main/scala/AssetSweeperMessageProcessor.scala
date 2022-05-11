@@ -176,6 +176,8 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     }
   }
 
+  val isPreview = "/Adobe Premiere[\\w\\d\\s]Previews/".r
+
   /**
    * handle a notification from Asset Sweeper that a file has been found or updated
    * @param routingKey message routing key
@@ -189,6 +191,14 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(newFile)=>
+        if(newFile.ignore) {
+          logger.info(s"File ${newFile.filepath}/${newFile.filename} is marked as ignored")
+          throw SilentDropMessage(Some("Ignored file"))
+        }
+        if(isPreview.unanchored.matches(newFile.filepath)) {
+          logger.info(s"Filepath ${newFile.filepath} indicates preview files, not archiving")
+          throw SilentDropMessage(Some("Preview file"))
+        }
         ( for {
             fullPath <- compositingGetPath(newFile)
             projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
