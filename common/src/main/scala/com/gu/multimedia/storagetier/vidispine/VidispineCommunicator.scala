@@ -136,11 +136,11 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       case None=>HttpRequest(uri = baseUriString)
       case Some(version)=>HttpRequest(uri = baseUriString + s"?version=$version")
     }
-    callToVidispine[UriListDocument](req)
+    callToVidispine[OptionalUriListDocument](req).map(_.flatMap(_.toOption))
   }
 
   protected def getThumbnailsList(maybeResourceUri:Option[String]) = maybeResourceUri.map(thumbnailResourceUri=>
-      callToVidispine[UriListDocument](HttpRequest(uri = thumbnailResourceUri))
+      callToVidispine[OptionalUriListDocument](HttpRequest(uri = thumbnailResourceUri)).map(_.flatMap(_.toOption))
   ).sequence.map(_.flatten)
 
   protected def findFirstThumbnail(maybeResourceUri:Option[String], maybeThumbnailsList:Option[UriListDocument]) = {
