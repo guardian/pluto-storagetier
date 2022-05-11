@@ -193,11 +193,11 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Right(newFile)=>
         if(newFile.ignore) {
           logger.info(s"File ${newFile.filepath}/${newFile.filename} is marked as ignored")
-          throw SilentDropMessage(Some("Ignored file"))
+          Future.failed(SilentDropMessage(Some("Ignored file")))
         }
         if(isPreview.unanchored.matches(newFile.filepath)) {
           logger.info(s"Filepath ${newFile.filepath} indicates preview files, not archiving")
-          throw SilentDropMessage(Some("Preview file"))
+          Future.failed(SilentDropMessage(Some("Preview file")))
         }
         ( for {
             fullPath <- compositingGetPath(newFile)
