@@ -194,29 +194,29 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
         if(newFile.ignore) {
           logger.info(s"File ${newFile.filepath}/${newFile.filename} is marked as ignored")
           Future.failed(SilentDropMessage(Some("Ignored file")))
-        }
-        if(isPreview.unanchored.matches(newFile.filepath)) {
+        } else if(isPreview.unanchored.matches(newFile.filepath)) {
           logger.info(s"Filepath ${newFile.filepath} indicates preview files, not archiving")
           Future.failed(SilentDropMessage(Some("Preview file")))
-        }
-        ( for {
+        } else {
+          (for {
             fullPath <- compositingGetPath(newFile)
             projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
             result <- processFileAndProject(fullPath, projectRecord)
-          } yield result ).recoverWith({
-          case err:Throwable=>
-            val failure = FailureRecord(
-              None,
-              Paths.get(newFile.filepath, newFile.filename).toString,
-              1,
-              s"Uncaught exception: ${err.getMessage}",
-              ErrorComponents.Internal,
-              RetryStates.RanOutOfRetries
-            )
-            failureRecordDAO
-              .writeRecord(failure)
-              .flatMap(_=>Future.failed(err))
-        })
+          } yield result).recoverWith({
+            case err: Throwable =>
+              val failure = FailureRecord(
+                None,
+                Paths.get(newFile.filepath, newFile.filename).toString,
+                1,
+                s"Uncaught exception: ${err.getMessage}",
+                ErrorComponents.Internal,
+                RetryStates.RanOutOfRetries
+              )
+              failureRecordDAO
+                .writeRecord(failure)
+                .flatMap(_ => Future.failed(err))
+          })
+        }
     }
   }
 }
