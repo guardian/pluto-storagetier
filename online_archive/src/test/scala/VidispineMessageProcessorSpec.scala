@@ -1,9 +1,6 @@
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.{ContentType, HttpEntity}
 import akka.stream.Materializer
-import akka.stream.alpakka.s3.MultipartUploadResult
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import io.circe.syntax.EncoderOps
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, SilentDropMessage}

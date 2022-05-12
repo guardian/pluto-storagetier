@@ -1,8 +1,6 @@
 import akka.http.scaladsl.model.{ContentType, Uri}
 import akka.stream.Materializer
-import akka.stream.alpakka.s3.{MetaHeaders, MultipartUploadResult, S3Headers}
-import akka.stream.alpakka.s3.scaladsl.S3
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.{FileIO, Sink, Source}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.{LoggerFactory, MDC}
@@ -10,13 +8,15 @@ import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, NoSuchKeyException, PutObjectRequest}
+import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, NoSuchKeyException, PutObjectRequest}
 import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
 
 import java.io.{File, InputStream}
+import java.nio.file.{Files, Paths}
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
+import scala.jdk.CollectionConverters._
 
 class FileUploader(transferManager: S3TransferManager, client: S3Client, var bucketName: String)(implicit ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -42,7 +42,17 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     } else {
       //object lock and bucket versioning will ensure that nothing gets over-written and we don't have to change filename.
       val uploadName = maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/")
-      uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
+
+      objectExistsWithSize(uploadName, file.length()) match {
+        case Success(true)=>
+          logger.info(s"No upload needed for ${file.getAbsolutePath} as a matching copy already exists")
+          Future(uploadName, file.length())
+        case Success(false)=>
+          logger.info(s"Uploading ${file.getAbsolutePath} as there is no previously matching copy")
+          uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
+        case Failure(err)=>
+          Future.failed(err)
+      }
       //tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
@@ -66,6 +76,36 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     }
   }
 
+  /**
+   * Checks if a version of the given object key exists with the specified file size
+   * @param objectKey key to check
+   * @param fileSize file size that must match
+   * @return a Try that fails if the underlying S3 operation fails. Otherwise it returns `true` if there is a pre-existing
+   *         version and `false` if not.
+   */
+  def objectExistsWithSize(objectKey:String, fileSize:Long): Try[Boolean] = {
+    logger.info(s"Checking for existing versions of s3://$bucketName/$objectKey with size $fileSize")
+    val req = ListObjectVersionsRequest.builder().bucket(bucketName).prefix(objectKey).build()
+
+    Try { client.listObjectVersions(req) } match {
+      case Success(response)=>
+        val versions = response.versions().asScala
+        logger.info(s"s3://$bucketName/$objectKey has ${versions.length} versions")
+        versions.foreach(v=>logger.info(s"s3://$bucketName/$objectKey @${v.versionId()} with size ${v.size()} and checksum ${v.checksumAlgorithmAsStrings()}"))
+        val matches = versions.filter(_.size()==fileSize)
+        if(matches.nonEmpty) {
+          logger.info(s"Found ${matches.length} existing entries for s3://$bucketName/$objectKey with size $fileSize, not creating a new one")
+          Success(true)
+        } else {
+          logger.info(s"Found no entries for s3://$bucketName/$objectKey with size $fileSize, copy is required")
+          Success(false)
+        }
+      case Failure(_:NoSuchKeyException)=>Success(false)
+      case Failure(err)=>
+        logger.error(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: ${err.getMessage}", err)
+        Failure(err)
+    }
+  }
   /**
    * internal method. Recursively checks for an existing file and starts the upload when it finds a 'free' filename
    * @param file java.nio.File to upload
@@ -124,17 +164,22 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @param keyName S3 key name to upload to
    * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
-  private def uploadFile(file: File, keyName: String): Future[HeadObjectResponse] = {
+  private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
+    val loggerContext = Option(MDC.getCopyOfContextMap)
 
-    for {
+    val basePutReq = PutObjectRequest.builder()
+      .bucket(bucketName)
+      .key(keyName)
+
+    val putReq = contentType match {
+      case Some(contentType)=>basePutReq.contentType(contentType)
+      case None=>basePutReq
+    }
+
+    val response = for {
       job <- Future.fromTry(Try {
-        val req = UploadRequest.builder().putObjectRequest(
-          PutObjectRequest.builder()
-            .bucket(bucketName)
-            .key(keyName)
-            .build()
-        ).requestBody(AsyncRequestBody.fromFile(file))
+        val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AsyncRequestBody.fromFile(file))
           .build()
 
         transferManager.upload(req)
@@ -142,6 +187,11 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
       _ <- job.completionFuture().asScala
       result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
     } yield result
+
+    response.map(result=>{
+      loggerContext.map(MDC.setContextMap)  //restore the logger context if it was set
+      result
+    })
   }
 
   private def generateS3Uri(bucket:String, keyToUpload:String) = {
@@ -149,64 +199,15 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     Uri().withScheme("s3").withHost(bucket).withPath(Uri.Path(fixedKeyToUpload))
   }
 
-  def uploadAkkaStream(src:Source[ByteString, Any], keyName:String, contentType:ContentType, sizeHint:Option[Long], customHeaders:Map[String,String]=Map(), allowOverwrite:Boolean=false)(implicit mat:Materializer, ec:ExecutionContext) = {
-    val baseHeaders = S3Headers.empty
-    val applyHeaders = if(customHeaders.nonEmpty) baseHeaders.withCustomHeaders(customHeaders) else baseHeaders
+  def uploadAkkaStreamViaTempfile(src:Source[ByteString, Any], keyName:String, contentType:ContentType)(implicit mat:Materializer, ec:ExecutionContext) = {
+    val tempFilePath = Files.createTempFile(Paths.get(keyName).getFileName.toString, ".temp")
+    val resultFuture = for {
+      copyResult <- src.runWith(FileIO.toPath(tempFilePath))
+      _ <- Future.fromTry(copyResult.status)
+      result <- uploadFile(tempFilePath.toFile, keyName, Some(contentType.toString()))
+    } yield result
 
-    //make sure we preserve the logger context for when we return from Akka
-    val loggerContext = Option(MDC.getCopyOfContextMap)
-
-    def performUpload(keyForUpload:String) = {
-      sizeHint match {
-        case Some(sizeHint) =>
-          if (sizeHint > 5242880) {
-            val chunkSize = calculateChunkSize(sizeHint).toInt
-            logger.info(s"$keyForUpload - SizeHint is $sizeHint, preferring multipart upload with chunk size ${chunkSize / 1048576}Mb")
-            src
-              .runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, chunkSize = chunkSize, s3Headers = applyHeaders))
-          } else {
-            logger.info(s"$keyForUpload - SizeHint is $sizeHint (less than 5Mb), preferring single-hit upload")
-            S3
-              .putObject(bucketName, keyForUpload, src, sizeHint, contentType, s3Headers = applyHeaders)
-              .runWith(Sink.head)
-              .map(objectMetadata => {
-                Try { Uri().withScheme("s3").withHost(bucketName).withPath(Uri.Path(keyForUpload)) } match {
-                  case Success(uri)=>
-                    MultipartUploadResult(
-                      uri,
-                      bucketName,
-                      keyForUpload,
-                      objectMetadata.eTag.getOrElse(""),
-                      objectMetadata.versionId)
-                  case Failure(err)=>
-                    logger.error(s"Could not generate a URI for bucket $bucketName and path $keyForUpload: $err")
-                    throw err
-                }
-              })
-          }
-        case None =>
-          logger.warn(s"No sizeHint has been specified for s3://$bucketName/$keyForUpload. Trying default multipart upload, this may fail!")
-          src.runWith(S3.multipartUploadWithHeaders(bucketName, keyForUpload, contentType, s3Headers = applyHeaders))
-      }
-    }
-
-    if(allowOverwrite) {
-      performUpload(keyName).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
-    } else {
-      for {
-        (keyToUpload, maybeLength, shouldUpload) <- Future.fromTry(findFreeFilename(sizeHint.get, keyName))
-        result <- if(shouldUpload) {
-          performUpload(keyToUpload).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
-        } else {
-          Future(MultipartUploadResult(generateS3Uri(bucketName, keyToUpload),
-            bucketName,
-            keyToUpload,
-            etag="",
-            versionId = None)
-          ).andThen(_=>if(loggerContext.isDefined) MDC.setContextMap(loggerContext.get))
-        }
-      } yield result
-    }
+   resultFuture.andThen({case _=>Files.delete(tempFilePath)})
   }
 }
 

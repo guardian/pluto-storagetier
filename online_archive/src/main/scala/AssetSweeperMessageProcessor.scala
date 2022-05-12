@@ -176,6 +176,8 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
     }
   }
 
+  val isPreview = "/Adobe Premiere[\\w\\d\\s]Previews/".r
+
   /**
    * handle a notification from Asset Sweeper that a file has been found or updated
    * @param routingKey message routing key
@@ -189,24 +191,32 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       case Left(err)=>
         Future(Left(s"Could not parse incoming message: $err"))
       case Right(newFile)=>
-        ( for {
+        if(newFile.ignore) {
+          logger.info(s"File ${newFile.filepath}/${newFile.filename} is marked as ignored")
+          Future.failed(SilentDropMessage(Some("Ignored file")))
+        } else if(isPreview.unanchored.matches(newFile.filepath)) {
+          logger.info(s"Filepath ${newFile.filepath} indicates preview files, not archiving")
+          Future.failed(SilentDropMessage(Some("Preview file")))
+        } else {
+          (for {
             fullPath <- compositingGetPath(newFile)
             projectRecord <- asLookup.assetFolderProjectLookup(fullPath)
             result <- processFileAndProject(fullPath, projectRecord)
-          } yield result ).recoverWith({
-          case err:Throwable=>
-            val failure = FailureRecord(
-              None,
-              Paths.get(newFile.filepath, newFile.filename).toString,
-              1,
-              s"Uncaught exception: ${err.getMessage}",
-              ErrorComponents.Internal,
-              RetryStates.RanOutOfRetries
-            )
-            failureRecordDAO
-              .writeRecord(failure)
-              .flatMap(_=>Future.failed(err))
-        })
+          } yield result).recoverWith({
+            case err: Throwable =>
+              val failure = FailureRecord(
+                None,
+                Paths.get(newFile.filepath, newFile.filename).toString,
+                1,
+                s"Uncaught exception: ${err.getMessage}",
+                ErrorComponents.Internal,
+                RetryStates.RanOutOfRetries
+              )
+              failureRecordDAO
+                .writeRecord(failure)
+                .flatMap(_ => Future.failed(err))
+          })
+        }
     }
   }
 }

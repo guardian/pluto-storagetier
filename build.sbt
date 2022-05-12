@@ -68,7 +68,6 @@ lazy val `mxscopy` = (project in file("mxs-copy-components"))
       "com.typesafe.akka" %% "akka-agent" % "2.5.32",
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
       "com.typesafe.akka" %% "akka-http-xml" % "10.2.6",
-      "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
@@ -105,7 +104,6 @@ lazy val `online_archive` = (project in file("online_archive"))
     dockerBaseImage := "openjdk:11-jdk-slim",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-archive",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
-      "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
       "javax.xml.bind" % "jaxb-api" % "2.3.1",  //Fix "JAXB is unavailable." warning from AWS SDK
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
@@ -140,7 +138,6 @@ lazy val `online_nearline` = (project in file("online_nearline"))
     dockerBaseImage := "openjdk:8-jdk-slim-buster",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
-      "com.lightbend.akka" %% "akka-stream-alpakka-s3" % "3.0.3",
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
       "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
