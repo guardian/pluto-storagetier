@@ -19,7 +19,7 @@ object NearlineRecord extends ((Option[Int], String, String, Option[String], Opt
   Option[Boolean], Boolean, String) =>
   NearlineRecord ) {
   def apply(objectId:String, originalFilePath:String, correlationId: String) = {
-    new NearlineRecord(None, objectId, originalFilePath, None, None, None, None, None, correlationId)
+    new NearlineRecord(None, objectId, originalFilePath, None, None, None, None, None, false, correlationId)
   }
 }
 

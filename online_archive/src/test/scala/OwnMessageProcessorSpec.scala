@@ -159,7 +159,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val req = RevalidateArchiveHunterRequest(recordIds)
 
       val records = recordIds.map(id=>{
-        val rec = ArchivedRecord(s"abcde$id",s"/path/to/file$id",1234L, "somebucket",s"file$id", None)
+        val rec = ArchivedRecord(s"abcde$id",s"/path/to/file$id",1234L, "somebucket",s"file$id", None, "corrId")
         rec.copy(id=Some(id))
       })
 
@@ -209,7 +209,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val req = RevalidateArchiveHunterRequest(recordIds)
 
       val records = recordIds.map(id=>{
-        val rec = ArchivedRecord(s"abcde$id",s"/path/to/file$id",1234L, "somebucket",s"file$id", None)
+        val rec = ArchivedRecord(s"abcde$id",s"/path/to/file$id",1234L, "somebucket",s"file$id", None, "corrId")
         rec.copy(id=Some(id))
       })
 
@@ -272,7 +272,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("lowres"), any) answers((args:Array[AnyRef])=>Future(Right(MessageProcessorReturnValue(args(3).asInstanceOf[ArchivedRecord].asJson))))
       vidispineFunctions.uploadMetadataToS3(any,any,any) answers((args:Array[AnyRef])=>Future(Right(args(2).asInstanceOf[ArchivedRecord].asJson)))
 
-      val rec = ArchivedRecord("abcdefg","/path/to/original.file", 1234L, "somebucket", "uploaded/file", Some(1)).copy(id=Some(1234),vidispineItemId = Some("VX-33"))
+      val rec = ArchivedRecord("abcdefg","/path/to/original.file", 1234L, "somebucket", "uploaded/file", Some(1), "corrId").copy(id=Some(1234),vidispineItemId = Some("VX-33"))
       val toTest = new OwnMessageProcessor()
       val result = Await.result(toTest.uploadVidispineBits("VX-33", rec), 2.seconds)
 
@@ -307,7 +307,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       vidispineFunctions.uploadShapeIfRequired(any,any,org.mockito.ArgumentMatchers.eq("lowres"), any) answers((args:Array[AnyRef])=>Future(Right(MessageProcessorReturnValue(args(3).asInstanceOf[ArchivedRecord].asJson))))
       vidispineFunctions.uploadMetadataToS3(any,any,any) answers((args:Array[AnyRef])=>Future(Right(args(2).asInstanceOf[ArchivedRecord].asJson)))
 
-      val rec = ArchivedRecord("abcdefg","/path/to/original.file", 1234L, "somebucket", "uploaded/file", Some(1)).copy(id=Some(1234),vidispineItemId = Some("VX-33"))
+      val rec = ArchivedRecord("abcdefg","/path/to/original.file", 1234L, "somebucket", "uploaded/file", Some(1), "corrId").copy(id=Some(1234),vidispineItemId = Some("VX-33"))
       val toTest = new OwnMessageProcessor()
       val result = Try { Await.result(toTest.uploadVidispineBits("VX-33", rec), 2.seconds) }
       result must beAFailedTry
@@ -319,7 +319,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
   "OwnMessageProcessor.handleReplayStageTwo" should {
     "take an asset sweeper record, look up the corresponding ArchivedRecord (created by stage one) and call uploadVidispineBits then silently drop the message" in {
-      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1))
+      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1), "corrId")
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
@@ -407,7 +407,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     }
 
     "not hide an error in the upload function" in {
-      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1))
+      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1), "corrId")
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]
@@ -454,7 +454,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
     }
 
     "return a retryable failure if the validation fails" in {
-      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1))
+      val archivedRecord = ArchivedRecord("abcdefg","/path/to/original.file", 12345L, "some-bucket","uploaded/original.file", Some(1), "corrId")
       implicit val mat:Materializer = mock[Materializer]
       implicit val system:ActorSystem = mock[ActorSystem]
       implicit val archivedRecordDAO = mock[ArchivedRecordDAO]

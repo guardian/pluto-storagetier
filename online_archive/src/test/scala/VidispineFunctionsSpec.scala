@@ -53,7 +53,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         originalFileSize=12345,
         uploadedBucket="bucket",
         uploadedPath="uploaded/path",
-        uploadedVersion=Some(4)
+        uploadedVersion=Some(4),
+        "corrId"
       ).copy(archiveHunterIDValidated = true)
       archivedRecordDAO.findBySourceFilename(any) returns Future(Some(record))
 
@@ -76,7 +77,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
           123456L,
           "some-bucket",
           "path/to/uploaded/file.mxf",
-          None
+          None,
+          "corrId"
         )
         val testProxy = VSShapeFile(
           "VX-1234",
@@ -98,7 +100,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
           123456L,
           "some-bucket",
           "path/to/uploaded/file.mxf",
-          None
+          None,
+          "corrId"
         )
         val testProxy = VSShapeFile(
           "VX-1234",
@@ -119,7 +122,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
   "VidispineFunctions.uploadShapeIfRequired" should {
     "stream the file content, tell ArchiveHunter to update its proxy and then update the datastore record" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, "corrId")
           .copy(archiveHunterIDValidated = true)
 
       val mockedInputStream = mock[InputStream]
@@ -180,7 +183,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
 
     "return Left if there is no file data available in Vidispine" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, "corrId")
           .copy(archiveHunterIDValidated = true)
 
       val mockedInputStream = mock[InputStream]
@@ -227,7 +230,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
 
     "return a failed Future if there is no such shape on the item" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, "corrId")
           .copy(archiveHunterIDValidated = true)
 
       val mockedInputStream = mock[InputStream]
@@ -262,7 +265,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
 
     "not stream the file content but return Right if the shape tag is not recognised" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, "corrId")
           .copy(archiveHunterIDValidated = true)
 
       val mockedInputStream = mock[InputStream]
@@ -320,7 +323,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
 
     "return Left if the upload fails" in {
       val mockArchivedRecord =
-        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None)
+        ArchivedRecord("abcdefg","/path/to/original/file",123456L, "some-bucket", "path/to/uploaded/file", None, "corrId")
           .copy(archiveHunterIDValidated = true)
 
       val mockedInputStream = mock[InputStream]

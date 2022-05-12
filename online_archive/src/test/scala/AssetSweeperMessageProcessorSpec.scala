@@ -53,10 +53,12 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
         ProductionOffice.UK
       )
       val basePath = Paths.get("/media/assets")
-      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
+      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath)) {
+        override protected def getCorrelationId: String = "af1bf7e4-f576-4f48-b583-948798036cae"
+      }
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
-      val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
+      val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null,"correlationId":"af1bf7e4-f576-4f48-b583-948798036cae"}"""
       result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).findBySourceFilename("/media/assets/path/to/file.ext")
       there was one(archivedRecordDAO).writeRecord(any)
@@ -98,11 +100,14 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
         ProductionOffice.UK
       )
       val basePath = Paths.get("/completely/random/base/path")
-      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
+
+      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath)) {
+        override protected def getCorrelationId: String = "af1bf7e4-f576-4f48-b583-948798036cae"
+      }
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), Some(projectRecord)), 2.seconds)
       val expectedJson =
-        """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDptZWRpYS9hc3NldHMvcGF0aC90by9maWxlLmV4dA==","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"media/assets/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}""".stripMargin
+        """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDptZWRpYS9hc3NldHMvcGF0aC90by9maWxlLmV4dA==","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"media/assets/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null,"correlationId":"af1bf7e4-f576-4f48-b583-948798036cae"}""".stripMargin
       result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).findBySourceFilename("/media/assets/path/to/file.ext")
       there was one(archivedRecordDAO).writeRecord(any)
@@ -129,10 +134,12 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       uploader.bucketName returns "somebucket"
 
       val basePath = Paths.get("/media/assets")
-      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath))
+      val toTest = new AssetSweeperMessageProcessor(PlutoCoreConfig("https://fake-server","notsecret",basePath)) {
+        override protected def getCorrelationId: String = "af1bf7e4-f576-4f48-b583-948798036cae"
+      }
 
       val result = Await.result(toTest.processFileAndProject(Paths.get("/media/assets/path/to/file.ext"), None), 2.seconds)
-      val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null}"""
+      val expectedJson = """{"id":123,"archiveHunterID":"c29tZWJ1Y2tldDp1cGxvYWRlZC9wYXRoL3RvL2ZpbGUuZXh0","archiveHunterIDValidated":false,"originalFilePath":"/media/assets/path/to/file.ext","originalFileSize":100,"uploadedBucket":"somebucket","uploadedPath":"uploaded/path/to/file.ext","uploadedVersion":null,"vidispineItemId":null,"vidispineVersionId":null,"proxyBucket":null,"proxyPath":null,"proxyVersion":null,"metadataXML":null,"metadataVersion":null,"correlationId":"af1bf7e4-f576-4f48-b583-948798036cae"}"""
       result.map(_.content.noSpaces) must beRight(expectedJson)
       there was one(archivedRecordDAO).findBySourceFilename("/media/assets/path/to/file.ext")
       there was one(archivedRecordDAO).writeRecord(any)

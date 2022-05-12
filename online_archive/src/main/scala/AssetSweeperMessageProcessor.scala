@@ -43,11 +43,13 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       Paths.get(newFile.filepath, newFile.filename)
     })
 
+  protected def getCorrelationId:String = UUID.randomUUID().toString
   private def callUpload(fullPath:Path, relativePath:Path) = {
     logger.info(s"Archiving file '$fullPath' to s3://${uploader.bucketName}/$relativePath")
       uploader.copyFileToS3(fullPath.toFile, Some(relativePath.toString)).flatMap((fileInfo)=>{
       val (fileName, fileSize) = fileInfo
-      val correlationId = UUID.randomUUID().toString
+      val correlationId = getCorrelationId
+
       MDC.put("correlationId", correlationId)
 
       logger.debug(s"$fullPath: Upload completed")

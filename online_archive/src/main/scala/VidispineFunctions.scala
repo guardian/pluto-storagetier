@@ -104,7 +104,8 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
             None,
             None,
             None,
-            None
+            None,
+            "corrid"
           )
       }
 
