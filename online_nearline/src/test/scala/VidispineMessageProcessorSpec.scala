@@ -121,7 +121,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -170,7 +173,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -218,7 +224,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -273,7 +282,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -342,7 +354,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
 
       val mockShape = mock[ShapeDocument]
@@ -427,7 +442,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -481,7 +499,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -549,7 +570,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -616,7 +640,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -695,7 +722,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -744,7 +774,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -787,7 +820,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -833,7 +869,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -879,7 +918,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-12345"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -922,7 +964,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -966,7 +1011,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1031,7 +1079,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1078,7 +1129,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1129,7 +1183,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1206,7 +1263,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1267,7 +1327,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1358,7 +1421,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1389,7 +1455,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)
@@ -1437,7 +1506,10 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("VX-123"),
         None,
         None,
-        None
+        None,
+        None,
+        false,
+        "corrId"
       )
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.writeRecord(any) returns Future(123)

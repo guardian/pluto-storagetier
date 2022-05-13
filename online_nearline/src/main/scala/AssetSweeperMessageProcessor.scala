@@ -31,6 +31,8 @@ class AssetSweeperMessageProcessor()
   private val logger = LoggerFactory.getLogger(getClass)
   import AssetSweeperNewFile.Codec._
 
+  protected def newCorrelationId: String = UUID.randomUUID().toString
+
   def copyFile(vault: Vault, file: AssetSweeperNewFile, maybeNearlineRecord: Option[NearlineRecord]): Future[Either[String, Json]] = {
     val fullPath = Paths.get(file.filepath, file.filename)
 
@@ -39,7 +41,7 @@ class AssetSweeperMessageProcessor()
         case Right(objectId) =>
           val record = maybeNearlineRecord match {
             case Some(rec) => rec
-            case None => NearlineRecord(objectId, fullPath.toString, UUID.randomUUID().toString)
+            case None => NearlineRecord(objectId, fullPath.toString, newCorrelationId)
           }
 
           MDC.put("correlationId", record.correlationId)
@@ -103,6 +105,7 @@ class AssetSweeperMessageProcessor()
         val newRec = NearlineRecord(
           objectId=matchingNearlineFiles.head.oid,
           originalFilePath = filePath.toString,
+          correlationId = newCorrelationId
         )
 
         val updatedRec = maybeVidispineMatches.flatMap(_.file.headOption).flatMap(_.item.map(_.id)) match {
