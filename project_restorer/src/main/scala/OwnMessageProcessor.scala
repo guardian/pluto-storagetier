@@ -15,7 +15,9 @@ class OwnMessageProcessor extends MessageProcessor {
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     logger.info(s"here is an update status ${updateMessage.status}")
-    Future(Right(updateMessage.asJson))
+
+    Future.failed(new RuntimeException("Failed to get status"))
+
   }
 
   /**

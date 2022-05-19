@@ -2,6 +2,8 @@
 import io.circe.Json
 import io.circe.syntax.EncoderOps
 import messages.ProjectUpdateMessage
+import org.junit.Assert.{assertThrows, fail}
+import org.mockito.Mockito.when
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
@@ -36,9 +38,11 @@ class OwnMessageProcessorTest extends Specification with Mockito {
       val msg = io.circe.parser.parse(msgContent)
       val emptyJson = Json.fromString("")
 
-      val result = Await.result(toTest.handleMessage("core.project.update", msg.getOrElse(emptyJson)), 3.seconds)
+      val result = Try{ Await.result(toTest.handleMessage("core.project.update", msg.getOrElse(emptyJson)), 3.seconds)}
 
       ok("Dummy test so far, but it compiles and runs through the code")
+      result must beAFailedTry
+      result.failed.get.getMessage mustEqual "Failed to get status"
     }
 
     "drop message in handleMessage if wrong routing key" in {
@@ -51,6 +55,7 @@ class OwnMessageProcessorTest extends Specification with Mockito {
       }
 
       result must beAFailedTry
+      result.failed.get.getMessage mustEqual "Not meant to receive this"
     }
 
     "handleStatusMessage" in {
@@ -71,9 +76,14 @@ class OwnMessageProcessorTest extends Specification with Mockito {
         "oh noooo",
         "LDN"
       )
-      val result = Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)
+      val result = Try{Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)}
 
-      result must beRight(updateMessage)
+      val failed_msg = "Failed to get status"
+
+
+      result must beAFailedTry
+      result.failed.get.getMessage mustEqual "Failed to get status"
+
     }
   }
 }
