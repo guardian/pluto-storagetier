@@ -15,7 +15,7 @@ class OwnMessageProcessorTest extends Specification with Mockito {
 
   "OwnMessageProcessorTest" should {
     "handleMessage" in {
-      val toTest = new OwnMessageProcessor()
+      val toTest = new PlutoCoreMessageProcessor()
 
       val msgContent =
         """  {
@@ -39,13 +39,13 @@ class OwnMessageProcessorTest extends Specification with Mockito {
       val emptyJson = Json.fromString("")
 
       val result = Try{ Await.result(toTest.handleMessage("core.project.update", msg.getOrElse(emptyJson)), 3.seconds)}
-      
+
       result must beAFailedTry
       result.failed.get.getMessage mustEqual "Failed to get status"
     }
 
     "drop message in handleMessage if wrong routing key" in {
-      val toTest = new OwnMessageProcessor()
+      val toTest = new PlutoCoreMessageProcessor()
 
       val emptyJson = Json.fromString("")
 
@@ -58,7 +58,7 @@ class OwnMessageProcessorTest extends Specification with Mockito {
     }
 
     "handleStatusMessage" in {
-      val toTest = new OwnMessageProcessor()
+      val toTest = new PlutoCoreMessageProcessor()
 
       val updateMessage = ProjectUpdateMessage(
         1234,

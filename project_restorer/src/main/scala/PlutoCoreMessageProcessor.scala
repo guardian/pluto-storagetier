@@ -10,7 +10,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
-class OwnMessageProcessor extends MessageProcessor {
+class PlutoCoreMessageProcessor extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage): Future[Either[String, MessageProcessorReturnValue]] = {
