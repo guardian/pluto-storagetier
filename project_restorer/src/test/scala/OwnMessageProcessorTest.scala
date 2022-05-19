@@ -39,8 +39,7 @@ class OwnMessageProcessorTest extends Specification with Mockito {
       val emptyJson = Json.fromString("")
 
       val result = Try{ Await.result(toTest.handleMessage("core.project.update", msg.getOrElse(emptyJson)), 3.seconds)}
-
-      ok("Dummy test so far, but it compiles and runs through the code")
+      
       result must beAFailedTry
       result.failed.get.getMessage mustEqual "Failed to get status"
     }
