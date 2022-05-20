@@ -148,3 +148,63 @@ lazy val `online_nearline` = (project in file("online_nearline"))
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
     )
   )
+
+lazy val `project_restorer` = (project in file("project_restorer"))
+  .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
+  .dependsOn(common)
+  .settings(commonSettings,
+    version := sys.props.getOrElse("build.number","DEV"),
+    dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
+    Docker / daemonUserUid := None,
+    Docker / daemonUser := "daemon",
+    Docker / dockerUsername  := sys.props.get("docker.username"),
+    Docker / dockerRepository := Some("guardianmultimedia"),
+    Docker / packageName := "guardianmultimedia/project-restorer",
+    dockerChmodType := DockerChmodType.Custom("ugo=rx"),
+    dockerAdditionalPermissions += (DockerChmodType.Custom(
+      "ugo=rx"
+    ), "/opt/docker/bin/project_restorer"),
+    packageName := "project-restorer",
+    dockerBaseImage := "openjdk:8-jdk-slim-buster",
+    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-project-restorer",Some(sys.props.getOrElse("build.number","DEV"))),
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+      "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
+      "org.specs2" %% "specs2-core" % "4.12.3" % Test,
+      "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
+      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
+    )
+  )
+
+lazy val `media_remover` = (project in file("media_remover"))
+  .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
+  .dependsOn(common)
+  .settings(commonSettings,
+    version := sys.props.getOrElse("build.number","DEV"),
+    dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
+    Docker / daemonUserUid := None,
+    Docker / daemonUser := "daemon",
+    Docker / dockerUsername  := sys.props.get("docker.username"),
+    Docker / dockerRepository := Some("guardianmultimedia"),
+    Docker / packageName := "guardianmultimedia/media-remover",
+    dockerChmodType := DockerChmodType.Custom("ugo=rx"),
+    dockerAdditionalPermissions += (DockerChmodType.Custom(
+      "ugo=rx"
+    ), "/opt/docker/bin/media_remover"),
+    packageName := "media-remover",
+    dockerBaseImage := "openjdk:8-jdk-slim-buster",
+    dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-media-remover",Some(sys.props.getOrElse("build.number","DEV"))),
+    libraryDependencies ++= Seq(
+      "com.typesafe.akka" %% "akka-http" % "10.2.6",
+      "com.typesafe.akka" %% "akka-stream" % akkaVersion,
+      "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
+      "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
+      "org.scala-lang.modules" %% "scala-xml" % "1.2.0",
+      "org.specs2" %% "specs2-core" % "4.12.3" % Test,
+      "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
+      "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
+    )
+  )
