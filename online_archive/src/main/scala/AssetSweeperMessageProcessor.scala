@@ -12,7 +12,9 @@ import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConf
 import io.circe.syntax._
 import org.slf4j.{LoggerFactory, MDC}
 import utils.ArchiveHunter
+
 import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
@@ -41,13 +43,19 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
       Paths.get(newFile.filepath, newFile.filename)
     })
 
+  protected def getCorrelationId:String = UUID.randomUUID().toString
   private def callUpload(fullPath:Path, relativePath:Path) = {
     logger.info(s"Archiving file '$fullPath' to s3://${uploader.bucketName}/$relativePath")
       uploader.copyFileToS3(fullPath.toFile, Some(relativePath.toString)).flatMap((fileInfo)=>{
       val (fileName, fileSize) = fileInfo
+      val correlationId = getCorrelationId
+
+      MDC.put("correlationId", correlationId)
+
       logger.debug(s"$fullPath: Upload completed")
       val archiveHunterID = ArchiveHunter.makeDocId(bucket = uploader.bucketName, fileName)
       logger.debug(s"archivehunter ID for $relativePath is $archiveHunterID")
+
       archivedRecordDAO
         .findBySourceFilename(fullPath.toString)
         .map({
@@ -63,7 +71,8 @@ class AssetSweeperMessageProcessor(plutoCoreConfig:PlutoCoreConfig)
               originalFileSize=fileSize,
               uploadedBucket = uploader.bucketName,
               uploadedPath = fileName,
-              uploadedVersion = None)
+              uploadedVersion = None,
+              correlationId)
         }).flatMap(rec=>{
           archivedRecordDAO
             .writeRecord(rec)

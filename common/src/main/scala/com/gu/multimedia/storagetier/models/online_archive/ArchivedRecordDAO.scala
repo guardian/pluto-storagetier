@@ -1,5 +1,6 @@
 package com.gu.multimedia.storagetier.models.online_archive
 import com.gu.multimedia.storagetier.models.GenericDAO
+import org.slf4j.MDC
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.meta.MTable
@@ -71,6 +72,11 @@ class ArchivedRecordDAO(override protected val db:Database)(implicit ec:Executio
   override def getRecord(pk: Int): Future[Option[ArchivedRecord]] = db.run(
     TableQuery[ArchivedRecordRow].filter(_.id===pk).result
   ).map(_.headOption)
+    .map(maybeRecord=>{
+      maybeRecord.foreach(rec=>MDC.put("correlationId", rec.correlationId))
+      maybeRecord
+    })
+
 
   def findBySourceFilename(filename:String) = db.run(
     TableQuery[ArchivedRecordRow].filter(_.originalFilePath===filename).result

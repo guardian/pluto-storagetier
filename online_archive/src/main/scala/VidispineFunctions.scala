@@ -104,7 +104,8 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
             None,
             None,
             None,
-            None
+            None,
+            "corrid"
           )
       }
 
@@ -157,6 +158,7 @@ class VidispineFunctions(mediaFileUploader:FileUploader, proxyFileUploader:FileU
           Future(Left(s"${filePath} should be ignored due to reason ${ignoreRecord.ignoreReason}"))
         case (None, Some(archivedRecord)) =>
           showPreviousFailure(maybeFailureRecord, filePath)
+          MDC.put("correlationId", archivedRecord.correlationId)
 
           if(archivedRecord.archiveHunterID.isEmpty || !archivedRecord.archiveHunterIDValidated) {
             logger.info(s"Archive hunter ID does not exist yet for filePath $filePath, will retry")

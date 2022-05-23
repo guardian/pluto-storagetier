@@ -31,7 +31,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       val rec = NearlineRecord(
         "some-object-id",
-        "/path/to/Assets/project/original-file.mov"
+        "/path/to/Assets/project/original-file.mov",
+        "corrId"
       )
       val fakeProject = mock[ProjectRecord]
       fakeProject.id returns Some(1234)
@@ -98,7 +99,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       val rec = NearlineRecord(
         "some-object-id",
-        "/path/to/Assets/project/original-file.mov"
+        "/path/to/Assets/project/original-file.mov",
+        "corrId"
       )
       val fakeProject = mock[ProjectRecord]
       fakeProject.id returns Some(1234)
@@ -165,7 +167,8 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       val rec = NearlineRecord(
         "some-object-id",
-        "/path/to/Assets/project/original-file.mov"
+        "/path/to/Assets/project/original-file.mov",
+        "corrId"
       )
       val fakeProject = mock[ProjectRecord]
       fakeProject.id returns Some(1234)
@@ -211,12 +214,12 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(Some(mock[ItemResponseSimplified]))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
-      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
       nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
       val asLookup = mock[AssetFolderLookup]
 
       val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
-      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234)).asJson), 2.seconds)
 
       there was one(nearlineRecordDAO).getRecord(1234)
       there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id","some-object-id")
@@ -230,12 +233,12 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setGroupedMetadataValue(any,any,any,any) returns Future.failed(new RuntimeException("something broke"))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
-      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
       nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
       val asLookup = mock[AssetFolderLookup]
 
       val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
-      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234)).asJson), 2.seconds)
 
       there was one(nearlineRecordDAO).getRecord(1234)
       there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset","gnm_nearline_id","some-object-id")
@@ -249,12 +252,12 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       implicit val vsCommunicator = mock[VidispineCommunicator]
       vsCommunicator.setGroupedMetadataValue(any, any,any,any) returns Future(None)
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
-      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
+      val fakeRecord = NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234), vidispineItemId = Some("VX-123"), vidispineVersionId=Some(1))
       nearlineRecordDAO.getRecord(any) returns Future(Some(fakeRecord))
       val asLookup = mock[AssetFolderLookup]
 
       val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
-      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds)
+      val result = Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234)).asJson), 2.seconds)
 
       there was one(nearlineRecordDAO).getRecord(1234)
       there was one(vsCommunicator).setGroupedMetadataValue("VX-123", "Asset", "gnm_nearline_id","some-object-id")
@@ -275,7 +278,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val asLookup = mock[AssetFolderLookup]
 
       val toTest = new OwnMessageProcessor(mxsConfig, asLookup, "own-exchange-name")
-      val result = Try { Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file").copy(id=Some(1234)).asJson), 2.seconds) }
+      val result = Try { Await.result(toTest.handleSuccessfulMetadataWrite(NearlineRecord("some-object-id","/path/to/original/file", "corrId").copy(id=Some(1234)).asJson), 2.seconds) }
 
       there was one(nearlineRecordDAO).getRecord(1234)
       there was no(vsCommunicator).setGroupedMetadataValue(any,any,any,any)
@@ -299,7 +302,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       implicit val vsCommunicator = mock[VidispineCommunicator]
 
-      val rec = NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234))
+      val rec = NearlineRecord("source-object-id","/path/to/original-file", "corrId").copy(id=Some(1234))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.setInternallyArchived(any,any) returns Future(Some(rec.copy(internallyArchived = Some(true))))
       val asLookup = mock[AssetFolderLookup]
@@ -316,7 +319,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
       val result = Await.result(toTest.handleInternalArchiveRequested(rec.asJson), 2.seconds)
 
       result must beRight
-      result.flatMap(_.content.as[NearlineRecord]) must beRight(NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234), internallyArchived = Some(true)))
+      result.flatMap(_.content.as[NearlineRecord]) must beRight(NearlineRecord("source-object-id","/path/to/original-file", "corrId").copy(id=Some(1234), internallyArchived = Some(true)))
       there was one(mockCrossCopy).apply(mockSourceVault, "source-object-id", mockDestVault)
       there was one(mxsConnectionBuilder).withVaultsFuture(org.mockito.ArgumentMatchers.eq(Seq("vault-id", "internal-archive-vault")))(any)(any)
       there was one(nearlineRecordDAO).setInternallyArchived(1234, true)
@@ -337,7 +340,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
 
       implicit val vsCommunicator = mock[VidispineCommunicator]
 
-      val rec = NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234))
+      val rec = NearlineRecord("source-object-id","/path/to/original-file", "corrId").copy(id=Some(1234))
       implicit val nearlineRecordDAO = mock[NearlineRecordDAO]
       nearlineRecordDAO.setInternallyArchived(any,any) returns Future(Some(rec.copy(internallyArchived = Some(true))))
       val asLookup = mock[AssetFolderLookup]
@@ -385,7 +388,7 @@ class OwnMessageProcessorSpec extends Specification with Mockito {
         override def isCopyNeeded(nearlineVault: Vault, destVault: Vault, rec: NearlineRecord): Future[Boolean] = Future(true)
       }
 
-      val rec = NearlineRecord("source-object-id","/path/to/original-file").copy(id=Some(1234))
+      val rec = NearlineRecord("source-object-id","/path/to/original-file", "corrId").copy(id=Some(1234))
       val result = Await.result(toTest.handleInternalArchiveRequested(rec.asJson), 2.seconds)
 
       result must beLeft("Kaboom")

@@ -1,5 +1,6 @@
 package com.gu.multimedia.storagetier.models.nearline_archive
 
+import org.slf4j.MDC
 import slick.jdbc.PostgresProfile.api._
 
 case class NearlineRecord(id:Option[Int],
@@ -11,12 +12,16 @@ case class NearlineRecord(id:Option[Int],
                           metadataXMLObjectId:Option[String],
                           internallyArchived:Option[Boolean]=None,
                           expectingVidispineId:Boolean=true,
+                          correlationId:String
                          )
 
-object NearlineRecord extends ((Option[Int], String, String, Option[String], Option[Int], Option[String], Option[String], Option[Boolean], Boolean) =>
+
+object NearlineRecord extends ((Option[Int], String, String, Option[String], Option[Int], Option[String], Option[String],
+  Option[Boolean], Boolean, String) =>
   NearlineRecord ) {
-  def apply(objectId:String, originalFilePath:String) = {
-    new NearlineRecord(None, objectId, originalFilePath, None, None, None, None, None)
+  def apply(objectId:String, originalFilePath:String, correlationId: String) = {
+    MDC.put("correlationId", correlationId)
+    new NearlineRecord(None, objectId, originalFilePath, None, None, None, None, None, false, correlationId)
   }
 }
 
@@ -30,7 +35,7 @@ class NearlineRecordRow (tag:Tag) extends Table[NearlineRecord](tag, "nearlinear
   def metadataXMLObjectId = column[Option[String]]("s_metadata_xml_objectid")
   def internallyArchived = column[Option[Boolean]]("b_internally_archived")
   def expectingVidispineId = column[Boolean]("b_expecting_vidispine_id")
+  def correlationId = column[String]("s_correlation_id")
 
-  def * = (id.?, objectId, originalFilePath, vidispineItemId, vidispineVersionId, proxyObjectId, metadataXMLObjectId, internallyArchived, expectingVidispineId) <>
-    (NearlineRecord.tupled, NearlineRecord.unapply)
+  def * = (id.?, objectId, originalFilePath, vidispineItemId, vidispineVersionId, proxyObjectId, metadataXMLObjectId, internallyArchived, expectingVidispineId, correlationId) <> (NearlineRecord.tupled, NearlineRecord.unapply)
 }

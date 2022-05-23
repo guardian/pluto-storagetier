@@ -19,6 +19,7 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+import org.slf4j.MDC
 
 import java.net.URI
 import java.nio.file.{Path, Paths}
@@ -26,6 +27,7 @@ import java.time.{Instant, ZonedDateTime}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import java.nio.file.{Files, Path, Paths}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Try}
 
@@ -64,6 +66,8 @@ class VidispineMessageProcessor()
     }
   }
 
+  protected def newCorrelationId: String = UUID.randomUUID().toString
+
   /**
    * performs a search on the given vault looking for a matching file (i.e. one with the same file name AND size).
    * If one exists, it will create a NearlineRecord linking that file to the given name, save it to the database and return it.
@@ -98,7 +102,8 @@ class VidispineMessageProcessor()
               logger.info(s"Found ${matches.length} archived files for $filePath: ${matches.map(_.pathOrFilename).mkString(",")}")
               val newRec = NearlineRecord(
                 objectId = matches.head.oid,
-                originalFilePath = filePath.toString
+                originalFilePath = filePath.toString,
+                correlationId = newCorrelationId
               )
               if (shouldSave) {
                 nearlineRecordDAO.writeRecord(newRec).map(newId => Some(newRec.copy(id = Some(newId))))
@@ -139,6 +144,8 @@ class VidispineMessageProcessor()
 
       showPreviousFailure(maybeFailureRecord, absPath)
 
+      maybeNearlineRecord.foreach(rec=>MDC.put("correlationId", rec.correlationId))
+
       fileCopier.copyFileToMatrixStore(vault, fullPath.getFileName.toString, fullPath)
         .flatMap({
           case Right(objectId) =>
@@ -159,9 +166,11 @@ class VidispineMessageProcessor()
                   vidispineItemId = mediaIngested.itemId,
                   vidispineVersionId = mediaIngested.essenceVersion,
                   None,
-                  None
+                  None,
+                  correlationId = newCorrelationId
                 )
             }
+            MDC.put("correlationId", record.correlationId)
 
             for {
               recId <- nearlineRecordDAO.writeRecord(record)
@@ -419,6 +428,8 @@ class VidispineMessageProcessor()
   : Future[Either[String, MessageProcessorReturnValue]] = {
     nearlineRecordDAO.findByVidispineId(itemId).flatMap({
         case Some(nearlineRecord) =>
+          MDC.put("correlationId", nearlineRecord.correlationId)
+
           copyShapeIfRequired(vault, mediaIngested, itemId, shapeId, nearlineRecord)
         case None =>
           logger.info(s"No record of vidispine item $itemId retry later")
@@ -570,6 +581,7 @@ class VidispineMessageProcessor()
   def handleVidispineItemNeedsBackup(vault:Vault, itemId:String) = {
     nearlineRecordDAO.findByVidispineId(itemId).flatMap({
       case Some(existingRecord) =>
+        MDC.put("correlationId", existingRecord.correlationId)
         logger.info(s"Item $itemId is registered in the nearline database with MXS ID ${existingRecord.objectId}, updating Vidispine...")
         VidispineHelper.updateVidispineWithMXSId(itemId, existingRecord)
       case None =>
@@ -633,7 +645,9 @@ class VidispineMessageProcessor()
           nearlineRecordDAO
             .findByVidispineId(itemId)
             .flatMap({
-              case foundRecord@Some(_)=>Future(foundRecord) //we found a record in the database, happy days
+              case foundRecord@Some(rec)=>
+                MDC.put("correlationId", rec.correlationId)
+                Future(foundRecord) //we found a record in the database, happy days
               case None=>                                   //we didn't find a record in the database, but maybe the file does exist already?
                 val maybeNewEntryList = for {
                   files <- getOriginalFilesForItem(itemId)
@@ -670,6 +684,7 @@ class VidispineMessageProcessor()
                 logger.info(s"No record of vidispine item $itemId yet.")
                 Future(Left(s"No record of vidispine item $itemId yet.")) //this is retryable, assume that the item has not finished importing yet
               case Some(nearlineRecord: NearlineRecord)=>
+                  MDC.put("correlationId", nearlineRecord.correlationId)
                   buildMetaForXML(vault, nearlineRecord, itemId).flatMap({
                     case None=>
                       //this is a retryable failure; sometimes the "updated metadata" message will arrive earlier than the media has finished processing.

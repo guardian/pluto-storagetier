@@ -1,5 +1,6 @@
 package com.gu.multimedia.storagetier.models.online_archive
 
+import org.slf4j.MDC
 import slick.jdbc.PostgresProfile.api._
 
 /*
@@ -26,15 +27,17 @@ case class ArchivedRecord(id:Option[Int],
                           proxyPath:Option[String],
                           proxyVersion:Option[Int],
                           metadataXML:Option[String],
-                          metadataVersion:Option[Int]
+                          metadataVersion:Option[Int],
+                          correlationId:String
                          )
 
 object ArchivedRecord extends ((Option[Int], String, Boolean, String, Long, String, String, Option[Int], Option[String], Option[Int],
-  Option[String], Option[String], Option[Int], Option[String], Option[Int]) => ArchivedRecord ){
+  Option[String], Option[String], Option[Int], Option[String], Option[Int], String) => ArchivedRecord ){
   def apply(archiveHunterID:String, originalFilePath:String, originalFileSize: Long, uploadedBucket:String, uploadedPath:String,
-            uploadedVersion:Option[Int]) = {
+            uploadedVersion:Option[Int], correlationId: String) = {
+    MDC.put("correlationId", correlationId)
     new ArchivedRecord(None, archiveHunterID, false, originalFilePath, originalFileSize, uploadedBucket, uploadedPath,
-      uploadedVersion, None,None,None,None,None,None,None)
+      uploadedVersion, None,None,None,None,None,None,None, correlationId)
   }
 }
 
@@ -54,11 +57,12 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearch
   def proxyVersion = column[Option[Int]]("i_proxy_version")
   def metadataXML = column[Option[String]]("s_metadata_xml_path")
   def metadataVersion = column[Option[Int]]("i_metadata_version")
+  def correlationId = column[String]("s_correlation_id")
 
   def filepathIdx = index("filepath_idx", originalFilePath)
   def archiveHunterIdIds = index("archivehunter_id_idx", archiveHunterID, unique = true)
   def vidispineIdIdx = index("vidispine_item_idx", vidispineItemId)
 
   def * = (id.?, archiveHunterID, archiveHunterIDValidated, originalFilePath, originalFileSize, uploadedBucket, uploadedPath,
-    uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
+    uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion, correlationId) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
 }

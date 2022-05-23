@@ -12,9 +12,10 @@ import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.nio.file.{Files, Paths}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 class AssetSweeperMessageProcessor()
@@ -30,6 +31,8 @@ class AssetSweeperMessageProcessor()
   private val logger = LoggerFactory.getLogger(getClass)
   import AssetSweeperNewFile.Codec._
 
+  protected def newCorrelationId: String = UUID.randomUUID().toString
+
   def copyFile(vault: Vault, file: AssetSweeperNewFile, maybeNearlineRecord: Option[NearlineRecord]): Future[Either[String, Json]] = {
     val fullPath = Paths.get(file.filepath, file.filename)
 
@@ -38,8 +41,10 @@ class AssetSweeperMessageProcessor()
         case Right(objectId) =>
           val record = maybeNearlineRecord match {
             case Some(rec) => rec
-            case None => NearlineRecord(objectId, fullPath.toString)
+            case None => NearlineRecord(objectId, fullPath.toString, newCorrelationId)
           }
+
+          MDC.put("correlationId", record.correlationId)
 
           nearlineRecordDAO
             .writeRecord(record)
@@ -100,6 +105,7 @@ class AssetSweeperMessageProcessor()
         val newRec = NearlineRecord(
           objectId=matchingNearlineFiles.head.oid,
           originalFilePath = filePath.toString,
+          correlationId = newCorrelationId
         )
 
         val updatedRec = maybeVidispineMatches.flatMap(_.file.headOption).flatMap(_.item.map(_.id)) match {
