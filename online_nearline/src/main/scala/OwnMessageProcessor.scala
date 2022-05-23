@@ -14,7 +14,7 @@ import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
 import matrixstore.{CustomMXSMetadata, MatrixStoreConfig}
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 import io.circe.syntax._
 
 import java.nio.file.Paths
@@ -121,6 +121,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
     case Left(err)=>
       Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
     case Right(rec)=>
+      MDC.put("correlationId", rec.correlationId)
       mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault=>
         applyCustomMetadata(rec, vault)
       }.andThen({
@@ -148,6 +149,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
       //because this message might arrive _before_ the vidispine item id has been set, we need to get the _current_
       //state of the item from the datastore and not rely on the state from the message
       //".sequence" here is a bit of cats magic that converts Option[Future[Option[A]]] into Future[Option[Option[A]]]
+      MDC.put("correlationId", rec.correlationId)
       rec.id
         .map(recId=>nearlineRecordDAO.getRecord(recId))
         .sequence
@@ -232,6 +234,7 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
     case Left(err)=>
       Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
     case Right(rec)=>
+      MDC.put("correlationId", rec.correlationId)
       mxsConfig.internalArchiveVaultId match {
         case Some(internalArchiveVaultId) =>
           //this message has been output by `applyCustomMetadata` above. So we can assume that (a) the source object ID in the message is

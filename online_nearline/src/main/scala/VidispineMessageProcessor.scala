@@ -144,6 +144,8 @@ class VidispineMessageProcessor()
 
       showPreviousFailure(maybeFailureRecord, absPath)
 
+      maybeNearlineRecord.foreach(rec=>MDC.put("correlationId", rec.correlationId))
+
       fileCopier.copyFileToMatrixStore(vault, fullPath.getFileName.toString, fullPath)
         .flatMap({
           case Right(objectId) =>
@@ -579,6 +581,7 @@ class VidispineMessageProcessor()
   def handleVidispineItemNeedsBackup(vault:Vault, itemId:String) = {
     nearlineRecordDAO.findByVidispineId(itemId).flatMap({
       case Some(existingRecord) =>
+        MDC.put("correlationId", existingRecord.correlationId)
         logger.info(s"Item $itemId is registered in the nearline database with MXS ID ${existingRecord.objectId}, updating Vidispine...")
         VidispineHelper.updateVidispineWithMXSId(itemId, existingRecord)
       case None =>
@@ -642,7 +645,9 @@ class VidispineMessageProcessor()
           nearlineRecordDAO
             .findByVidispineId(itemId)
             .flatMap({
-              case foundRecord@Some(_)=>Future(foundRecord) //we found a record in the database, happy days
+              case foundRecord@Some(rec)=>
+                MDC.put("correlationId", rec.correlationId)
+                Future(foundRecord) //we found a record in the database, happy days
               case None=>                                   //we didn't find a record in the database, but maybe the file does exist already?
                 val maybeNewEntryList = for {
                   files <- getOriginalFilesForItem(itemId)
