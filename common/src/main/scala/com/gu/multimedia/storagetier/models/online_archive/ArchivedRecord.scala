@@ -1,5 +1,6 @@
 package com.gu.multimedia.storagetier.models.online_archive
 
+import org.slf4j.MDC
 import slick.jdbc.PostgresProfile.api._
 
 /*
@@ -34,6 +35,7 @@ object ArchivedRecord extends ((Option[Int], String, Boolean, String, Long, Stri
   Option[String], Option[String], Option[Int], Option[String], Option[Int], String) => ArchivedRecord ){
   def apply(archiveHunterID:String, originalFilePath:String, originalFileSize: Long, uploadedBucket:String, uploadedPath:String,
             uploadedVersion:Option[Int], correlationId: String) = {
+    MDC.put("correlationId", correlationId)
     new ArchivedRecord(None, archiveHunterID, false, originalFilePath, originalFileSize, uploadedBucket, uploadedPath,
       uploadedVersion, None,None,None,None,None,None,None, correlationId)
   }

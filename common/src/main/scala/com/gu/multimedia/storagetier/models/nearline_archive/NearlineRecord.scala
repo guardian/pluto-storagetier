@@ -1,5 +1,6 @@
 package com.gu.multimedia.storagetier.models.nearline_archive
 
+import org.slf4j.MDC
 import slick.jdbc.PostgresProfile.api._
 
 case class NearlineRecord(id:Option[Int],
@@ -19,6 +20,7 @@ object NearlineRecord extends ((Option[Int], String, String, Option[String], Opt
   Option[Boolean], Boolean, String) =>
   NearlineRecord ) {
   def apply(objectId:String, originalFilePath:String, correlationId: String) = {
+    MDC.put("correlationId", correlationId)
     new NearlineRecord(None, objectId, originalFilePath, None, None, None, None, None, false, correlationId)
   }
 }
