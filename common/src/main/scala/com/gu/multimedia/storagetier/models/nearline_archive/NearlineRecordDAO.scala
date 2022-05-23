@@ -1,7 +1,7 @@
 package com.gu.multimedia.storagetier.models.nearline_archive
 
 import com.gu.multimedia.storagetier.models.GenericDAO
-import org.slf4j.LoggerFactory
+import org.slf4j.{LoggerFactory, MDC}
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.meta.MTable
@@ -58,6 +58,10 @@ class NearlineRecordDAO(override protected val db:Database)(implicit ec:Executio
   override def getRecord(pk: Int): Future[Option[NearlineRecord]] = db.run(
     TableQuery[NearlineRecordRow].filter(_.id===pk).result
   ).map(_.headOption)
+    .map(maybeRecord=>{
+      maybeRecord.foreach(rec=>MDC.put("correlationId", rec.correlationId))
+      maybeRecord
+    })
 
   def findBySourceFilename(filename:String) = db.run(
     TableQuery[NearlineRecordRow].filter(_.originalFilePath===filename).result
