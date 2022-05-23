@@ -216,8 +216,8 @@ class VidispineMessageProcessor()
 
     logger.debug(s"Received message content $mediaIngested")
     if (status.contains("FAILED") || itemId.isEmpty) {
-      logger.error(s"Import status not in correct state for archive $status itemId=${itemId}")
-      Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=${itemId}"))
+      logger.error(s"Import status not in correct state for archive $status itemId=$itemId")
+      Future.failed(SilentDropMessage(Some(s"Import status not in correct state for archive $status itemId=$itemId")))
     } else {
       mediaIngested.sourceOrDestFileId match {
         case Some(fileId)=>

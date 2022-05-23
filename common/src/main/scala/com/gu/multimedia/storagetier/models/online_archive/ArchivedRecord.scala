@@ -57,12 +57,12 @@ class ArchivedRecordRow (tag:Tag) extends Table[ArchivedRecord](tag, "onlinearch
   def proxyVersion = column[Option[Int]]("i_proxy_version")
   def metadataXML = column[Option[String]]("s_metadata_xml_path")
   def metadataVersion = column[Option[Int]]("i_metadata_version")
-  def correlationId = column[String]("s_correlation_id")
+  def correlationId = column[Option[String]]("s_correlation_id")
 
   def filepathIdx = index("filepath_idx", originalFilePath)
   def archiveHunterIdIds = index("archivehunter_id_idx", archiveHunterID, unique = true)
   def vidispineIdIdx = index("vidispine_item_idx", vidispineItemId)
 
   def * = (id.?, archiveHunterID, archiveHunterIDValidated, originalFilePath, originalFileSize, uploadedBucket, uploadedPath,
-    uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion, correlationId) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
+    uploadedVersion, vidispineItemId, vidispineVersionId, proxyBucket, proxyPath, proxyVersion, metadataXML, metadataVersion, correlationId.getOrElse("<absent>")) <> (ArchivedRecord.tupled, ArchivedRecord.unapply)
 }

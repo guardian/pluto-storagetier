@@ -35,7 +35,7 @@ class NearlineRecordRow (tag:Tag) extends Table[NearlineRecord](tag, "nearlinear
   def metadataXMLObjectId = column[Option[String]]("s_metadata_xml_objectid")
   def internallyArchived = column[Option[Boolean]]("b_internally_archived")
   def expectingVidispineId = column[Boolean]("b_expecting_vidispine_id")
-  def correlationId = column[String]("s_correlation_id")
+  def correlationId = column[Option[String]]("s_correlation_id")
 
-  def * = (id.?, objectId, originalFilePath, vidispineItemId, vidispineVersionId, proxyObjectId, metadataXMLObjectId, internallyArchived, expectingVidispineId, correlationId) <> (NearlineRecord.tupled, NearlineRecord.unapply)
+  def * = (id.?, objectId, originalFilePath, vidispineItemId, vidispineVersionId, proxyObjectId, metadataXMLObjectId, internallyArchived, expectingVidispineId, correlationId.getOrElse("<absent>")) <> (NearlineRecord.tupled, NearlineRecord.unapply)
 }
