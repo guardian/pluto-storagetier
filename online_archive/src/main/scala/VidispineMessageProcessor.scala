@@ -152,7 +152,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
     logger.debug(s"Received message content $mediaIngested")
     if (status.contains("FAILED") || itemId.isEmpty) {
       logger.error(s"Import status not in correct state for archive $status itemId=${itemId}")
-      Future.failed(new RuntimeException(s"Import status not in correct state for archive $status itemId=$itemId"))
+      Future.failed(SilentDropMessage(Some(s"Import status not in correct state for archive $status itemId=$itemId")))
     } else {
       mediaIngested.itemId match {
         case Some(itemId)=> //unfortunately we can't accurately determine the _original_ file from an essence_version message so we need to go back to the item
