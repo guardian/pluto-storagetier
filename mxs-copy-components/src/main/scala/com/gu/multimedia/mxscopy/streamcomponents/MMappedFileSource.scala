@@ -46,9 +46,9 @@ class MMappedFileSource(file:File, pageSize:Int=2*1024*1024) extends GraphStage[
               bytes
             } catch {
               case ex:BufferUnderflowException=>
-                val lastPageSize = file.length()-ctr
-                val bytes: Array[Byte] = new Array[Byte](lastPageSize.toInt)
-                mapChunks(chunkIndex).get(bytes, 0, lastPageSize.toInt)
+                val lastPageSize = mapChunks(chunkIndex).remaining()
+                val bytes: Array[Byte] = new Array[Byte](lastPageSize)
+                mapChunks(chunkIndex).get(bytes, 0, lastPageSize)
                 bytes
             }
 

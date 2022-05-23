@@ -101,7 +101,7 @@ lazy val `online_archive` = (project in file("online_archive"))
       "ugo=rx"
     ), "/opt/docker/bin/online_archive"),
     packageName := "storagetier-online-archive",
-    dockerBaseImage := "openjdk:11-jdk-slim",
+    dockerBaseImage := "amazoncorretto:11",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-archive",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
@@ -135,7 +135,7 @@ lazy val `online_nearline` = (project in file("online_nearline"))
       "ugo=rx"
     ), "/opt/docker/bin/online_nearline"),
     packageName := "storagetier-online-nearline",
-    dockerBaseImage := "openjdk:8-jdk-slim-buster",
+    dockerBaseImage := "amazoncorretto:8",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
@@ -165,7 +165,7 @@ lazy val `project_restorer` = (project in file("project_restorer"))
       "ugo=rx"
     ), "/opt/docker/bin/project_restorer"),
     packageName := "project-restorer",
-    dockerBaseImage := "openjdk:8-jdk-slim-buster",
+    dockerBaseImage := "amazoncorretto:8",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-project-restorer",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
@@ -195,7 +195,7 @@ lazy val `media_remover` = (project in file("media_remover"))
       "ugo=rx"
     ), "/opt/docker/bin/media_remover"),
     packageName := "media-remover",
-    dockerBaseImage := "openjdk:8-jdk-slim-buster",
+    dockerBaseImage := "amazoncorretto:8",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-media-remover",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",

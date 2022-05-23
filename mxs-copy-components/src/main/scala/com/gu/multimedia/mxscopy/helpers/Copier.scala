@@ -195,7 +195,8 @@ object Copier {
           checksumSink =>
             import akka.stream.scaladsl.GraphDSL.Implicits._
 
-            val src = builder.add(new MMappedFileSource(fromFile, chunkSize))
+            //val src = builder.add(new MMappedFileSource(fromFile, chunkSize))
+            val src = builder.add(FileIO.fromPath(fromFile.toPath))
             val bcast = builder.add(new Broadcast[ByteString](2, true))
             val omSink = builder.add(new MatrixStoreFileSink(mxsFile).async)
 

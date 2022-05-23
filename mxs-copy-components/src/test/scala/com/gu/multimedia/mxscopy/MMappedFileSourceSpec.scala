@@ -18,21 +18,19 @@ class MMappedFileSourceSpec extends Specification with Mockito {
         implicit val mat: Materializer = ActorMaterializer.create(system)
         val file = new File("testfiles/large-test-file.mp4")
         val sinkFactory = new ChecksumSink()
-        //val sinkFactory = FileIO.toPath(new File("testfiles/testout.mp4").toPath)
 
         val graph = GraphDSL.create(sinkFactory) { implicit builder =>
           sink =>
             import akka.stream.scaladsl.GraphDSL.Implicits._
 
             val src = builder.add(new MMappedFileSource(file).async)
-            //val src = builder.add(Source.fromIterator(()=>Seq(1,2,3,4).toIterator))
             src ~> sink
             ClosedShape
         }
 
         val result = Await.result(RunnableGraph.fromGraph(graph).run(), 30 seconds)
         //result.wasSuccessful must beTrue
-        result must beSome("adff7d2ede6489c424568db68f90ef27")
+        result must beSome("05d5bb67af3037acf01d1bc42615cc9a")
       }
     }
   }
