@@ -135,7 +135,7 @@ lazy val `online_nearline` = (project in file("online_nearline"))
       "ugo=rx"
     ), "/opt/docker/bin/online_nearline"),
     packageName := "storagetier-online-nearline",
-    dockerBaseImage := "amazoncorretto:8-jre",
+    dockerBaseImage := "amazoncorretto:8",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-online-nearline",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
