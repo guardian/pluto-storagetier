@@ -176,7 +176,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
       //when under load.  So, to prevent the rabbitmq library from sending us another message immediately we block the thread
       //here until we have definitively handled it.
       //The Try here _should_ never fail as exceptions are handled in the block above.
-      Try { Await.ready(completionFuture, 60.minutes) } match {
+      Try { Await.ready(completionFuture, 180.minutes) } match {
         case Success(_)=>
           MDC.clear()
         case Failure(err)=>
