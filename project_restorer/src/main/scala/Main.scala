@@ -1,10 +1,7 @@
 
-
-import Main.{connectionIdleTime, db, executionContext}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecordDAO}
 import de.geekonaut.slickmdc.MdcExecutionContext
 import matrixstore.MatrixStoreEnvironmentConfigProvider
 import org.slf4j.LoggerFactory

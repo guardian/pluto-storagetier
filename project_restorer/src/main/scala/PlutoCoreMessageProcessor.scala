@@ -19,13 +19,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mxsConnectionBuilder:MXSConnectionBuilderImpl)
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,mxsConnectionBuilder:MXSConnectionBuilderImpl)
   extends
   MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
 
-  def filesByProject(vault:Vault, projectId:String)(implicit mat:Materializer) = {
+  def filesByProject(vault:Vault, projectId:String) = {
     val sinkFactory = Sink.seq[ObjectMatrixEntry]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
@@ -36,25 +36,25 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mxsConnect
   }
 
 
-  def searchAssociatedMedia(project_id: Int, vault: Vault) = {
+  def searchAssociatedMedia(project_id: Int, vault: Vault) : Future[Either[String, Seq[ObjectMatrixEntry]]] = {
 
-    case Right(updateMessage)=>
-     implicit val listOfFiles = filesByProject(vault, project_id.toString)
-      return listOfFiles
-    case Left(err)=>
+    case Right(project_id)=>
+      filesByProject(vault, project_id.toString)
+
+    case Left(_)=>
       Future.failed(new RuntimeException("Failed to get status"))
 
 
   }
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage): Future[Either[String, MessageProcessorReturnValue]] = {
-    logger.info(s"here is an update status ${updateMessage.status}")
-    case Right(updateMessage)=>
+
+    case Right(updateMessage.id)=>
       mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault)
       }
 
-    case Left(err)=>
+    case Left(_)=>
       Future.failed(new RuntimeException("Failed to get status"))
 
   }
@@ -70,9 +70,9 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mxsConnect
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
-    logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
     routingKey match {
       case "core.project.update" =>
+        logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
         msg.as[ProjectUpdateMessage] match {
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))

@@ -1,6 +1,10 @@
 
+import akka.stream.Materializer
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
+import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.syntax.EncoderOps
+import matrixstore.MatrixStoreConfig
 import messages.ProjectUpdateMessage
 import org.junit.Assert.{assertThrows, fail}
 import org.mockito.Mockito.when
@@ -11,11 +15,19 @@ import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-class OwnMessageProcessorTest extends Specification with Mockito {
+class PlutoCoreMessageProcessorTest extends Specification with Mockito {
+  val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", Some("internal-archive-vault"))
 
+  implicit val mockMat = mock[Materializer]
+  implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+
+  val mockVault = mock[Vault]
+  val mockObject = mock[MxsObject]
+  mockVault.getObject(any) returns mockObject
   "OwnMessageProcessorTest" should {
     "handleMessage" in {
-      val toTest = new PlutoCoreMessageProcessor()
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
 
       val msgContent =
         """  {
@@ -45,7 +57,7 @@ class OwnMessageProcessorTest extends Specification with Mockito {
     }
 
     "drop message in handleMessage if wrong routing key" in {
-      val toTest = new PlutoCoreMessageProcessor()
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
 
       val emptyJson = Json.fromString("")
 
