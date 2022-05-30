@@ -151,7 +151,7 @@ lazy val `online_nearline` = (project in file("online_nearline"))
 
 lazy val `project_restorer` = (project in file("project_restorer"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
-  .dependsOn(common)
+  .dependsOn(common, mxscopy)
   .settings(commonSettings,
     version := sys.props.getOrElse("build.number","DEV"),
     dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
