@@ -11,7 +11,7 @@ import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
 import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
-import messages.ProjectUpdateMessage
+import messages.{OnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
 
 import scala.Console.err
@@ -29,33 +29,32 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     val sinkFactory = Sink.seq[ObjectMatrixEntry]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
-      Array("MXFS_PATH","MXFS_PATH","MXFS_FILENAME", "__mxs__length")
+      Array("MXFS_PATH","MXFS_FILENAME", "__mxs__length")
     )
     ).toMat(sinkFactory)(Keep.right)
       .run()
   }
 
+ // should create an array of OnlineOutputMessage and return that
+  def FilesListAsOnlineOutput(filesList: Seq[ObjectMatrixEntry]) = {
+    var associatedFiles = new Array[OnlineOutputMessage]()
+    filesList.foreach(file => associatedFiles.map())
+  }
 
-  def searchAssociatedMedia(project_id: Int, vault: Vault) : Future[Either[String, Seq[ObjectMatrixEntry]]] = {
+  def searchAssociatedMedia(projectId: Int, vault: Vault)  = {
 
-    case Right(project_id)=>
-      filesByProject(vault, project_id.toString)
-
-    case Left(_)=>
-      Future.failed(new RuntimeException("Failed to get status"))
+   for {
+     fileslist <-  filesByProject(vault, projectId.toString)
+     result <- FilesListAsOnlineOutput(fileslist)
+   } yield result
 
 
   }
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage): Future[Either[String, MessageProcessorReturnValue]] = {
-
-    case Right(updateMessage.id)=>
+  def handleStatusMessage(updateMessage: ProjectUpdateMessage) = {
       mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault)
       }
-
-    case Left(_)=>
-      Future.failed(new RuntimeException("Failed to get status"))
 
   }
 
