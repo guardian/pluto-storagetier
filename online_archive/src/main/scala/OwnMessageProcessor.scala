@@ -3,13 +3,13 @@ import akka.stream.Materializer
 import archivehunter.{ArchiveHunterCommunicator, ArchiveHunterConfig}
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
-import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO}
+import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import messages.RevalidateArchiveHunterRequest
-import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile.Codec._ //correct customised decoder for the AssetSweeperNewFile model
+import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile.Codec._
 import org.slf4j.LoggerFactory
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
@@ -214,6 +214,17 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
         Future(Left(s"Could not parse incoming message: $err"))
     }
   }
+
+  /**
+   * Returns `true` if the message can be unmarshaled as an IgnoredRecord or False otherwise
+   * @param msg json object to test
+   * @return boolean
+   */
+  private def isIgnoredRecord(msg:Json):Boolean = msg.as[IgnoredRecord] match {
+    case Right(_)=>true
+    case Left(_)=>false
+  }
+
   /**
    * Override this method in your subclass to handle an incoming message
    *
@@ -229,7 +240,11 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
       case "storagetier.onlinearchive.newfile.success"=>
         msg.as[ArchivedRecord] match {
           case Left(err)=>
-            Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ArchivedRecord: $err"))
+            if(isIgnoredRecord(msg)) {
+              Future.failed(SilentDropMessage(Some(s"Incoming message indicates file ignored, dropping it.")))
+            } else {
+              Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ArchivedRecord: $err"))
+            }
           case Right(file)=>
             handleArchivehunterValidation(file)
               .map(_.map(_.asJson))
