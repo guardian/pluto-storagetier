@@ -67,14 +67,14 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
    } yield result
   }
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage) = {
+  def handleStatusMessage(updateMessage: ProjectUpdateMessage):Future[Either[String, Json]] = {
     mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
-
-        searchAssociatedMedia(updateMessage.id, vault)
+        searchAssociatedMedia(updateMessage.id, vault).flatMap(results=> {
+          logger.info(s"searchAssociatedMedia returned ${results.length} results")
+          results.foreach(msg=>logger.info(s"\t${msg.asJson}"))
+          Future.failed(new RuntimeException("Message output not implemented yet"))
+        })
       }
-
-    )
-
   }
 
   /**

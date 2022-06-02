@@ -6,19 +6,24 @@ case class OnlineOutputMessage(mediaTier: String,
                                projectId: Int,
                                filePath: Option[String],
                                itemId: Option[String],
-                               nearlineId: Option[String],
+                               nearlineId: String,
                                nearlineVersion: Option[Int],
                                mediaCategory: String)
 object OnlineOutputMessage {
   def apply(file: ObjectMatrixEntry): OnlineOutputMessage = {
-    new OnlineOutputMessage(
-      "NEARLINE",
-      file.intAttribute("GNM_PROJECT_ID")[Int],
-      file.pathOrFilename,
-      file.stringAttribute("GNM_VIDISPINE_ITEM")[String],
-      file.oid[String],
-      file.oid.toIntOption,
-      file.stringAttribute("GNM_TYPE")[String]
-    )
+    (file.intAttribute("GNM_PROJECT_ID"), file.stringAttribute("GNM_TYPE")) match {
+      case (Some(projectId), Some(gnmType))=>
+        new OnlineOutputMessage(
+          "NEARLINE",
+          projectId,
+          file.pathOrFilename,
+          file.stringAttribute("GNM_VIDISPINE_ITEM"),
+          file.oid,
+          None,
+          gnmType
+        )
+      case _=>
+        throw new RuntimeException(s"Objectmatrix file ${file.oid} is missing either GNM_PROJECT_ID or GNM_TYPE fields")
+    }
   }
 }

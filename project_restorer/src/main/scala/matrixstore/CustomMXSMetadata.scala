@@ -1,5 +1,7 @@
 package matrixstore
 
+import com.gu.multimedia.mxscopy.models.MxsMetadata
+
 case class CustomMXSMetadata(itemType:String,
                              projectId:Option[String],
                              commissionId:Option[String],

@@ -70,7 +70,7 @@ class PlutoCoreMessageProcessorTest extends Specification with Mockito {
     }
 
     "handleStatusMessage" in {
-      val toTest = new PlutoCoreMessageProcessor()
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
 
       val updateMessage = ProjectUpdateMessage(
         1234,
@@ -87,7 +87,9 @@ class PlutoCoreMessageProcessorTest extends Specification with Mockito {
         "oh noooo",
         "LDN"
       )
-      val result = Try{Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)}
+      val result = Try{
+        Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)
+      }
 
       val failed_msg = "Failed to get status"
 
