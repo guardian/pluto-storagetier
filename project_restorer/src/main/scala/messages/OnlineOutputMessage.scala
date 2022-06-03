@@ -7,7 +7,6 @@ case class OnlineOutputMessage(mediaTier: String,
                                filePath: Option[String],
                                itemId: Option[String],
                                nearlineId: String,
-                               nearlineVersion: Option[Int],
                                mediaCategory: String)
 object OnlineOutputMessage {
   def apply(file: ObjectMatrixEntry): OnlineOutputMessage = {
@@ -19,7 +18,6 @@ object OnlineOutputMessage {
           file.pathOrFilename,
           file.stringAttribute("GNM_VIDISPINE_ITEM"),
           file.oid,
-          None,
           gnmType
         )
       case _=>

@@ -1,17 +1,19 @@
 
+import Main.mat
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
+import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
-import messages.ProjectUpdateMessage
+import messages.{OnlineOutputMessage, ProjectUpdateMessage}
 import org.junit.Assert.{assertThrows, fail}
 import org.mockito.Mockito.when
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
@@ -70,7 +72,15 @@ class PlutoCoreMessageProcessorTest extends Specification with Mockito {
     }
 
     "handleStatusMessage" in {
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+
+      val vault = mock[Vault]
+      val onlineOutput = Seq(OnlineOutputMessage("NEARLINE",1234,"/path/to/file", "itemid", "nearlineId", "video"),
+                            OnlineOutputMessage("NEARLINE",1234,"/path/to/file", "itemid", "nearlineId", "video"),
+                            OnlineOutputMessage("NEARLINE",1234,"/path/to/file", "itemid", "nearlineId", "video"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig){
+
+        override def filesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(onlineOutput)
 
       val updateMessage = ProjectUpdateMessage(
         1234,
@@ -87,6 +97,9 @@ class PlutoCoreMessageProcessorTest extends Specification with Mockito {
         "oh noooo",
         "LDN"
       )
+
+
+
       val result = Try{
         Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)
       }
