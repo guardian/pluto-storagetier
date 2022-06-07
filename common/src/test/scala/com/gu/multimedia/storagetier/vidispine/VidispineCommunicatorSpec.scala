@@ -310,4 +310,27 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       vx22.get.getLikelyFile must beSome
     }
   }
+
+  "VidispineCommunicator.filesByProject" should {
+    "find items associated with a project id" in {
+      val mockHttp = mock[HttpExt]
+      val listResponse = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("sample_items_for_project_doc.json")))
+
+      mockHttp.singleRequest(
+        any,
+        any,
+        any,
+        any
+      ) returns Future(listResponse)
+
+
+      val toTest = new VidispineCommunicator(fakeConfig) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Await.result(toTest.filesByProject(23), 1.second)
+
+      ok
+    }
+  }
 }
