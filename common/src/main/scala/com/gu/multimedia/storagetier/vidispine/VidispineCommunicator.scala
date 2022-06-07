@@ -239,6 +239,60 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     ))
   }
 
+  // write a method on VidispineCommunicator to “find items associated with a project id”. Project ID is an integer parameter coming in
+  def filesByProject(projectId:Int) = {
+    import io.circe.syntax._
+    import io.circe.generic.auto._
+//    {
+//      mediaTier: "enum(ONLINE,NEARLINE)", --                    ONLINE
+//      projectId: nnnn,                    --                    from input param
+//      filePath: "/path/to/file|null",     -- get from shape??  'original_filename' ???
+//      itemId: "VX-1234|null",             -- from result       'itemId'
+//      nearlineId: "xxxxxxxxxx|null",      -- null(?)           'gnm_nearline_id'
+//      nearlineVersion: nn|null,           -- null(?)           ????
+//      mediaCategory: "catName",           -- from result ??    'gnm_category'
+//    }
+    val uri = s"${config.baseUri}/API/search?content=metadata&field=gnm_category,gnm_containing_projects,gnm_nearline_id,itemId,original_filename"
+    val itemSearchDoc =
+      s"""
+        |<ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
+        |  <field>
+        |    <name>gnm_containing_projects</name>
+        |    <value>$projectId</value>
+        |  </field>
+        |  <intervals>generic</intervals>
+        |</ItemSearchDocument>
+        |""".stripMargin
+    logger.warn(s"uri: $uri")
+    logger.warn(s"itemSearchDoc: $itemSearchDoc")
+    val res = for {
+      searchResultDoc <- callToVidispine[SearchResultDocument](HttpRequest(uri = uri))
+      _ = searchResultDoc.map { resultDocument =>
+        {
+          val value =
+            resultDocument
+              .entry
+              .head
+              .item
+              .metadata
+              .timespan
+              .head
+              .group
+              .filter(_.name.equals("Asset"))
+              .flatMap(_.field)
+              .filter(_.name.equals("gnm_containing_projects"))
+              .flatMap(_.value)
+              .map(_.value)
+          print(s"Kilroy was here: $value\n") }}
+      result = searchResultDoc.map(_.hits)
+
+    } yield result
+
+    val r = res.map(option => option.map(result => result))
+    logger.warn(s"shapeIdList aka res: $r")
+    res
+  }
+
   /**
    * returns a sequence of ShapeDocuments for every shape on the given item.
    *
