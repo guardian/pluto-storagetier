@@ -1,0 +1,132 @@
+{
+  "hits": 1,
+  "suggestion": [],
+  "autocomplete": [],
+  "entry": [
+    {
+      "item": {
+        "metadata": {
+          "revision": "VX-14802,VX-14801,VX-14806,VX-14808,VX-14809",
+          "timespan": [
+            {
+              "field": [
+                {
+                  "name": "itemId",
+                  "value": [
+                    {
+                      "value": "VX-2186",
+                      "uuid": "f4b120df-2fc0-4b47-9586-9f209a43a90a",
+                      "user": "system",
+                      "timestamp": "2022-03-11T16:29:19.911+0000",
+                      "change": "VX-14806"
+                    }
+                  ],
+                  "uuid": "0ba9087c-8b84-4403-966d-3b8d643cb8e6",
+                  "user": "system",
+                  "timestamp": "2022-03-11T16:29:19.911+0000",
+                  "change": "VX-14806"
+                }
+              ],
+              "group": [
+                {
+                  "name": "Asset",
+                  "field": [
+                    {
+                      "name": "original_filename",
+                      "value": [
+                        {
+                          "value": "/srv/Multimedia2/NextGenDev/Media Production/Deliverables/Tiger Woods Career obit TEST/Comp 1.mp4",
+                          "uuid": "6d34eab8-381b-4163-9d20-7f5ffc1895f0",
+                          "user": "andy_gallagher",
+                          "timestamp": "2022-03-11T16:29:16.165+0000",
+                          "change": "VX-14801"
+                        }
+                      ],
+                      "uuid": "9c26629f-5695-49ce-a686-cf58803579cf",
+                      "user": "andy_gallagher",
+                      "timestamp": "2022-03-11T16:29:16.165+0000",
+                      "change": "VX-14801"
+                    },
+                    {
+                      "name": "gnm_category",
+                      "value": [
+                        {
+                          "value": "Deliverable",
+                          "uuid": "4dfed925-02ed-4f8a-a052-da70969fc648",
+                          "user": "andy_gallagher",
+                          "timestamp": "2022-03-11T16:29:16.165+0000",
+                          "change": "VX-14801"
+                        }
+                      ],
+                      "uuid": "984f6e4d-638c-4d01-9e67-c591dda35798",
+                      "user": "andy_gallagher",
+                      "timestamp": "2022-03-11T16:29:16.165+0000",
+                      "change": "VX-14801"
+                    },
+                    {
+                      "name": "gnm_containing_projects",
+                      "value": [
+                        {
+                          "value": "184",
+                          "uuid": "b8572522-7486-43ee-bd19-a93942ce5fde",
+                          "user": "andy_gallagher",
+                          "timestamp": "2022-03-11T16:29:16.165+0000",
+                          "change": "VX-14801"
+                        }
+                      ],
+                      "uuid": "d919f92b-9f37-4256-a44a-aa34461996ed",
+                      "user": "andy_gallagher",
+                      "timestamp": "2022-03-11T16:29:16.165+0000",
+                      "change": "VX-14801"
+                    },
+                    {
+                      "name": "gnm_nearline_id",
+                      "value": [
+                        {
+                          "value": "54abed58-3d89-11ec-985d-91e8c1d064e1-379",
+                          "uuid": "553b98c2-8b1a-4f7a-8838-f340d3ee317d",
+                          "user": "admin",
+                          "timestamp": "2022-03-11T16:29:26.389+0000",
+                          "change": "VX-14809"
+                        }
+                      ],
+                      "uuid": "a144bd14-075e-4173-aa8f-a9fa2a0b1f76",
+                      "user": "admin",
+                      "timestamp": "2022-03-11T16:29:26.389+0000",
+                      "change": "VX-14809"
+                    }
+                  ],
+                  "group": [],
+                  "uuid": "c0be839b-6087-4928-ab81-c3003a41e7f4",
+                  "user": "admin",
+                  "timestamp": "2022-03-11T16:29:26.389+0000",
+                  "change": "VX-14809"
+                }
+              ],
+              "start": "-INF",
+              "end": "+INF"
+            }
+          ]
+        },
+        "shape": [],
+        "access": [],
+        "externalId": [],
+        "id": "VX-2186",
+        "start": "-INF",
+        "end": "+INF"
+      },
+      "timespan": [
+        {
+          "field": [],
+          "start": "-INF",
+          "end": "+INF"
+        }
+      ],
+      "start": "-INF",
+      "end": "+INF",
+      "type": "Item",
+      "id": "VX-2186"
+    }
+  ],
+  "facet": []
+}
