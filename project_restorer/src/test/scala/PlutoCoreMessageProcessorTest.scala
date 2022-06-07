@@ -1,25 +1,23 @@
 
-import Main.mat
+import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
-import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
+import com.gu.multimedia.mxscopy.models.{FileAttributes, MxsMetadata, ObjectMatrixEntry}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
-import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
 import messages.{OnlineOutputMessage, ProjectUpdateMessage}
-import org.junit.Assert.{assertThrows, fail}
-import org.mockito.Mockito.when
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
-class PlutoCoreMessageProcessorTest extends Specification with Mockito {
+class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Specification with Mockito {
   val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", Some("internal-archive-vault"))
 
+  implicit val mockActorSystem = mock[ActorSystem]
   implicit val mockMat = mock[Materializer]
   implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
 
@@ -72,16 +70,22 @@ class PlutoCoreMessageProcessorTest extends Specification with Mockito {
     }
 
     "handleStatusMessage" in {
+      implicit val mockActorSystem = mock[ActorSystem]
+      implicit val mockMat = mock[Materializer]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+
+      val entry = MxsMetadata.empty
+        .withValue("MXFS_PATH", "1234")
+        .withValue("GNM_PROJECT_ID", 233)
+        .withValue("GNM_TYPE", "rushes")
 
       val vault = mock[Vault]
-      val onlineOutput = Seq(OnlineOutputMessage("NEARLINE",1234,"/path/to/file", "itemid", "nearlineId", "video"),
-                            OnlineOutputMessage("NEARLINE",1234,"/path/to/file", "itemid", "nearlineId", "video"),
-                            OnlineOutputMessage("NEARLINE",1234,"/path/to/file", "itemid", "nearlineId", "video"))
+      val results = ObjectMatrixEntry("file1",Some(entry), None)
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig){
-
-        override def filesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(onlineOutput)
-
+      val onlineOutput = OnlineOutputMessage.apply(results)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def filesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutput))
+      }
       val updateMessage = ProjectUpdateMessage(
         1234,
         2,
@@ -98,14 +102,14 @@ class PlutoCoreMessageProcessorTest extends Specification with Mockito {
         "LDN"
       )
 
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
 
 
       val result = Try{
-        Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)
+        Await.result(toTest.handleStatusMessage(updateMessage), 5.seconds)
       }
-
-      val failed_msg = "Failed to get status"
-
 
       result must beAFailedTry
       result.failed.get.getMessage mustEqual "Failed to get status"

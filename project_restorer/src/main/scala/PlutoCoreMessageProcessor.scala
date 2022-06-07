@@ -1,16 +1,7 @@
-import Main.{actorSystem, mat}
-import akka.dispatch.japi
-import akka.http.impl.engine.parsing.ParserOutput
-import akka.http.scaladsl.client
-import akka.http.scaladsl.client.TransformerPipelineSupport
-import akka.http.scaladsl.server.util.ConstructFromTuple
-import akka.http.scaladsl.server.{PathMatcher, RejectionHandler}
+
 import akka.stream.Materializer
-import akka.stream.impl.fusing.MapAsync
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import cats.data.AndThen
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
-import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue}
@@ -21,29 +12,13 @@ import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
 import messages.{OnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
-import shapeless.ops.record.Extractor
-import shapeless.ops.{coproduct, hlist, tuple}
-import slick.compiler.{InsertCompiler, Phase}
-import slick.jdbc.{ConnectionPreparer, GetResult}
-import slick.lifted.{CanBeQueryCondition, OptionMapper}
-import slick.memory.QueryInterpreter
 
-import scala.Console.err
-import scala.collection.SetOps
-import scala.compat.java8.{JFunction1, JProcedure1}
-import scala.compat.java8.functionConverterImpls.{FromJavaConsumer, FromJavaDoubleConsumer, FromJavaDoubleFunction, FromJavaDoublePredicate, FromJavaDoubleToIntFunction, FromJavaDoubleToLongFunction, FromJavaDoubleUnaryOperator, FromJavaFunction, FromJavaIntConsumer, FromJavaIntFunction, FromJavaIntPredicate, FromJavaIntToDoubleFunction, FromJavaIntToLongFunction, FromJavaIntUnaryOperator, FromJavaLongConsumer, FromJavaLongFunction, FromJavaLongPredicate, FromJavaLongToDoubleFunction, FromJavaLongToIntFunction, FromJavaLongUnaryOperator, FromJavaPredicate, FromJavaToDoubleFunction, FromJavaToIntFunction, FromJavaToLongFunction, FromJavaUnaryOperator}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.impl.{FutureConvertersImpl, Promise}
-import scala.concurrent.java8.FuturesConvertersImpl
-import scala.jdk.FunctionWrappers
-import scala.runtime.{AbstractFunction1, AbstractPartialFunction}
-import scala.xml.dtd.ElementValidator
-import scala.xml.persistent.Index
-import scala.xml.transform.BasicTransformer
+import scala.concurrent.{ExecutionContext, Future}
 
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,mxsConnectionBuilder:MXSConnectionBuilderImpl)
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
+                                                             mxsConnectionBuilder:MXSConnectionBuilderImpl,
+                                                             ec:ExecutionContext)
   extends
   MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -68,7 +43,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
   }
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage):Future[Either[String, Json]] = {
-    mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
+       mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault).flatMap(results=> {
           logger.info(s"searchAssociatedMedia returned ${results.length} results")
           results.foreach(msg=>logger.info(s"\t${msg.asJson}"))
