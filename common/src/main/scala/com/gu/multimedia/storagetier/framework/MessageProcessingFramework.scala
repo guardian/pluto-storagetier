@@ -38,7 +38,8 @@ class MessageProcessingFramework (ingest_queue_name:String,
                                   failedQueueName:String,
                                   handlers:Seq[ProcessorConfiguration],
                                   maximumDelayTime:Int=120000,
-                                  maximumRetryLimit:Int=200)
+                                  maximumRetryLimit:Int=200,
+                                  uploadTimeLimit:Duration=240.minutes)
                                  (channel:Channel, conn:Connection)(implicit ec:ExecutionContext){
   private val logger = LoggerFactory.getLogger(getClass)
   private val cs = Charset.forName("UTF-8")
@@ -176,7 +177,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
       //when under load.  So, to prevent the rabbitmq library from sending us another message immediately we block the thread
       //here until we have definitively handled it.
       //The Try here _should_ never fail as exceptions are handled in the block above.
-      Try { Await.ready(completionFuture, 180.minutes) } match {
+      Try { Await.ready(completionFuture, uploadTimeLimit) } match {
         case Success(_)=>
           MDC.clear()
         case Failure(err)=>
@@ -421,7 +422,8 @@ object MessageProcessingFramework {
             failedQueueName:String,
             handlers:Seq[ProcessorConfiguration],
             maximumDelayTime:Int=120000,
-            maximumRetryLimit:Int=200)
+            maximumRetryLimit:Int=200,
+            uploadTimeLimit:Duration=240.minutes)
            (implicit connectionFactoryProvider: ConnectionFactoryProvider, ec:ExecutionContext) = {
     val exchangeNames = handlers.map(_.exchangeName)
     if(exchangeNames.distinct.length != exchangeNames.length) { // in this case there must be duplicates
@@ -442,7 +444,8 @@ object MessageProcessingFramework {
               failedQueueName,
               handlers,
               maximumDelayTime,
-              maximumRetryLimit)(channel, conn)
+              maximumRetryLimit,
+              uploadTimeLimit)(channel, conn)
           )
       }
     }

@@ -68,6 +68,11 @@ object Main {
       logger.info(s"No separate local trust store is set up.")
   }
 
+  private val uploadTimeLimit = sys.env.get("UPLOAD_TIME_LIMIT") match {
+    case Some(l)=>Duration(l)
+    case None=>240.minutes
+  }
+
   def main(args:Array[String]):Unit = {
     implicit lazy val archivedRecordDAO = new ArchivedRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
@@ -122,7 +127,8 @@ object Main {
       "storagetier-online-archive-retry",
       "storagetier-online-archive-fail",
       "storagetier-online-archive-dlq",
-      config
+      config,
+      uploadTimeLimit = uploadTimeLimit
     ) match {
       case Left(err) =>
         logger.error(s"Could not initiate message processing framework: $err")

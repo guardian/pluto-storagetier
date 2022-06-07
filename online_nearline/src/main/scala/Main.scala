@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory
 import sun.misc.{Signal, SignalHandler}
 
 import java.util.concurrent.Executors
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -59,6 +59,11 @@ object Main {
 
   private lazy val retryLimit = sys.env.get("RETRY_LIMIT").map(_.toInt).getOrElse(200)
 
+  private val uploadTimeLimit = sys.env.get("UPLOAD_TIME_LIMIT") match {
+    case Some(l)=>Duration(l)
+    case None=>240.minutes
+  }
+
   def main(args:Array[String]):Unit = {
     implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
@@ -102,7 +107,8 @@ object Main {
       "storagetier-online-nearline-fail",
       "storagetier-online-nearline-dlq",
       config,
-      maximumRetryLimit = retryLimit
+      maximumRetryLimit = retryLimit,
+      uploadTimeLimit = uploadTimeLimit
     ) match {
       case Left(err) =>
         logger.error(s"Could not initiate message processing framework: $err")
