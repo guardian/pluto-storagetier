@@ -1,7 +1,7 @@
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
-import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
+import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl}
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue}
@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 
 class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
-                                                             mxsConnectionBuilder:MXSConnectionBuilderImpl,
+                                                             matrixStoreBuilder: MXSConnectionBuilder,
                                                              ec:ExecutionContext)
   extends
   MessageProcessor {
@@ -43,12 +43,15 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
   }
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage):Future[Either[String, Json]] = {
-       mxsConnectionBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
-        searchAssociatedMedia(updateMessage.id, vault).flatMap(results=> {
-          logger.info(s"searchAssociatedMedia returned ${results.length} results")
-          results.foreach(msg=>logger.info(s"\t${msg.asJson}"))
-          Future.failed(new RuntimeException("Message output not implemented yet"))
+       matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
+        searchAssociatedMedia(updateMessage.id, vault).map(results=> {
+
+            val msg = MessageSchema(updateMessage.id, results.length)
+            Right(msg.asJson)
+
+
         })
+
       }
   }
 
