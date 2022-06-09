@@ -243,53 +243,34 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   def filesByProject(projectId:Int) = {
     import io.circe.syntax._
     import io.circe.generic.auto._
-//    {
-//      mediaTier: "enum(ONLINE,NEARLINE)", --                    ONLINE
-//      projectId: nnnn,                    --                    from input param
-//      filePath: "/path/to/file|null",     -- get from shape??  'original_filename' ???
-//      itemId: "VX-1234|null",             -- from result       'itemId'
-//      nearlineId: "xxxxxxxxxx|null",      -- null(?)           'gnm_nearline_id'
-//      nearlineVersion: nn|null,           -- null(?)           ????
-//      mediaCategory: "catName",           -- from result ??    'gnm_category'
-//    }
-    val uri = s"${config.baseUri}/API/search?content=metadata&field=gnm_category,gnm_containing_projects,gnm_nearline_id,itemId,original_filename"
-    val itemSearchDoc =
-      s"""
-        |<ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
-        |  <field>
-        |    <name>gnm_containing_projects</name>
-        |    <value>$projectId</value>
-        |  </field>
-        |  <intervals>generic</intervals>
-        |</ItemSearchDocument>
-        |""".stripMargin
-    logger.warn(s"uri: $uri")
-    logger.warn(s"itemSearchDoc: $itemSearchDoc")
-    val res = for {
-      searchResultDoc <- callToVidispine[SearchResultDocument](HttpRequest(uri = uri))
-      _ = searchResultDoc.map { resultDocument =>
-        {
-          val value =
-            resultDocument
-              .entry
-              .head
-              .item
-              .metadata
-              .timespan
-              .head
-              .group
-              .filter(_.name.equals("Asset"))
-              .flatMap(_.field)
-              .filter(_.name.equals("gnm_containing_projects"))
-              .flatMap(_.value)
-              .map(_.value)
-          print(s"Kilroy was here: $value\n") }}
-      result = searchResultDoc.map(_.hits)
 
+    val res = for {
+      searchResultDoc <- callToVidispine[SearchResultDocument](HttpRequest(
+        uri = s"${config.baseUri}/API/search?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
+        method = HttpMethods.PUT,
+        entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, s"""
+                                                               |<ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
+                                                               |  <field>
+                                                               |    <name>gnm_containing_projects</name>
+                                                               |    <value>$projectId</value>
+                                                               |  </field>
+                                                               |  <intervals>generic</intervals>
+                                                               |</ItemSearchDocument>
+                                                               |""".stripMargin)
+      ))
+      result <- Future(searchResultDoc.map(_.entry))
     } yield result
 
-    val r = res.map(option => option.map(result => result))
-    logger.warn(s"shapeIdList aka res: $r")
+    val output = res.map({
+      case Some(entryItemList) =>
+        val outputMessages = entryItemList.map(simplifiedItem => VSOnlineOutputMessage(simplifiedItem, projectId))
+        print(s"--> v: $outputMessages\n")
+        outputMessages
+      case None =>
+        print(s"--> no v\n")
+    })
+
+    print(s"--> --> vsOnlineOutputMessages aka output: $output\n")
     res
   }
 
