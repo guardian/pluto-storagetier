@@ -29,7 +29,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
   val mockVault = mock[Vault]
   val mockObject = mock[MxsObject]
   mockVault.getObject(any) returns mockObject
-  "OwnMessageProcessorTest" should {
+  "OwnMessageProcessor" should {
 
     "drop message in handleMessage if wrong routing key" in {
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
@@ -68,8 +68,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
         1234,
         2,
         "abcdefg",
-        Option.empty,
-        Option.empty,
+        None,
+        None,
         "le user",
         100,
         200,
@@ -81,7 +81,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       )
 
 
-      val expectedMessage = MessageSchema(
+      val expectedMessage = RestorerSummaryMessage(
         1234,
         1
       )

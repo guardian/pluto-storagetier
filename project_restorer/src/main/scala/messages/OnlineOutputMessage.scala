@@ -1,6 +1,10 @@
 package messages
 
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
+/**
+ * Converts an ObjectMatrixEntry object to an OnlineOutputMessage message
+ * for every associated file in a project
+ * */
 
 case class OnlineOutputMessage(mediaTier: String,
                                projectId: Int,

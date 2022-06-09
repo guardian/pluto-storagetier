@@ -46,7 +46,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
-            val msg = MessageSchema(updateMessage.id, results.length)
+            val msg = RestorerSummaryMessage(updateMessage.id, results.length)
             Right(msg.asJson)
 
 
