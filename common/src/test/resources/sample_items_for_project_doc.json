@@ -108,7 +108,236 @@
             }
           ]
         },
-        "shape": [],
+        "shape": [
+          {
+            "id": "VX-6",
+            "created": "2022-04-05T15:15:59.934+0000",
+            "essenceVersion": 0,
+            "tag": [
+              "original"
+            ],
+            "mimeType": [
+              "image/jpeg"
+            ],
+            "containerComponent": {
+              "duration": {
+                "samples": 0,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 1
+                }
+              },
+              "format": "JPEG",
+              "mediaInfo": {
+                "property": [
+                  {
+                    "key": "Codec",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Codec/Extensions usually used",
+                    "value": "h3d jpeg jpg jpe jps mpo"
+                  },
+                  {
+                    "key": "Codecs Image",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Commercial name",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Count",
+                    "value": "325"
+                  },
+                  {
+                    "key": "Count of image streams",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Count of stream of this kind",
+                    "value": "1"
+                  },
+                  {
+                    "key": "File extension",
+                    "value": "jpg"
+                  },
+                  {
+                    "key": "File last modification date",
+                    "value": "UTC 2022-04-05 15:15:56"
+                  },
+                  {
+                    "key": "File last modification date (local)",
+                    "value": "2022-04-05 15:15:56"
+                  },
+                  {
+                    "key": "File size",
+                    "value": "62095"
+                  },
+                  {
+                    "key": "Format",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Format/Extensions usually used",
+                    "value": "h3d jpeg jpg jpe jps mpo"
+                  },
+                  {
+                    "key": "Image_Format_List",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Image_Format_WithHint_List",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Internet media type",
+                    "value": "image/jpeg"
+                  },
+                  {
+                    "key": "Kind of stream",
+                    "value": "General"
+                  },
+                  {
+                    "key": "Proportion of this stream",
+                    "value": "0.00000"
+                  },
+                  {
+                    "key": "Stream identifier",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Stream size",
+                    "value": "0"
+                  }
+                ]
+              },
+              "file": [
+                {
+                  "id": "VX-12",
+                  "path": "277376345_5106182082737509_3252463230985591335_n.jpg",
+                  "uri": [
+                    "file:///srv/media1/277376345_5106182082737509_3252463230985591335_n.jpg"
+                  ],
+                  "state": "CLOSED",
+                  "size": 62095,
+                  "hash": "0bba571affc32b202b1efef2ef8cc06d2c46d466",
+                  "timestamp": "2022-04-05T15:16:21.775+0000",
+                  "refreshFlag": 1,
+                  "storage": "VX-1",
+                  "metadata": {
+                    "field": [
+                      {
+                        "key": "created",
+                        "value": "1649171756374"
+                      },
+                      {
+                        "key": "mtime",
+                        "value": "1649171756374"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "id": "VX-11",
+              "metadata": [
+                {
+                  "key": "XMP_METADATA",
+                  "value": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"XMP Core 5.1.2\">\n   <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n      <rdf:Description rdf:about=\"\"/>\n   </rdf:RDF>\n</x:xmpmeta><?xpacket end=\"w\"?>"
+                },
+                {
+                  "key": "componentOriginalFilename",
+                  "value": "277376345_5106182082737509_3252463230985591335_n.jpg"
+                }
+              ]
+            },
+            "videoComponent": [
+              {
+                "resolution": {
+                  "width": 960,
+                  "height": 915
+                },
+                "file": [
+                  {
+                    "id": "VX-12",
+                    "path": "277376345_5106182082737509_3252463230985591335_n.jpg",
+                    "uri": [
+                      "file:///srv/media1/277376345_5106182082737509_3252463230985591335_n.jpg"
+                    ],
+                    "state": "CLOSED",
+                    "size": 62095,
+                    "hash": "0bba571affc32b202b1efef2ef8cc06d2c46d466",
+                    "timestamp": "2022-04-05T15:16:21.775+0000",
+                    "refreshFlag": 1,
+                    "storage": "VX-1",
+                    "metadata": {
+                      "field": [
+                        {
+                          "key": "created",
+                          "value": "1649171756374"
+                        },
+                        {
+                          "key": "mtime",
+                          "value": "1649171756374"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "id": "VX-12",
+                "metadata": [
+                  {
+                    "key": "image_jpeg_sampling_factor",
+                    "value": "2x2,1x1,1x1"
+                  },
+                  {
+                    "key": "image_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_pages",
+                    "value": "1"
+                  },
+                  {
+                    "key": "image_date_create",
+                    "value": "2022-04-05T15:16:13+00:00"
+                  },
+                  {
+                    "key": "image_date_modify",
+                    "value": "2022-04-05T15:16:13+00:00"
+                  },
+                  {
+                    "key": "componentOriginalFilename",
+                    "value": "277376345_5106182082737509_3252463230985591335_n.jpg"
+                  },
+                  {
+                    "key": "image_jpeg_colorspace",
+                    "value": "2"
+                  },
+                  {
+                    "key": "image_format",
+                    "value": "Joint Photographic Experts Group JFIF format"
+                  },
+                  {
+                    "key": "image_colorspace",
+                    "value": "sRGB"
+                  },
+                  {
+                    "key": "image_icc_copyright",
+                    "value": "CC0"
+                  },
+                  {
+                    "key": "image_icc_description",
+                    "value": "uRGB"
+                  }
+                ],
+                "codec": "JPEG",
+                "itemTrack": "V1",
+                "essenceStreamId": 0
+              }
+            ]
+          }
+        ],
         "access": [],
         "externalId": [],
         "id": "VX-2186",
