@@ -1,0 +1,1 @@
+case class RestorerSummaryMessage(projectId: Int, numberOfAssociatedFiles: Int)

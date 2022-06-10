@@ -1,23 +1,58 @@
+
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Keep, Sink, Source}
+import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl}
+import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue}
+import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
 import io.circe.syntax.EncoderOps
-import messages.ProjectUpdateMessage
+import matrixstore.MatrixStoreConfig
+import messages.{OnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 
-class PlutoCoreMessageProcessor extends MessageProcessor {
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
+                                                             matrixStoreBuilder: MXSConnectionBuilder,
+                                                             ec:ExecutionContext)
+  extends
+  MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage): Future[Either[String, MessageProcessorReturnValue]] = {
-    logger.info(s"here is an update status ${updateMessage.status}")
 
-    Future.failed(new RuntimeException("Failed to get status"))
+  def filesByProject(vault:Vault, projectId:String) = {
+    val sinkFactory = Sink.seq[OnlineOutputMessage]
+    Source.fromGraph(new OMFastContentSearchSource(vault,
+      s"GNM_PROJECT_ID:\"$projectId\"",
+      Array("MXFS_PATH","MXFS_FILENAME", "__mxs__length")
+    )
+    ).map(OnlineOutputMessage.apply)
+      .toMat(sinkFactory)(Keep.right)
+      .run()
+  }
 
+
+  def searchAssociatedMedia(projectId: Int, vault: Vault)  = {
+   for {
+     result <- filesByProject(vault, projectId.toString)
+   } yield result
+  }
+
+  def handleStatusMessage(updateMessage: ProjectUpdateMessage):Future[Either[String, Json]] = {
+       matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
+        searchAssociatedMedia(updateMessage.id, vault).map(results=> {
+
+            val msg = RestorerSummaryMessage(updateMessage.id, results.length)
+            Right(msg.asJson)
+
+
+        })
+
+      }
   }
 
   /**
@@ -31,9 +66,9 @@ class PlutoCoreMessageProcessor extends MessageProcessor {
    *         to our exchange with details of the completed operation
    */
   override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
-    logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
     routingKey match {
       case "core.project.update" =>
+        logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
         msg.as[ProjectUpdateMessage] match {
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
