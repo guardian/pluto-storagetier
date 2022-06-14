@@ -40,7 +40,7 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
-          distribution: corretto
+          distribution: temurin
           java-version: 8
 
       # GITHUB_RUN_NUMBER always starts from 1, so to maintain compatibility we adjust it here
@@ -135,7 +135,7 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
-          distribution: corretto
+          distribution: temurin
           java-version: 8
 
       # GITHUB_RUN_NUMBER always starts from 1, so to maintain compatibility we adjust it here
@@ -230,7 +230,7 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
-          distribution: corretto
+          distribution: temurin
           java-version: 8
 
       # GITHUB_RUN_NUMBER always starts from 1, so to maintain compatibility we adjust it here
