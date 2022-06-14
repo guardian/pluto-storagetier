@@ -40,7 +40,7 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
-          distribution: temurin
+          distribution: corretto
           java-version: 8
 
       # GITHUB_RUN_NUMBER always starts from 1, so to maintain compatibility we adjust it here
@@ -135,7 +135,7 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
-          distribution: temurin
+          distribution: corretto
           java-version: 8
 
       # GITHUB_RUN_NUMBER always starts from 1, so to maintain compatibility we adjust it here
@@ -161,7 +161,7 @@ jobs:
       - run: if [ -d "junit-tests" ]; then mkdir junit-tests; fi
         name: Prepare test outputs location
 
-      - name: Build and test online_archive
+      - name: Build and test Project Restorer
         env:
           JAVA_OPTS: "-Dbuild.number=${{ env.GITHUB_RUN_NUMBER }}"
           SBT_JUNIT_OUTPUT: ./junit-tests
@@ -176,10 +176,10 @@ jobs:
           check_name: Project Restorer Tests
           comment_title: Project Restorer Tests
 
-      - name: Tag docker image online-archive
+      - name: Tag docker image
         run:  docker tag guardianmultimedia/storagetier-project-restorer:${{ env.GITHUB_RUN_NUMBER }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-project-restorer:${{ env.GITHUB_RUN_NUMBER }}
 
-      - name: Push docker image online-archive
+      - name: Push docker image
         run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-project-restorer:${{ env.GITHUB_RUN_NUMBER }}
 
       - name: Output build-info.yaml
@@ -230,7 +230,7 @@ jobs:
       - name: Setup JDK
         uses: actions/setup-java@v2
         with:
-          distribution: temurin
+          distribution: corretto
           java-version: 8
 
       # GITHUB_RUN_NUMBER always starts from 1, so to maintain compatibility we adjust it here
