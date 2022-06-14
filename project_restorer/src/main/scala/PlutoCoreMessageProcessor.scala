@@ -46,10 +46,13 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
+          if(results.length < 10000 ){
             val msg = RestorerSummaryMessage(updateMessage.id, results.length)
             Right(msg.asJson)
-
-
+          }
+          else {
+            Left(throw new RuntimeException("Too many files attached to project"))
+          }
         })
 
       }
