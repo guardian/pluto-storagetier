@@ -13,6 +13,7 @@ import matrixstore.MatrixStoreConfig
 import messages.{OnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
 
+import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
 
@@ -47,7 +48,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
           if(results.length < 10000 ){
-            val msg = RestorerSummaryMessage(updateMessage.id, results.length)
+            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
             Right(msg.asJson)
           }
           else {
