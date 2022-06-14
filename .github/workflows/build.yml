@@ -173,8 +173,8 @@ jobs:
         if: always()  #runs even if there is a test failure
         with:
           files: junit-tests/*.xml
-          check_name: Online-Archive Tests
-          comment_title: Online-Archive Tests
+          check_name: Project Restorer Tests
+          comment_title: Project Restorer Tests
 
       - name: Tag docker image online-archive
         run:  docker tag guardianmultimedia/storagetier-project-restorer:${{ env.GITHUB_RUN_NUMBER }} ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/storagetier-project-restorer:${{ env.GITHUB_RUN_NUMBER }}
