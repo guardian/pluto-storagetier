@@ -165,7 +165,7 @@ lazy val `project_restorer` = (project in file("project_restorer"))
       "ugo=rx"
     ), "/opt/docker/bin/project_restorer"),
     packageName := "project-restorer",
-    dockerBaseImage := "amazoncorretto:8",
+    dockerBaseImage := "amazoncorretto:11",
     dockerAlias := docker.DockerAlias(None,Some("guardianmultimedia"),"storagetier-project-restorer",Some(sys.props.getOrElse("build.number","DEV"))),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.6",
