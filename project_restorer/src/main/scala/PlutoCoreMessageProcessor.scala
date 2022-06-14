@@ -52,10 +52,9 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
             Right(msg.asJson)
           }
           else {
-            Left(throw new RuntimeException("Too many files attached to project"))
+            throw new RuntimeException("Too many files attached to project")
           }
         })
-
       }
   }
 
