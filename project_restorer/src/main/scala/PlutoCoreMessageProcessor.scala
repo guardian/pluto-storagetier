@@ -4,7 +4,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl}
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue}
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -17,7 +17,7 @@ import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, msgProcessingFramework: MessageProcessingFramework)(implicit mat:Materializer,
                                                              matrixStoreBuilder: MXSConnectionBuilder,
                                                              ec:ExecutionContext)
   extends
@@ -43,11 +43,17 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
    } yield result
   }
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage):Future[Either[String, Json]] = {
+
+  def sendToMessageExchange(msgs: Seq[OnlineOutputMessage], updateMessage: ProjectUpdateMessage, routingKey: String) = {
+    msgProcessingFramework.bulkSendMessages("Nearline", routingKey, msgs)
+  }
+
+  def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String):Future[Either[String, Json]] = {
        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
           if(results.length < 10000 ){
+            sendToMessageExchange(results, updateMessage, routingKey)
             val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
             Right(msg.asJson)
           }
@@ -77,7 +83,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
           case Right(updateMessage) =>
             logger.info(s"here is an update status ${updateMessage.status}")
-            handleStatusMessage(updateMessage)
+            handleStatusMessage(updateMessage, routingKey)
         }
       case _ =>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
