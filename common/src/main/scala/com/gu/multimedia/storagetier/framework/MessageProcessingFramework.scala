@@ -133,7 +133,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
             Future.fromTry(rejectMessage(envelope, Some(properties), msg))
           } else {
             val targetConfig = matchingConfigurations.head
-            targetConfig.processor.handleMessage(envelope.getRoutingKey, msg).map({
+            targetConfig.processor.handleMessage(envelope.getRoutingKey, msg, MessageProcessingFramework.this).map({
               case Left(errDesc)=>
                 logger.warn(s"MsgID ${properties.getMessageId} Retryable failure: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)

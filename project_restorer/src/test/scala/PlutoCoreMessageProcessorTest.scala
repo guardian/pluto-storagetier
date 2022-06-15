@@ -3,8 +3,14 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilderImpl, MXSConnectionBuilderMock}
 import com.gu.multimedia.mxscopy.models.{FileAttributes, MxsMetadata, ObjectMatrixEntry}
+<<<<<<< HEAD
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.{MxsObject, Vault}
+=======
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, ProcessorConfiguration}
+import com.om.mxs.client.japi.{MxsObject, Vault}
+import com.rabbitmq.client.{Channel, Connection, ConnectionFactory}
+>>>>>>> f2e89b6 (Add new framework argument in handleMessage)
 import io.circe.Json
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax.EncoderOps
@@ -24,6 +30,26 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
   val vsConfig = VidispineConfig("https://test-case","test","test")
 
 
+  val mockRmqChannel = mock[Channel]
+  val mockRmqConnection = mock[Connection]
+  mockRmqConnection.createChannel() returns mockRmqChannel
+  val mockRmqFactory = mock[ConnectionFactory]
+  mockRmqFactory.newConnection() returns mockRmqConnection
+
+
+  val mockedMessageProcessor = mock[MessageProcessor]
+
+  val handlers = Seq(
+    ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
+  )
+
+  val framework = new MessageProcessingFramework("input-queue",
+    "output-exchg",
+    "retry-exchg",
+    "failed-exchg",
+    "failed-q",
+    handlers)(mockRmqChannel, mockRmqConnection)
+
   implicit val mockActorSystem = mock[ActorSystem]
   implicit val mockMat = mock[Materializer]
   implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -41,7 +67,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       val emptyJson = Json.fromString("")
 
       val result = Try {
-        Await.result(toTest.handleMessage("NOT.core.project.update", emptyJson), 3.seconds)
+        Await.result(toTest.handleMessage("NOT.core.project.update", emptyJson, framework ), 3.seconds)
       }
 
       result must beAFailedTry
@@ -88,12 +114,12 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       val expectedMessage = RestorerSummaryMessage(
         1234,
         ZonedDateTime.now(),
-        "Hej",
+        "oh noooo",
         1,
-        2
+        0
       )
 
-      val result = Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)
+      val result = Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 3.seconds)
 
       result must beRight(expectedMessage.asJson)
     }

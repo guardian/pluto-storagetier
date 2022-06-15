@@ -6,7 +6,7 @@ import com.gu.multimedia.mxscopy.helpers.{Copier, MatrixStoreHelper, MetadataHel
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
 import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, CommissionRecord, PlutoCoreConfig, ProjectRecord, WorkingGroupRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
@@ -281,7 +281,8 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = routingKey match {
+  override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = routingKey
+  match {
     case "storagetier.nearline.newfile.success"=>           //notification of successful media copy = GP-598
       handleSuccessfulMediaCopy(msg)
     case "storagetier.nearline.metadata.success"=>          //notification that objectmatrix metadata has been written = GP-627

@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.VidispineMediaIngested
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
@@ -276,7 +276,7 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+  override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
     logger.info(s"Received message from vidispine with routing key $routingKey")
     (msg.as[VidispineMediaIngested], routingKey) match {
       case (Left(err), _) =>

@@ -74,7 +74,8 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig,
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+  override def handleMessage(routingKey: String, msg: Json, msgProcessingFramework: MessageProcessingFramework)
+  : Future[Either[String, MessageProcessorReturnValue]] = {
     routingKey match {
       case "core.project.update" =>
         logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
@@ -83,7 +84,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig,
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
           case Right(updateMessage) =>
             logger.info(s"here is an update status ${updateMessage.status}")
-            handleStatusMessage(updateMessage, routingKey)
+            handleStatusMessage(updateMessage, routingKey, msgProcessingFramework)
         }
       case _ =>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
