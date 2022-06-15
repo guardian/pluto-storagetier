@@ -17,7 +17,7 @@ import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, msgProcessingFramework: MessageProcessingFramework)(implicit mat:Materializer,
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
                                                              matrixStoreBuilder: MXSConnectionBuilder,
                                                              ec:ExecutionContext)
   extends
@@ -44,16 +44,16 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, msgProcessingFramew
   }
 
 
-  def sendToMessageExchange(msgs: Seq[OnlineOutputMessage], updateMessage: ProjectUpdateMessage, routingKey: String) = {
-    msgProcessingFramework.bulkSendMessages("Nearline", routingKey, msgs)
+  def sendToMessageExchange(msgs: Seq[OnlineOutputMessage], routingKey: String, framework: MessageProcessingFramework) = {
+    framework.bulkSendMessages("Nearline.project.e", routingKey, msgs)
   }
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String):Future[Either[String, Json]] = {
+  def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework):Future[Either[String, Json]] = {
        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
           if(results.length < 10000 ){
-            sendToMessageExchange(results, updateMessage, routingKey)
+            sendToMessageExchange(results, routingKey, framework)
             val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
             Right(msg.asJson)
           }
@@ -74,7 +74,8 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, msgProcessingFramew
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+  override def handleMessage(routingKey: String, msg: Json, msgProcessingFramework: MessageProcessingFramework)
+  : Future[Either[String, MessageProcessorReturnValue]] = {
     routingKey match {
       case "core.project.update" =>
         logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
@@ -83,7 +84,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, msgProcessingFramew
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
           case Right(updateMessage) =>
             logger.info(s"here is an update status ${updateMessage.status}")
-            handleStatusMessage(updateMessage, routingKey)
+            handleStatusMessage(updateMessage, routingKey, msgProcessingFramework)
         }
       case _ =>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
