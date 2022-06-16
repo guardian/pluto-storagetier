@@ -81,7 +81,6 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       implicit val mockBuilder = MXSConnectionBuilderMock(vault)
 
 
-
       val entry = MxsMetadata.empty
         .withValue("MXFS_PATH", "1234")
         .withValue("GNM_PROJECT_ID", 233)
@@ -121,7 +120,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
       val result = Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 3.seconds)
 
-      result must beRight(expectedMessage.asJson)
+      result must beRight
+
     }
   }
 }
