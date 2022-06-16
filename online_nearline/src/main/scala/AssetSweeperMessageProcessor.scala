@@ -1,7 +1,7 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
-import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.AssetSweeperNewFile
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
@@ -127,7 +127,7 @@ class AssetSweeperMessageProcessor()
     } yield result
   }
 
-  override def handleMessage(routingKey: String, msg: Json): Future[Either[String, MessageProcessorReturnValue]] = {
+  override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
     if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
 
     msg.as[AssetSweeperNewFile] match {
