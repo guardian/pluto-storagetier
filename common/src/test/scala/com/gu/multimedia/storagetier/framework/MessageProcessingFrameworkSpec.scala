@@ -87,7 +87,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was no(mockedMessageProcessor).handleMessage(any, any, f)
+      there was no(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "reject and retry a valid message if there is no configured handler" in {
@@ -144,7 +144,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was no(mockedMessageProcessor).handleMessage(any, any, f)
+      there was no(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "pass a valid message to the configured handler and return a successful reply" in {
@@ -160,7 +160,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       val mockedMsgProcessingFramework = mock[MessageProcessingFramework]
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any, any, mockedMsgProcessingFramework ) returns Future(Right(MessageProcessorReturnValue
+      mockedMessageProcessor.handleMessage(any, any, any ) returns Future(Right(MessageProcessorReturnValue
       (responseMsg)))
       val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
@@ -173,6 +173,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "failed-exchg",
         "failed-q",
         handlers)(mockRmqChannel, mockRmqConnection)
+
 
       val envelope = new Envelope(12345678L, false, "some-exchange","some.routing.key")
       val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()
@@ -212,7 +213,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was one(mockedMessageProcessor).handleMessage(any, any, f)
+      there was one(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "send the reply multiple times if the handler response requests it" in {

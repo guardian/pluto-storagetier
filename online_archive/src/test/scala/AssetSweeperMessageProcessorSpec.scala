@@ -7,7 +7,7 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.framework.MessageProcessorReturnValue
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue}
 
 import java.io.File
 import java.nio.file.{Path, Paths}
@@ -286,7 +286,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
       implicit val mat: Materializer = mock[Materializer]
       implicit val sys: ActorSystem = mock[ActorSystem]
       implicit val uploader: FileUploader = mock[FileUploader]
-
+      val mockMsgFramework = mock[MessageProcessingFramework]
       val fakeProject = mock[ProjectRecord]
       fakeProject.deep_archive returns Some(true)
       fakeProject.deletable returns None
@@ -320,7 +320,7 @@ class AssetSweeperMessageProcessorSpec extends Specification with Mockito {
 
       val msg = io.circe.parser.parse(msgContent)
       val result = Try {
-        Await.result(toTest.handleMessage("assetsweeper.replay.file", msg.right.get), 2.seconds)
+        Await.result(toTest.handleMessage("assetsweeper.replay.file", msg.right.get, mockMsgFramework), 2.seconds)
       }
 
       result must beASuccessfulTry
