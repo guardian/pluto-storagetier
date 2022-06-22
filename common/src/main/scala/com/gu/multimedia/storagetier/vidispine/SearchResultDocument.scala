@@ -1,7 +1,14 @@
 package com.gu.multimedia.storagetier.vidispine
 
-case class SearchResultDocument(hits: Int, entry: List[SearchResultItemSimplified])
-case class SearchResultItemSimplified(item: SearchResultItemContentSimplified, id: String) {
+case class SearchResultDocument(
+    hits: Int,
+    entry: List[SearchResultItemSimplified]
+)
+case class SearchResultItemSimplified(
+    item: SearchResultItemContentSimplified,
+    id: String
+) {
+
   /** Returns the metadata values, as a string, for the given field. By default only "root" level fields are searched
     * but you can look inside a group instead by setting `maybeGroupname`
     * @param fieldName field to look for
@@ -24,8 +31,10 @@ case class SearchResultItemSimplified(item: SearchResultItemContentSimplified, i
     fieldsToSearch.filter(_.name == fieldName).flatMap(_.value)
   }
 }
-case class SearchResultItemContentSimplified(metadata: ItemMetadataSimplified, shape: Seq[ShapeDocument])
-
+case class SearchResultItemContentSimplified(
+    metadata: ItemMetadataSimplified,
+    shape: Seq[ShapeDocument]
+)
 
 case class VSOnlineOutputMessage(
     mediaTier: String,
@@ -36,12 +45,13 @@ case class VSOnlineOutputMessage(
     mediaCategory: String
 )
 object VSOnlineOutputMessage {
-  def apply(
-             itemSimplified: SearchResultItemSimplified,
-             projectId: Int
-  ): VSOnlineOutputMessage = {
-    val mediaTier = "ONLINE"
 
+  def fromResponseItem(
+      itemSimplified: SearchResultItemSimplified,
+      projectId: Int
+  ): Option[VSOnlineOutputMessage] = {
+    val mediaTier = "ONLINE"
+//    print(s"itemSimplified --> $itemSimplified\n")
     val itemId = Option(itemSimplified.id)
     val filePath =
       itemSimplified.item.shape.head.getLikelyFile.flatMap(_.getAbsolutePath)
@@ -55,18 +65,19 @@ object VSOnlineOutputMessage {
       .map(_.value)
     (nearlineId, mediaCategory) match {
       case (Some(nearlineId), Some(mediaCategory)) =>
-        new VSOnlineOutputMessage(
-          mediaTier,
-          projectId,
-          filePath,
-          itemId,
-          nearlineId,
-          mediaCategory
+        Some(
+          VSOnlineOutputMessage(
+            mediaTier,
+            projectId,
+            filePath,
+            itemId,
+            nearlineId,
+            mediaCategory
+          )
         )
-      case _ => None
-        throw new RuntimeException(
-          s"Vidispine itme ${itemId} is missing either gnm_nearline_id or gnm_category fields"
-        )
+      case _ =>
+        None
+        None
     }
   }
 }

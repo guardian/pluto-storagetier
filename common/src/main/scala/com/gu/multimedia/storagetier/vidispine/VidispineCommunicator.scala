@@ -2,22 +2,19 @@ package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, MediaRange, MediaRanges, MediaTypes}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
-import akka.util.ByteString
-import org.slf4j.{LoggerFactory, MDC}
-import io.circe.generic.auto._
+import akka.stream.scaladsl.{Keep, StreamConverters}
+import cats.implicits._
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
-
-import scala.concurrent.duration._
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
-import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.net.URLEncoder
+import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.{ExecutionContext, Future}
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
@@ -207,8 +204,8 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   }
 
   def setMetadataValue(itemId:String, field:String, value:String) = {
-    import io.circe.syntax._
     import io.circe.generic.auto._
+    import io.circe.syntax._
     val doc = MetadataWrite.simpleKeyValue(field, value)
     callToVidispine[ItemResponseSimplified](HttpRequest(
       uri = s"${config.baseUri}/API/item/$itemId/metadata",
@@ -218,8 +215,8 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   }
 
   def setGroupedMetadataValue(itemId:String, groupName:String, field:String, value:String) = {
-    import io.circe.syntax._
     import io.circe.generic.auto._
+    import io.circe.syntax._
     val doc = MetadataWrite.groupedKeyValue(groupName, field, value)
     callToVidispine[ItemResponseSimplified](HttpRequest(
       uri = s"${config.baseUri}/API/item/$itemId/metadata",
@@ -229,7 +226,6 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   }
 
   def searchByPath(pathToFind:String) = {
-    import io.circe.syntax._
     import io.circe.generic.auto._
 
     val encodedPath = URLEncoder.encode(pathToFind, "UTF-8")
@@ -239,14 +235,43 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     ))
   }
 
-  // write a method on VidispineCommunicator to “find items associated with a project id”. Project ID is an integer parameter coming in
-  def filesByProject(projectId:Int) = {
-    import io.circe.syntax._
-    import io.circe.generic.auto._
+  def getFilesOfProject(projectId:Int): Future[Seq[VSOnlineOutputMessage]] = {
+    val files = recursivelyDoSomething(projectId = projectId, pageSize = 20)
 
-    val res = for {
-      searchResultDoc <- callToVidispine[SearchResultDocument](HttpRequest(
-        uri = s"${config.baseUri}/API/search?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
+    val items = files.map({
+        case (list) => {
+
+          val filtered = list.collect({ case Some(t) => t })
+
+          println(s"list.size = ${list.size}, filtered.size = ${filtered.size}")
+          filtered.foreach({ case (msg) => println(s"    - ${msg.itemId.getOrElse(msg.filePath)}") })
+
+          filtered
+        }})
+    items
+  }
+
+  def recursivelyDoSomething(projectId: Int, start: Int = 1, pageSize:Int, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
+    getPageOfFilesByProject(projectId, start).flatMap(results => {
+      if (results.isEmpty || results.size < pageSize || start > 10000) {
+        println(s"We're The Monkees, pageSize = $pageSize, results.size = ${results.size}, existingResults.size = ${existingResults.size}")
+        Future(existingResults ++ results)
+      } else {
+        println(s">>> Hey hey (starting at $start) >>> results.size = ${results.size}")
+        recursivelyDoSomething(projectId, start + results.size, pageSize, existingResults ++ results)
+      }
+    })
+  }
+
+  // write a method on VidispineCommunicator to “find items associated with a project id”. Project ID is an integer parameter coming in
+  def getPageOfFilesByProject(projectId:Int, currentItem:Int = 1): Future[Seq[Option[VSOnlineOutputMessage]]] = {
+    import io.circe.generic.auto._
+    val startAt = currentItem
+    val pageSize = 20
+
+    val searchResult = callToVidispine[SearchResultDocument](
+      HttpRequest(
+        uri = s"${config.baseUri}/API/search;first=$startAt;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
         method = HttpMethods.PUT,
         entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, s"""
                                                                |<ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
@@ -257,22 +282,21 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
                                                                |  <intervals>generic</intervals>
                                                                |</ItemSearchDocument>
                                                                |""".stripMargin)
-      ))
-      result <- Future(searchResultDoc.map(_.entry))
-    } yield result
+      )
+    )
 
-    val output = res.map({
-      case Some(entryItemList) =>
-        val outputMessages = entryItemList.map(simplifiedItem => VSOnlineOutputMessage(simplifiedItem, projectId))
-        print(s"--> v: $outputMessages\n")
-        outputMessages
-      case None =>
-        print(s"--> no v\n")
-    })
+    val output = searchResult
+      .map({
+        case Some(doc) =>
+          val outputMessages = doc.entry.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId))
+          outputMessages
+        case None => Seq[Option[VSOnlineOutputMessage]]()
+      })
 
-    print(s"--> --> vsOnlineOutputMessages aka output: $output\n")
-    res
+    output
   }
+
+
 
   /**
    * returns a sequence of ShapeDocuments for every shape on the given item.
