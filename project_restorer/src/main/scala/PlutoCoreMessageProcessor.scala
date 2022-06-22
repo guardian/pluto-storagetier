@@ -5,6 +5,7 @@ import com.gu.multimedia.mxscopy.{MXSConnectionBuilder, MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessor, MessageProcessorReturnValue}
+import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -17,13 +18,17 @@ import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
-                                                             matrixStoreBuilder: MXSConnectionBuilder,
-                                                             ec:ExecutionContext)
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:VidispineConfig)(implicit mat:Materializer,
+                                                                                              matrixStoreBuilder: MXSConnectionBuilder,
+                                                                                              vidispineCommunicator: VidispineCommunicator,
+                                                                                              ec:ExecutionContext)
   extends
   MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  def onlineFilesByProject(projectId:String): Unit = {
+
+  }
 
   def filesByProject(vault:Vault, projectId:String) = {
     val sinkFactory = Sink.seq[OnlineOutputMessage]

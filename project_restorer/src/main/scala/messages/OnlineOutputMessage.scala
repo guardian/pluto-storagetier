@@ -1,8 +1,9 @@
 package messages
 
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
+import com.gu.multimedia.storagetier.vidispine.{SearchResultItemSimplified, VSOnlineOutputMessage}
 /**
- * Converts an ObjectMatrixEntry object to an OnlineOutputMessage message
+ * Converts an ObjectMatrixEntry object or Vidispine object to an OnlineOutputMessage message
  * for every associated file in a project
  * */
 
@@ -26,6 +27,38 @@ object OnlineOutputMessage {
         )
       case _=>
         throw new RuntimeException(s"Objectmatrix file ${file.oid} is missing either GNM_PROJECT_ID or GNM_TYPE fields")
+    }
+  }
+
+  def fromResponseItem(
+                        itemSimplified: SearchResultItemSimplified,
+                        projectId: Int
+                      ): Option[OnlineOutputMessage] = {
+    val itemId = Option(itemSimplified.id)
+    val filePath =
+      itemSimplified.item.shape.head.getLikelyFile.flatMap(_.getAbsolutePath)
+    val nearlineId = itemSimplified
+      .valuesForField("gnm_nearline_id", Some("Asset"))
+      .headOption
+      .map(_.value)
+    val mediaCategory = itemSimplified
+      .valuesForField("gnm_category", Some("Asset"))
+      .headOption
+      .map(_.value)
+    (nearlineId, mediaCategory) match {
+      case (Some(nearlineId), Some(mediaCategory)) =>
+        Some(
+          OnlineOutputMessage(
+            "ONLINE",
+            projectId,
+            filePath,
+            itemId,
+            nearlineId,
+            mediaCategory
+          )
+        )
+      case _ =>
+        None
     }
   }
 }

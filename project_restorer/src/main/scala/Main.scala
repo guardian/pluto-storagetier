@@ -4,6 +4,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, MessageProcessingFramework, ProcessorConfiguration}
+import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
 import matrixstore.MatrixStoreEnvironmentConfigProvider
 import org.slf4j.LoggerFactory
@@ -37,6 +38,13 @@ object Main {
     case Right(config)=>config
   }
 
+  private lazy val vidispineConfig = VidispineConfig.fromEnvironment match {
+    case Left(err)=>
+      logger.error(s"Could not initialise due to incorrect Vidispine config: $err")
+      sys.exit(1)
+    case Right(config)=>config
+  }
+
   private lazy val retryLimit = sys.env.get("RETRY_LIMIT").map(_.toInt).getOrElse(200)
 
   def main(args:Array[String]):Unit = {
@@ -49,12 +57,14 @@ object Main {
       maxIdleSeconds = connectionIdleTime
     )
 
+    implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
+
     val config = Seq(
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
         "core.project.#",
         "storagetier.restorer",
-        new PlutoCoreMessageProcessor(matrixStoreConfig)
+        new PlutoCoreMessageProcessor(matrixStoreConfig, vidispineConfig)
       )
     )
 

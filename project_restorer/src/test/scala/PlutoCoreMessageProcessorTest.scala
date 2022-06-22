@@ -3,8 +3,8 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilderImpl, MXSConnectionBuilderMock}
 import com.gu.multimedia.mxscopy.models.{FileAttributes, MxsMetadata, ObjectMatrixEntry}
+import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.{MxsObject, Vault}
-
 import io.circe.Json
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax.EncoderOps
@@ -13,6 +13,7 @@ import messages.{OnlineOutputMessage, ProjectUpdateMessage}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
+import java.time.ZonedDateTime
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.language.postfixOps
@@ -20,6 +21,8 @@ import scala.util.Try
 
 class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Specification with Mockito {
   val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", Some("internal-archive-vault"))
+  val vsConfig = VidispineConfig("https://test-case","test","test")
+
 
   implicit val mockActorSystem = mock[ActorSystem]
   implicit val mockMat = mock[Materializer]
@@ -27,12 +30,13 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
   val mockVault = mock[Vault]
+  implicit val mockVidispineCommunicator = mock[VidispineCommunicator]
   val mockObject = mock[MxsObject]
   mockVault.getObject(any) returns mockObject
   "OwnMessageProcessor" should {
 
     "drop message in handleMessage if wrong routing key" in {
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig)
 
       val emptyJson = Json.fromString("")
 
@@ -61,7 +65,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
       val onlineOutput = OnlineOutputMessage.apply(results)
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig) {
         override def filesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutput))
       }
       val updateMessage = ProjectUpdateMessage(
@@ -83,7 +87,10 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
       val expectedMessage = RestorerSummaryMessage(
         1234,
-        1
+        ZonedDateTime.now(),
+        "Hej",
+        1,
+        2
       )
 
       val result = Await.result(toTest.handleStatusMessage(updateMessage), 3.seconds)
