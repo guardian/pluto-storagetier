@@ -51,7 +51,6 @@ object VSOnlineOutputMessage {
       projectId: Int
   ): Option[VSOnlineOutputMessage] = {
     val mediaTier = "ONLINE"
-//    print(s"itemSimplified --> $itemSimplified\n")
     val itemId = Option(itemSimplified.id)
     val filePath =
       itemSimplified.item.shape.head.getLikelyFile.flatMap(_.getAbsolutePath)
@@ -76,7 +75,6 @@ object VSOnlineOutputMessage {
           )
         )
       case _ =>
-        None
         None
     }
   }
