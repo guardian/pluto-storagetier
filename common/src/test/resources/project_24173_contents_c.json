@@ -1,0 +1,4329 @@
+{
+  "hits": 4,
+  "suggestion": [],
+  "autocomplete": [],
+  "entry": [
+    {
+      "item": {
+        "metadata": {
+          "revision": "VX-991035,VX-990395,VX-990396,VX-1487040,VX-990398,VX-990399,VX-990400",
+          "timespan": [
+            {
+              "field": [
+                {
+                  "name": "itemId",
+                  "value": [
+                    {
+                      "value": "VX-128719",
+                      "uuid": "f4b764cf-57c9-4200-a609-5673aff75777",
+                      "user": "system",
+                      "timestamp": "2022-03-10T14:34:04.439+0000",
+                      "change": "VX-990398"
+                    }
+                  ],
+                  "uuid": "88a0f204-c0e7-426b-bdd8-4dc19be61f9a",
+                  "user": "system",
+                  "timestamp": "2022-03-10T14:34:04.439+0000",
+                  "change": "VX-990398"
+                },
+                {
+                  "name": "title",
+                  "value": [
+                    {
+                      "value": "GuardianBug-2018-Square.png (Branding_Assets)",
+                      "uuid": "e541320a-4e95-4496-a6d2-2f8de741248a",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:34:04.221+0000",
+                      "change": "VX-990395"
+                    }
+                  ],
+                  "uuid": "fa11fb42-8183-470e-9f0b-580858208ba0",
+                  "user": "admin",
+                  "timestamp": "2022-03-10T14:34:04.221+0000",
+                  "change": "VX-990395"
+                }
+              ],
+              "group": [
+                {
+                  "name": "Asset",
+                  "field": [
+                    {
+                      "name": "gnm_nearline_id",
+                      "value": [
+                        {
+                          "value": "a31d2cf7-9fe8-11ec-a895-8e29f591bdb6-1207",
+                          "uuid": "ff85fb5a-8b29-4267-a122-2f8c37fc8536",
+                          "user": "admin",
+                          "timestamp": "2022-03-11T06:58:49.661+0000",
+                          "change": "VX-991035"
+                        }
+                      ],
+                      "uuid": "d5d44710-3295-40ab-93f1-2c17a43212e8",
+                      "user": "admin",
+                      "timestamp": "2022-03-11T06:58:49.661+0000",
+                      "change": "VX-991035"
+                    },
+                    {
+                      "name": "gnm_category",
+                      "value": [
+                        {
+                          "value": "Branding",
+                          "uuid": "a40a1166-ab61-474e-a8d3-65c5679c7ce0",
+                          "user": "admin",
+                          "timestamp": "2022-03-10T14:34:04.221+0000",
+                          "change": "VX-990395"
+                        }
+                      ],
+                      "uuid": "8a7b5b43-1ee2-4f85-9699-37f517d53946",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:34:04.221+0000",
+                      "change": "VX-990395"
+                    },
+                    {
+                      "name": "gnm_containing_projects",
+                      "value": [
+                        {
+                          "value": "24161",
+                          "uuid": "266b4a3e-2525-465b-bef8-f936e00ce7ea",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24121",
+                          "uuid": "0bc3cc58-107d-4028-9d38-f693216f288c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24057",
+                          "uuid": "cbfeecd9-065b-4dee-b12b-5ef7037d2b63",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24079",
+                          "uuid": "81e6ef10-2aab-437f-a24d-df3e43608611",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24177",
+                          "uuid": "d5752c05-4b1b-474e-aebb-3d27cdd06fd0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24104",
+                          "uuid": "5e64d69e-4a07-46bd-b300-ba7aa4d0a53c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24053",
+                          "uuid": "d0a9840f-13c6-4b2b-8db0-144264f17cd4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24118",
+                          "uuid": "9af06c44-ab2e-46ea-b7bb-94d9c9c90501",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24129",
+                          "uuid": "8c59e7fa-1d96-444f-a509-e543a151fed8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24095",
+                          "uuid": "0d623664-b5c2-4ce7-a52c-22a5c248236f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24197",
+                          "uuid": "3a8f182e-8b29-4c28-a0de-eddde2e74b33",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24146",
+                          "uuid": "486efac8-fb7b-4e34-9a6b-77b360118111",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24116",
+                          "uuid": "9e9b4bc5-fa44-4316-add0-1e247e4b88e8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24166",
+                          "uuid": "d501461f-a557-403c-aae6-f77ad9fffce8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24066",
+                          "uuid": "d46e5e48-f12b-4e13-aa3f-a706aa1f07ff",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24149",
+                          "uuid": "f7d6e307-570c-4e15-8de0-a6ec49ee38c9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24043",
+                          "uuid": "e05ed052-18b6-43da-b1fb-bbfa5113ebcc",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24059",
+                          "uuid": "491a29ce-ae14-461b-a54b-ecedf5abdfcc",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24155",
+                          "uuid": "dbf48d51-3abf-477c-8557-71ce95580da7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24122",
+                          "uuid": "2b9d0c0f-9ddd-4e31-abcf-7c051d5680c0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24105",
+                          "uuid": "e3aa625e-fa39-4ea8-ae85-440b92113fea",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24147",
+                          "uuid": "75df9b8d-a7cb-46c4-b00c-b2030f29a7f5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24173",
+                          "uuid": "1b6b0c30-be01-4ce5-a7e2-839c5dda10a6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24176",
+                          "uuid": "aa726bc9-a66e-4559-bfda-747efbbea200",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24187",
+                          "uuid": "068ccc8e-d858-47db-bab2-1839d42db379",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24115",
+                          "uuid": "55418ce1-c3a3-4626-9a3a-7c17ed30734e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24170",
+                          "uuid": "388c676f-3b21-4585-9bae-45f7b319b30e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24151",
+                          "uuid": "48ec41ee-e454-4c2f-8d50-728ddd737dd5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24156",
+                          "uuid": "94827a2c-5782-44a8-b31f-6913847a69f9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24085",
+                          "uuid": "f451bca1-2426-40bc-a3e4-f3a6b5e29cf6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24136",
+                          "uuid": "11d1631d-1f07-439b-ab17-0df6854cd2bb",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24169",
+                          "uuid": "71cce90c-8aa7-4c16-982f-eb68723f2f36",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24061",
+                          "uuid": "396d3c2c-f09b-470e-83b8-f741378276ec",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24072",
+                          "uuid": "3bb01db6-7cc5-4547-8417-f8802966896a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24117",
+                          "uuid": "5ec1646b-8bdb-4f89-bebd-3d06d7c4e7c8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24070",
+                          "uuid": "0b21f2d4-0e0d-4c2c-b2ab-2a9af992e1b6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24103",
+                          "uuid": "d82692d9-66a6-4a80-bb3f-a93f66eb7186",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24093",
+                          "uuid": "19aeb3cf-a1c7-4f5d-8e1f-08849d63c570",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24142",
+                          "uuid": "e2e347ae-610d-4971-8815-0402def38995",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24159",
+                          "uuid": "4d3f2d36-0bab-495d-b643-e1c83f4aa4c1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24099",
+                          "uuid": "b97de671-eda3-4305-8ed5-e46ba0440d1a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24120",
+                          "uuid": "06d54003-690a-49c0-bace-11ec59626537",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24165",
+                          "uuid": "2eaff71a-b2b7-4c8c-90dc-74f1179d5689",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24153",
+                          "uuid": "54d49ec0-4e72-425b-bc2b-efbe11002174",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24112",
+                          "uuid": "bc13276e-8cb1-46c5-a06e-7427a214ce14",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24111",
+                          "uuid": "f537fe5f-e75d-4a22-9c0d-f68f741cf82c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24096",
+                          "uuid": "4bbde0ac-fcb3-4731-b08c-537137f64240",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24167",
+                          "uuid": "4dbb727d-1479-4e29-b3e2-7d998ff8bfd6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24194",
+                          "uuid": "c4081b23-bbab-4491-8a17-3bba82fb1f84",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24152",
+                          "uuid": "c6833744-30ec-4fa3-997c-503fb016bdcd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24110",
+                          "uuid": "d26e696c-f3a6-4bd6-85b6-df049baedb35",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24048",
+                          "uuid": "e4149efa-4f67-48d5-b177-6932058e84db",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24076",
+                          "uuid": "634286f1-cd23-4097-b6a5-dc12e35f30c5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24172",
+                          "uuid": "477a90e2-38d2-4f18-88a8-0e6eea5f329b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24185",
+                          "uuid": "60129647-55cf-4e10-b3c5-a42ad4c62091",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24135",
+                          "uuid": "00b08843-ca31-4ba0-9332-407eeff21046",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24141",
+                          "uuid": "5e6fa97c-269b-4c68-a581-733416e5d995",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24082",
+                          "uuid": "7c4400f3-84cd-455c-b298-70593db35457",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24140",
+                          "uuid": "f0c1e1dd-8f1c-4148-91c5-159d3759d8af",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24144",
+                          "uuid": "3dceade8-43e9-4e42-9d63-f1184c072cf0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24148",
+                          "uuid": "5f91f0e7-1385-4fa3-8355-4c93f7059460",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24054",
+                          "uuid": "e5446f87-b72e-4163-83a3-c2bb80e164d6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24108",
+                          "uuid": "2ff3c1c2-1d01-4273-b859-01a85df6e197",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24045",
+                          "uuid": "33929ba3-8c3d-4fd8-824a-54c310f61ad8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24188",
+                          "uuid": "e90a2760-5a6e-42d7-9da1-bfd76aeb1f44",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24178",
+                          "uuid": "97eaaef7-8bc4-4c26-a044-f1c8ad0b55be",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24056",
+                          "uuid": "9d480ec8-82a1-47c2-b6b0-06b63889cbe8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24113",
+                          "uuid": "80b58fff-ec24-478c-a534-d6f124ea8bb9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24097",
+                          "uuid": "f446d334-951e-4507-bc6c-dd8c1416eed3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24050",
+                          "uuid": "f76c51f3-cd9b-4de7-a182-c407c289c346",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24160",
+                          "uuid": "5bbd4349-a982-4f7d-9026-5924c9cc917d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24150",
+                          "uuid": "30ea45d6-42c1-449d-ac3e-31e7685310db",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24154",
+                          "uuid": "79be814a-12b9-43e6-90bd-726435845e05",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24137",
+                          "uuid": "fe8a89e9-c604-41e0-b729-1ec2fbece26c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24084",
+                          "uuid": "9226fe12-85ef-49ca-923d-40b5555db23d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24107",
+                          "uuid": "f51aae89-057b-4a52-8e71-7c3da44a120c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24049",
+                          "uuid": "7c475a57-d5a0-4d6b-b466-568cad029b05",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24126",
+                          "uuid": "f72de29a-c30f-4a22-9176-084259a2a16c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24102",
+                          "uuid": "452f1f6a-0f0e-433a-bbf8-88379628a63a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24168",
+                          "uuid": "2fcc9dbb-78ce-4074-bcff-29ddcdec1094",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24090",
+                          "uuid": "dd4eb216-bf33-4d4a-80b4-654e283f69c1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24086",
+                          "uuid": "6ed73ff6-88b2-451c-b740-f46a40f24807",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24158",
+                          "uuid": "461bfdf9-4eb1-4d3d-9165-4775100705a6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24134",
+                          "uuid": "b7a90171-ac7c-490d-92dc-0ca748994e15",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24081",
+                          "uuid": "51197506-3831-4a5d-8a2b-7c346a972a0a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24181",
+                          "uuid": "3e0f49b6-d1d2-486a-abed-7ad625a5b077",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24195",
+                          "uuid": "b6353832-122d-4f2e-8b11-a96d791e7d57",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24091",
+                          "uuid": "dbfc02c1-9610-4a81-9e50-cc5d652554af",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24123",
+                          "uuid": "74324d3d-b7d2-442d-a441-00a6dbbd7001",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24196",
+                          "uuid": "0d94b235-a505-42d2-a8f8-e5c344b28d7d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24164",
+                          "uuid": "6920bab5-67e4-45a1-8616-bd1a06d6b473",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        },
+                        {
+                          "value": "24186",
+                          "uuid": "c63eacdd-1153-4380-9c46-7f72244cbd8f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.832+0000",
+                          "change": "VX-1487040"
+                        }
+                      ],
+                      "uuid": "60768fd6-4f70-4ac0-aacf-da2d18cfd7b3",
+                      "user": "admin",
+                      "timestamp": "2022-06-10T09:14:23.832+0000",
+                      "change": "VX-1487040"
+                    }
+                  ],
+                  "group": [],
+                  "uuid": "ed9489dc-aae0-48f0-9007-880d9be703f6",
+                  "user": "admin",
+                  "timestamp": "2022-06-10T09:14:23.832+0000",
+                  "change": "VX-1487040"
+                }
+              ],
+              "start": "-INF",
+              "end": "+INF"
+            }
+          ]
+        },
+        "shape": [
+          {
+            "id": "VX-253806",
+            "created": "2022-03-10T14:34:04.343+0000",
+            "essenceVersion": 0,
+            "tag": [
+              "original"
+            ],
+            "mimeType": [
+              "image/png"
+            ],
+            "containerComponent": {
+              "duration": {
+                "samples": 0,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 1
+                }
+              },
+              "format": "PNG",
+              "mediaInfo": {
+                "property": [
+                  {
+                    "key": "Codec",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Codec/Extensions usually used",
+                    "value": "png pns"
+                  },
+                  {
+                    "key": "Codec/Info",
+                    "value": "Portable Network Graphic"
+                  },
+                  {
+                    "key": "Codecs Image",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Commercial name",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Count",
+                    "value": "325"
+                  },
+                  {
+                    "key": "Count of image streams",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Count of stream of this kind",
+                    "value": "1"
+                  },
+                  {
+                    "key": "File extension",
+                    "value": "png"
+                  },
+                  {
+                    "key": "File last modification date",
+                    "value": "UTC 2020-06-23 06:02:02"
+                  },
+                  {
+                    "key": "File last modification date (local)",
+                    "value": "2020-06-23 07:02:02"
+                  },
+                  {
+                    "key": "File size",
+                    "value": "12681"
+                  },
+                  {
+                    "key": "Format",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Format/Extensions usually used",
+                    "value": "png pns"
+                  },
+                  {
+                    "key": "Format/Info",
+                    "value": "Portable Network Graphic"
+                  },
+                  {
+                    "key": "Image_Format_List",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Image_Format_WithHint_List",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Internet media type",
+                    "value": "image/png"
+                  },
+                  {
+                    "key": "Kind of stream",
+                    "value": "General"
+                  },
+                  {
+                    "key": "Proportion of this stream",
+                    "value": "0.00000"
+                  },
+                  {
+                    "key": "Stream identifier",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Stream size",
+                    "value": "0"
+                  }
+                ]
+              },
+              "file": [
+                {
+                  "id": "VX-854786",
+                  "path": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-Square.png",
+                  "uri": [
+                    "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/00%20Bugs/GuardianBug-2018-Square.png"
+                  ],
+                  "state": "CLOSED",
+                  "size": 12681,
+                  "hash": "697c54b938e054dc57a53439f632b96671740287",
+                  "timestamp": "2022-04-22T13:25:34.477+0000",
+                  "refreshFlag": 1,
+                  "storage": "VX-4",
+                  "metadata": {}
+                }
+              ],
+              "id": "VX-752918",
+              "metadata": [
+                {
+                  "key": "XMP_METADATA",
+                  "value": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"XMP Core 5.1.2\">\n   <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n      <rdf:Description xmlns:xmpMM=\"http://ns.adobe.com/xap/1.0/mm/\" xmlns:stEvt=\"http://ns.adobe.com/xap/1.0/sType/ResourceEvent#\" rdf:about=\"\">\n         <xmpMM:InstanceID>xmp.iid:85e5ba18-eade-4040-a79c-9a73e80f2041</xmpMM:InstanceID>\n         <xmpMM:DocumentID>xmp.did:e77e878e-1f77-4811-b9fd-19e4ba2c3108</xmpMM:DocumentID>\n         <xmpMM:OriginalDocumentID>xmp.did:e77e878e-1f77-4811-b9fd-19e4ba2c3108</xmpMM:OriginalDocumentID>\n         \n      </rdf:Description>\n      <rdf:Description xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" rdf:about=\"\">\n         <xmp:MetadataDate>2019-02-28T11:00:34Z</xmp:MetadataDate>\n         <xmp:ModifyDate>2019-02-28T11:00:34Z</xmp:ModifyDate>\n      </rdf:Description>\n   </rdf:RDF>\n</x:xmpmeta><?xpacket end=\"w\"?>"
+                },
+                {
+                  "key": "componentOriginalFilename",
+                  "value": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-Square.png"
+                }
+              ]
+            },
+            "videoComponent": [
+              {
+                "resolution": {
+                  "width": 1080,
+                  "height": 1080
+                },
+                "file": [
+                  {
+                    "id": "VX-854786",
+                    "path": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-Square.png",
+                    "uri": [
+                      "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/00%20Bugs/GuardianBug-2018-Square.png"
+                    ],
+                    "state": "CLOSED",
+                    "size": 12681,
+                    "hash": "697c54b938e054dc57a53439f632b96671740287",
+                    "timestamp": "2022-04-22T13:25:34.477+0000",
+                    "refreshFlag": 1,
+                    "storage": "VX-4",
+                    "metadata": {}
+                  }
+                ],
+                "id": "VX-752919",
+                "metadata": [
+                  {
+                    "key": "image_png_IHDR_interlace_method",
+                    "value": "0 (Not interlaced)"
+                  },
+                  {
+                    "key": "image_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_pages",
+                    "value": "1"
+                  },
+                  {
+                    "key": "image_png_IHDR_bit_depth_orig",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_date_modify",
+                    "value": "2020-06-23T07:02:02+01:00"
+                  },
+                  {
+                    "key": "image_png_IHDR_bit_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_png_IHDR_color_type_orig",
+                    "value": "6"
+                  },
+                  {
+                    "key": "image_colorspace",
+                    "value": "sRGB"
+                  },
+                  {
+                    "key": "image_date_create",
+                    "value": "2022-03-10T14:21:16+00:00"
+                  },
+                  {
+                    "key": "image_png_IHDR_width_height",
+                    "value": "1080, 1080"
+                  },
+                  {
+                    "key": "image_resolution_x",
+                    "value": "0.01"
+                  },
+                  {
+                    "key": "image_resolution_y",
+                    "value": "0.01"
+                  },
+                  {
+                    "key": "componentOriginalFilename",
+                    "value": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-Square.png"
+                  },
+                  {
+                    "key": "image_format",
+                    "value": "Portable Network Graphics"
+                  },
+                  {
+                    "key": "image_resolution_unit",
+                    "value": "dpcm"
+                  },
+                  {
+                    "key": "image_png_IHDR_color_type",
+                    "value": "6 (RGBA)"
+                  }
+                ],
+                "codec": "PNG",
+                "itemTrack": "V1",
+                "essenceStreamId": 0
+              }
+            ]
+          }
+        ],
+        "access": [],
+        "externalId": [],
+        "id": "VX-128719",
+        "start": "-INF",
+        "end": "+INF"
+      },
+      "timespan": [
+        {
+          "field": [],
+          "start": "-INF",
+          "end": "+INF"
+        }
+      ],
+      "start": "-INF",
+      "end": "+INF",
+      "type": "Item",
+      "id": "VX-128719"
+    },
+    {
+      "item": {
+        "metadata": {
+          "revision": "VX-990366,VX-990367,VX-1487038,VX-990368,VX-990369,VX-990370,VX-991033",
+          "timespan": [
+            {
+              "field": [
+                {
+                  "name": "itemId",
+                  "value": [
+                    {
+                      "value": "VX-128714",
+                      "uuid": "97cd4469-5142-4ba0-ade4-c48ce8f18d3f",
+                      "user": "system",
+                      "timestamp": "2022-03-10T14:32:52.049+0000",
+                      "change": "VX-990369"
+                    }
+                  ],
+                  "uuid": "345a11ca-2bf0-47ef-a952-c9cd87bba6c7",
+                  "user": "system",
+                  "timestamp": "2022-03-10T14:32:52.049+0000",
+                  "change": "VX-990369"
+                },
+                {
+                  "name": "title",
+                  "value": [
+                    {
+                      "value": "Guardian Bug-2018-VERTICAL.png (Branding_Assets)",
+                      "uuid": "f47ddb7f-4585-41e7-aee2-26452c1e7c4c",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:32:51.836+0000",
+                      "change": "VX-990366"
+                    }
+                  ],
+                  "uuid": "4a1853f3-78bd-4527-a72d-966e74683cd7",
+                  "user": "admin",
+                  "timestamp": "2022-03-10T14:32:51.836+0000",
+                  "change": "VX-990366"
+                }
+              ],
+              "group": [
+                {
+                  "name": "Asset",
+                  "field": [
+                    {
+                      "name": "gnm_category",
+                      "value": [
+                        {
+                          "value": "Branding",
+                          "uuid": "611d54d5-4d25-4982-ba7b-f7f42c99772c",
+                          "user": "admin",
+                          "timestamp": "2022-03-10T14:32:51.836+0000",
+                          "change": "VX-990366"
+                        }
+                      ],
+                      "uuid": "77eea9a3-6910-454f-a01e-4dd4a41f2e5a",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:32:51.836+0000",
+                      "change": "VX-990366"
+                    },
+                    {
+                      "name": "gnm_nearline_id",
+                      "value": [
+                        {
+                          "value": "04cffbd5-9fe1-11ec-985d-91e8c1d064e1-1226",
+                          "uuid": "ba45b801-d79b-4dc5-925a-4448c6b820f9",
+                          "user": "admin",
+                          "timestamp": "2022-03-11T06:58:48.811+0000",
+                          "change": "VX-991033"
+                        }
+                      ],
+                      "uuid": "ebd25e31-df23-4b74-9806-7a9474e867e5",
+                      "user": "admin",
+                      "timestamp": "2022-03-11T06:58:48.811+0000",
+                      "change": "VX-991033"
+                    },
+                    {
+                      "name": "gnm_containing_projects",
+                      "value": [
+                        {
+                          "value": "24045",
+                          "uuid": "80d505c6-9cda-4e08-968f-9753007c43d8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24049",
+                          "uuid": "9d8eff71-b7a3-4115-9ff3-03c65bcbb9b3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24195",
+                          "uuid": "bbbaaf62-b1e8-45ef-a846-c762a4e19330",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24072",
+                          "uuid": "66dcd801-8043-493a-a2cf-a6ac2cefc04d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24090",
+                          "uuid": "762a6171-93af-41b8-b873-52d887d27863",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24176",
+                          "uuid": "19630546-0119-4985-b8f8-c580f75c3748",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24159",
+                          "uuid": "97a42bf7-6054-4309-853c-e03f267593e0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24097",
+                          "uuid": "6cd1af60-074b-4a7f-bf3f-e5062ae426ea",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24197",
+                          "uuid": "f49161fe-6482-4838-85fb-8c08548dc816",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24110",
+                          "uuid": "152e8404-604a-452b-9a95-4fc6ba4adbcd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24111",
+                          "uuid": "ba8c0aa0-6897-4e50-8666-515af2af960f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24158",
+                          "uuid": "9c38ae9e-701b-4c88-995f-f56e47f12866",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24086",
+                          "uuid": "7e38ec12-c41b-49a3-8c56-cb48c348e62f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24142",
+                          "uuid": "eca7dc92-893c-40ed-84c3-55f7f92947f5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24170",
+                          "uuid": "4273a6c6-be6a-44bc-b327-31c746dc5f28",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24079",
+                          "uuid": "382da7f4-cae7-440f-a805-2f43e152443c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24123",
+                          "uuid": "7a37dc8f-4709-4a41-b157-5e3c0bfb5cd9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24115",
+                          "uuid": "9ba39917-a4c4-45ee-9ee3-c816ac9b7453",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24152",
+                          "uuid": "61759e54-8dfb-4c60-a84b-51a888d94a4d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24141",
+                          "uuid": "93d66ba6-5347-4fc9-adc2-9c2a38fd9f0c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24156",
+                          "uuid": "05a7938f-253e-4a2c-9ad5-507da80a8e1a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24136",
+                          "uuid": "c2c00c4c-80ce-4899-93ab-3b6fe8af957c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24105",
+                          "uuid": "df0218cb-45d1-41a3-a390-2d0273d5598b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24129",
+                          "uuid": "e4d6033b-4ad8-4637-8adb-ad761d91c646",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24117",
+                          "uuid": "3ddcd44c-fad6-4542-941d-df173f56479c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24194",
+                          "uuid": "5a16e3cf-3500-4d26-b39a-e7ed434a6433",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24057",
+                          "uuid": "dc52021b-f4ef-4ebe-a6dd-c6eeb3ed2ccb",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24187",
+                          "uuid": "4b23e7f4-0875-4fb6-8f91-8b6247e7b8bd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24165",
+                          "uuid": "2f173866-0520-4cea-9e70-c34dcdc24bea",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24144",
+                          "uuid": "e7a8584c-7534-453b-a648-829ef5e61399",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24103",
+                          "uuid": "669612f0-5e50-4c89-a4df-824d7e6635fd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24043",
+                          "uuid": "3a2b197c-0e68-4b60-bf89-17756a5b36ce",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24153",
+                          "uuid": "34e3d630-be58-4080-aa81-333be83ab80f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24166",
+                          "uuid": "a2de9803-2c4b-496f-84cd-699f7a81c5e1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24116",
+                          "uuid": "712d5866-cc4f-4b82-90c0-8dfc4eef6b4c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24054",
+                          "uuid": "bc0306de-1873-4c92-ba49-1ef05a878d7f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24173",
+                          "uuid": "8b4e90f3-be43-4e23-a5a7-b44d058ed160",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24177",
+                          "uuid": "446646db-7333-4027-94d4-76953d8d7ac6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24154",
+                          "uuid": "b5339dc1-24cc-44c0-9b71-2ad21c055622",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24108",
+                          "uuid": "27917a54-6239-4e05-b629-e0c569997197",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24122",
+                          "uuid": "309f0afc-d5fd-4da4-87c1-f5d786b96ff1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24085",
+                          "uuid": "134b5228-23dd-4850-a715-70874d7e997a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24172",
+                          "uuid": "1e421ae6-5525-4794-87ec-df79bdd3f4b3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24148",
+                          "uuid": "bc20a03d-7f5d-40dd-b0d2-2eff4307a46b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24066",
+                          "uuid": "c48005f6-c1b6-4417-a636-8d8e482610f3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24126",
+                          "uuid": "fbb8a0ed-9a75-48f0-b0d5-05f2ad651002",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24181",
+                          "uuid": "292fa6b5-001b-47be-816b-2050e27ac07e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24059",
+                          "uuid": "67c2bf66-3351-45ba-a3b8-b7d0cb1d7402",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24050",
+                          "uuid": "2bef7b9d-50bb-4111-b7ae-5e40e6101259",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24113",
+                          "uuid": "af729de3-8331-4c48-a66f-0567faad74b7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24167",
+                          "uuid": "7668cabd-3634-4d67-8cf4-032f21eb1934",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24169",
+                          "uuid": "1199f3e8-c7e4-42c3-9bf3-6a8833452763",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24186",
+                          "uuid": "545cbf63-2814-4d07-aa2c-d1169c3ee7d9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24056",
+                          "uuid": "74a51025-6c4c-4936-a204-f8b2250a7ace",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24168",
+                          "uuid": "f74235f7-1a63-451d-98ed-dcc2e95a60c3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24096",
+                          "uuid": "c4944742-f115-45db-8a6c-e587d045bf39",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24076",
+                          "uuid": "0e12ae54-cb35-47fe-91f7-67c36738d1fa",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24104",
+                          "uuid": "5b4a9c2f-ca03-46f0-9afd-ce1ee936aa39",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24107",
+                          "uuid": "507f22e2-2017-4bfe-b8a1-54ad52792074",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24188",
+                          "uuid": "bea9375b-5aca-4fd8-ba9b-977bcd3c134a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24185",
+                          "uuid": "d2b794c6-5bca-48d3-bcbe-40840f1cb459",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24155",
+                          "uuid": "e6fa2816-af0b-46e9-986b-aa9f78e80092",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24061",
+                          "uuid": "98fa0a5c-9d9d-4dd6-b69d-bfdb3aeb5dad",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24070",
+                          "uuid": "4a2dc79f-4889-49e6-bad1-916b495d0881",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24178",
+                          "uuid": "7b06c4f4-8be0-4a3f-9291-4e8539d48ea1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24150",
+                          "uuid": "d0f6e093-d3cb-49b0-a58c-c8d4e291f8f0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24053",
+                          "uuid": "f8fa8149-d2c1-49cc-bbbb-7dc9ad2f4bab",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24099",
+                          "uuid": "c72cfb41-39e4-41f0-990f-10bb8656c61e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24121",
+                          "uuid": "404b8a02-c68b-4352-b3d5-274e64aaef19",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24140",
+                          "uuid": "ed916566-83fb-42f1-8195-7e10e8af37d3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24102",
+                          "uuid": "3c07651c-4511-4489-8fa5-3a3905a46632",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24112",
+                          "uuid": "bd999d8c-b4bb-4836-b0aa-7ceab2d15b36",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24146",
+                          "uuid": "d319349f-1ae1-4e7e-b072-dcd8456658a7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24161",
+                          "uuid": "21012deb-82da-4336-a9e4-5d6b61b779e3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24120",
+                          "uuid": "6c02f5bd-4933-4921-a0bc-c517aff777a3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24135",
+                          "uuid": "0f4dc0c6-6117-462c-be0f-90ddd3e02d77",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24048",
+                          "uuid": "5ef296a4-8111-46f6-9e8e-64960600e742",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24196",
+                          "uuid": "989d6236-630d-4894-a11b-7439f731d4ac",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24160",
+                          "uuid": "d705af5e-ab3e-4d71-8833-28f881c41561",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24164",
+                          "uuid": "2f05c076-ac92-492b-b077-b56258894b5d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24134",
+                          "uuid": "3143d1af-967c-40dd-9089-511e97a36638",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24091",
+                          "uuid": "19597fc2-ea72-4df9-89f7-ac46ed5c57fc",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24082",
+                          "uuid": "982ebb8c-2430-4d07-af8a-203a0d3d433d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24095",
+                          "uuid": "a96b64ad-59a9-4d78-8b55-a67f3c99d6c1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24149",
+                          "uuid": "18883b4d-f265-45ef-b8f1-f1b34fe34321",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24093",
+                          "uuid": "c1e5ea8b-849c-4d93-b0f7-fee3d79171d6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24151",
+                          "uuid": "9b9a14a6-4145-4a02-9f4c-6467fb3710db",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24118",
+                          "uuid": "c4948ec3-7a9d-4e77-bb6f-42996a328c71",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24137",
+                          "uuid": "4346de84-f88b-484a-b917-546badac068a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24081",
+                          "uuid": "5599e24c-b5e0-46e5-9518-0b9adcbf4256",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24084",
+                          "uuid": "1629a037-0569-4cd4-b410-d1712ca7216a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        },
+                        {
+                          "value": "24147",
+                          "uuid": "7653379f-1190-4b78-8baf-128c79d78b38",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:21.347+0000",
+                          "change": "VX-1487038"
+                        }
+                      ],
+                      "uuid": "9c40cf2d-cb9a-414a-a467-e106b6345283",
+                      "user": "admin",
+                      "timestamp": "2022-06-10T09:14:21.347+0000",
+                      "change": "VX-1487038"
+                    }
+                  ],
+                  "group": [],
+                  "uuid": "d7a08fe1-3658-4940-9562-5dcd42b1b3f1",
+                  "user": "admin",
+                  "timestamp": "2022-06-10T09:14:21.347+0000",
+                  "change": "VX-1487038"
+                }
+              ],
+              "start": "-INF",
+              "end": "+INF"
+            }
+          ]
+        },
+        "shape": [
+          {
+            "id": "VX-253798",
+            "created": "2022-03-10T14:32:51.966+0000",
+            "essenceVersion": 0,
+            "tag": [
+              "original"
+            ],
+            "mimeType": [
+              "image/png"
+            ],
+            "containerComponent": {
+              "duration": {
+                "samples": 0,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 1
+                }
+              },
+              "format": "PNG",
+              "mediaInfo": {
+                "property": [
+                  {
+                    "key": "Codec",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Codec/Extensions usually used",
+                    "value": "png pns"
+                  },
+                  {
+                    "key": "Codec/Info",
+                    "value": "Portable Network Graphic"
+                  },
+                  {
+                    "key": "Codecs Image",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Commercial name",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Count",
+                    "value": "325"
+                  },
+                  {
+                    "key": "Count of image streams",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Count of stream of this kind",
+                    "value": "1"
+                  },
+                  {
+                    "key": "File extension",
+                    "value": "png"
+                  },
+                  {
+                    "key": "File last modification date",
+                    "value": "UTC 2020-06-23 06:01:58"
+                  },
+                  {
+                    "key": "File last modification date (local)",
+                    "value": "2020-06-23 07:01:58"
+                  },
+                  {
+                    "key": "File size",
+                    "value": "16210"
+                  },
+                  {
+                    "key": "Format",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Format/Extensions usually used",
+                    "value": "png pns"
+                  },
+                  {
+                    "key": "Format/Info",
+                    "value": "Portable Network Graphic"
+                  },
+                  {
+                    "key": "Image_Format_List",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Image_Format_WithHint_List",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Internet media type",
+                    "value": "image/png"
+                  },
+                  {
+                    "key": "Kind of stream",
+                    "value": "General"
+                  },
+                  {
+                    "key": "Proportion of this stream",
+                    "value": "0.00000"
+                  },
+                  {
+                    "key": "Stream identifier",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Stream size",
+                    "value": "0"
+                  }
+                ]
+              },
+              "file": [
+                {
+                  "id": "VX-854784",
+                  "path": "Branding/January_2022/Branding_Assets/Features/00 Bugs/Guardian Bug-2018-VERTICAL.png",
+                  "uri": [
+                    "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/00%20Bugs/Guardian%20Bug-2018-VERTICAL.png"
+                  ],
+                  "state": "CLOSED",
+                  "size": 16210,
+                  "hash": "78f3f3653e89f24dc7d857c55579b60b97fa20b8",
+                  "timestamp": "2022-04-22T13:25:34.473+0000",
+                  "refreshFlag": 1,
+                  "storage": "VX-4",
+                  "metadata": {}
+                }
+              ],
+              "id": "VX-752902",
+              "metadata": [
+                {
+                  "key": "XMP_METADATA",
+                  "value": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"XMP Core 5.1.2\">\n   <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n      <rdf:Description xmlns:xmpMM=\"http://ns.adobe.com/xap/1.0/mm/\" xmlns:stEvt=\"http://ns.adobe.com/xap/1.0/sType/ResourceEvent#\" rdf:about=\"\">\n         <xmpMM:InstanceID>xmp.iid:744b147b-3e04-462e-b745-4ee1ffa99178</xmpMM:InstanceID>\n         <xmpMM:DocumentID>xmp.did:eb6d919f-de6f-4f39-8a80-849b7bc90b03</xmpMM:DocumentID>\n         <xmpMM:OriginalDocumentID>xmp.did:eb6d919f-de6f-4f39-8a80-849b7bc90b03</xmpMM:OriginalDocumentID>\n         \n      </rdf:Description>\n      <rdf:Description xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" rdf:about=\"\">\n         <xmp:MetadataDate>2019-02-28T11:40:44Z</xmp:MetadataDate>\n         <xmp:ModifyDate>2019-02-28T11:40:43Z</xmp:ModifyDate>\n      </rdf:Description>\n   </rdf:RDF>\n</x:xmpmeta><?xpacket end=\"w\"?>"
+                },
+                {
+                  "key": "componentOriginalFilename",
+                  "value": "Branding/January_2022/Branding_Assets/Features/00 Bugs/Guardian Bug-2018-VERTICAL.png"
+                }
+              ]
+            },
+            "videoComponent": [
+              {
+                "resolution": {
+                  "width": 1080,
+                  "height": 1920
+                },
+                "file": [
+                  {
+                    "id": "VX-854784",
+                    "path": "Branding/January_2022/Branding_Assets/Features/00 Bugs/Guardian Bug-2018-VERTICAL.png",
+                    "uri": [
+                      "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/00%20Bugs/Guardian%20Bug-2018-VERTICAL.png"
+                    ],
+                    "state": "CLOSED",
+                    "size": 16210,
+                    "hash": "78f3f3653e89f24dc7d857c55579b60b97fa20b8",
+                    "timestamp": "2022-04-22T13:25:34.473+0000",
+                    "refreshFlag": 1,
+                    "storage": "VX-4",
+                    "metadata": {}
+                  }
+                ],
+                "id": "VX-752903",
+                "metadata": [
+                  {
+                    "key": "image_png_IHDR_interlace_method",
+                    "value": "0 (Not interlaced)"
+                  },
+                  {
+                    "key": "image_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_pages",
+                    "value": "1"
+                  },
+                  {
+                    "key": "image_png_IHDR_bit_depth_orig",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_date_modify",
+                    "value": "2020-06-23T07:01:58+01:00"
+                  },
+                  {
+                    "key": "image_png_IHDR_bit_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_png_IHDR_color_type_orig",
+                    "value": "6"
+                  },
+                  {
+                    "key": "image_colorspace",
+                    "value": "sRGB"
+                  },
+                  {
+                    "key": "image_date_create",
+                    "value": "2022-03-10T14:21:16+00:00"
+                  },
+                  {
+                    "key": "image_png_IHDR_width_height",
+                    "value": "1080, 1920"
+                  },
+                  {
+                    "key": "image_resolution_x",
+                    "value": "0.01"
+                  },
+                  {
+                    "key": "image_resolution_y",
+                    "value": "0.01"
+                  },
+                  {
+                    "key": "componentOriginalFilename",
+                    "value": "Branding/January_2022/Branding_Assets/Features/00 Bugs/Guardian Bug-2018-VERTICAL.png"
+                  },
+                  {
+                    "key": "image_format",
+                    "value": "Portable Network Graphics"
+                  },
+                  {
+                    "key": "image_resolution_unit",
+                    "value": "dpcm"
+                  },
+                  {
+                    "key": "image_png_IHDR_color_type",
+                    "value": "6 (RGBA)"
+                  }
+                ],
+                "codec": "PNG",
+                "itemTrack": "V1",
+                "essenceStreamId": 0
+              }
+            ]
+          }
+        ],
+        "access": [],
+        "externalId": [],
+        "id": "VX-128714",
+        "start": "-INF",
+        "end": "+INF"
+      },
+      "timespan": [
+        {
+          "field": [],
+          "start": "-INF",
+          "end": "+INF"
+        }
+      ],
+      "start": "-INF",
+      "end": "+INF",
+      "type": "Item",
+      "id": "VX-128714"
+    },
+    {
+      "item": {
+        "metadata": {
+          "revision": "VX-1487036,VX-990354,VX-990355,VX-990357,VX-990358,VX-990359,VX-991032",
+          "timespan": [
+            {
+              "field": [
+                {
+                  "name": "itemId",
+                  "value": [
+                    {
+                      "value": "VX-128712",
+                      "uuid": "19643d0e-9736-4d67-8fab-b8ce1c08e35e",
+                      "user": "system",
+                      "timestamp": "2022-03-10T14:32:47.846+0000",
+                      "change": "VX-990357"
+                    }
+                  ],
+                  "uuid": "fe7a3924-be80-42ec-a552-0bd06d6caa6e",
+                  "user": "system",
+                  "timestamp": "2022-03-10T14:32:47.846+0000",
+                  "change": "VX-990357"
+                },
+                {
+                  "name": "title",
+                  "value": [
+                    {
+                      "value": "01 Open.mov (Branding_Assets)",
+                      "uuid": "103cc049-fbb2-4fd2-8ce5-29451c9ae48f",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:32:47.619+0000",
+                      "change": "VX-990354"
+                    }
+                  ],
+                  "uuid": "bdcdbaca-b5fe-4649-aec7-2b0a34f8369c",
+                  "user": "admin",
+                  "timestamp": "2022-03-10T14:32:47.619+0000",
+                  "change": "VX-990354"
+                }
+              ],
+              "group": [
+                {
+                  "name": "Asset",
+                  "field": [
+                    {
+                      "name": "gnm_containing_projects",
+                      "value": [
+                        {
+                          "value": "24136",
+                          "uuid": "d583c993-cf86-4db8-a33e-f9e1b95eb624",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24096",
+                          "uuid": "0144e561-9675-4210-b9a2-dde581c601ea",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24050",
+                          "uuid": "29691423-3f37-46ac-88c2-970be3a4a149",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24054",
+                          "uuid": "4c7a4365-0a91-4548-9c85-066204c7a122",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24170",
+                          "uuid": "d10b3d11-e2fb-4e72-b209-ef65266c87ab",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24169",
+                          "uuid": "60d490b9-4db9-482c-8551-ccf4ab1f268b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24086",
+                          "uuid": "f5c1a3a1-dd83-4700-b569-e42763fbf927",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24081",
+                          "uuid": "9bd10da6-9346-471e-aab9-2ef43c740c54",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24043",
+                          "uuid": "41f1dd62-6942-4e79-9e70-413c23981573",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24048",
+                          "uuid": "c305b6b1-b8c4-442b-a59a-6c29ab4ea0b6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24197",
+                          "uuid": "c1afb633-b460-4ddd-9b23-4144422177a7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24188",
+                          "uuid": "ddc9b32e-1299-4eee-b4a4-cbdf16d29157",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24195",
+                          "uuid": "61aa3ba4-a187-49a3-a98d-97cff3229313",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24118",
+                          "uuid": "8329193c-411d-44db-9a1b-690050ea97c9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24120",
+                          "uuid": "2dd3d777-7d84-4059-906f-5e8d1cdd8e91",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24176",
+                          "uuid": "b57a55a4-6109-41cc-9563-0986df045492",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24108",
+                          "uuid": "dc615274-9d14-4cb3-8ed1-1f739f1dd45e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24115",
+                          "uuid": "e79ca0d3-b3d8-4904-80c0-5e13002aefe2",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24187",
+                          "uuid": "6cb5ea8a-56d3-4924-a200-759bbbd81ef5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24097",
+                          "uuid": "6468f07b-5f1c-405a-ba09-547a7dcb6ae0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24045",
+                          "uuid": "5ee8f898-a7c3-4b17-907a-87eedf6eabd5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24082",
+                          "uuid": "c64b6bdf-64fa-4776-bd93-a4474eed147b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24142",
+                          "uuid": "2b2d1797-b20b-49dd-b7f4-fd4a06fdec04",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24166",
+                          "uuid": "9c56ecc6-98e9-4b8f-8fc1-b7ce74899491",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24049",
+                          "uuid": "4fc30e5a-a3c4-4543-bd6b-8d8fbb90a9f9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24103",
+                          "uuid": "5fa946e0-1bd7-4323-ba3c-c05a24483fd1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24084",
+                          "uuid": "48794f4d-0941-4fc5-9d60-2a3519f4f1b3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24135",
+                          "uuid": "e5273a3d-0a16-48c7-bb4d-2310ac83be2d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24137",
+                          "uuid": "e7f8f279-2792-4444-9661-1365f4134e51",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24110",
+                          "uuid": "d5b3f409-181e-4825-8f88-61367b6c1336",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24057",
+                          "uuid": "35af3f72-08de-4884-bba2-394d1b520427",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24059",
+                          "uuid": "045c7cc4-117e-4049-b6fd-81c82010a3b9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24178",
+                          "uuid": "abaa1f42-0fa6-43e8-aec7-4840bba22c62",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24079",
+                          "uuid": "484e6a05-5cc5-4b97-929f-554026e25f0f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24167",
+                          "uuid": "4ac4fbf1-1cab-4084-afa3-562c2f868e10",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24121",
+                          "uuid": "304c74e0-9c69-4685-8edf-9889c2d109f3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24149",
+                          "uuid": "af1877e4-c582-4644-9d82-174b4ae490ef",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24173",
+                          "uuid": "7b6af933-6844-4210-ad2f-29005f03a632",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24159",
+                          "uuid": "e7302014-71f1-46cc-b771-f5d3234ee78e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24066",
+                          "uuid": "8ba25259-7bab-47c0-a204-c22b49389a89",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24154",
+                          "uuid": "4aa2f939-e0c1-40d3-b4db-5fe907537b20",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24156",
+                          "uuid": "cea8d870-29c4-4b11-a779-03413b102808",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24104",
+                          "uuid": "185f9d82-0305-41c1-9cc8-285756deb33e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24123",
+                          "uuid": "96b53762-9909-430e-a01c-59992c66e767",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24168",
+                          "uuid": "664fcd91-27ad-4950-b687-2cffb281c421",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24160",
+                          "uuid": "0391be17-6f19-4b4a-9e77-27e53f72e243",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24117",
+                          "uuid": "47b6bb04-c6c4-4194-8bb0-3693dcc37fde",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24152",
+                          "uuid": "e17cb314-0a60-4879-b384-3b766b597bb2",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24194",
+                          "uuid": "8f5b693d-eab8-4aed-b19e-cf2c8092b955",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24147",
+                          "uuid": "b1d8dc48-353d-493a-a3fe-2c023a288595",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24146",
+                          "uuid": "3348d0b7-1e73-44e9-9dfd-b856ff0fa0b2",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24164",
+                          "uuid": "82264d46-a94e-4714-816b-ea789ffa5316",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24056",
+                          "uuid": "6a6c6c79-e877-4bd2-bf8e-d13cae3352fd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24161",
+                          "uuid": "805dbbc2-ec26-4e51-a0f2-297ed453f0d9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24140",
+                          "uuid": "e2cab1a6-7cd3-427c-9c5d-034901e689f0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24177",
+                          "uuid": "35fcd0b7-6a4e-4bf9-ac4c-171570241328",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24155",
+                          "uuid": "154e5923-dd67-4165-9d2b-342c9063b6d8",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24150",
+                          "uuid": "388f6906-7d8c-4a7e-9d61-637bf38d7d21",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24085",
+                          "uuid": "6376835e-bd85-48bd-819b-1380e04c7f81",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24093",
+                          "uuid": "d144330f-7de2-4fe2-b53e-74ea6b155590",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24107",
+                          "uuid": "9c35b4ad-cd3b-4caf-842c-72981a8a4748",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24070",
+                          "uuid": "b93f1a75-1f6a-4fb0-bfea-82623ce5c8af",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24095",
+                          "uuid": "b119f026-0480-4e8e-8a4e-63b61e94d300",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24144",
+                          "uuid": "377febcf-1b5b-455b-9952-4f412402b644",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24105",
+                          "uuid": "d0bd80a4-c69d-48b9-b799-da71e93f2be9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24126",
+                          "uuid": "090cf0a7-ef20-41f2-a341-329007289f11",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24134",
+                          "uuid": "0ce2a205-edcb-42e4-84ae-e456a605c218",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24053",
+                          "uuid": "19a67cd8-1b62-4bcf-b80b-f9466d16f5ea",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24061",
+                          "uuid": "365a1734-53d8-4cb8-8275-478dbe46da9d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24090",
+                          "uuid": "414dcf60-1138-4299-8aa1-a4e9853a70b4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24185",
+                          "uuid": "2cb7dc52-e6ed-425a-8f87-d0cc7f66308a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24158",
+                          "uuid": "7573b0de-c768-4b2e-ad50-1d0c6fcb69d6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24181",
+                          "uuid": "288b33bd-f889-44d1-a5b7-fab29bea5779",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24153",
+                          "uuid": "04f6c795-fea5-4b31-b2da-c156fe7ae0f7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24141",
+                          "uuid": "05120602-c60f-4ce2-9964-2859c8fca2fd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24113",
+                          "uuid": "d8e30c90-f93c-4f89-a132-60d4e3bd4d9c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24129",
+                          "uuid": "6ce13c61-0d4a-4a3f-93ab-873d8116153a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24076",
+                          "uuid": "a1ef27d0-9491-4390-b2e5-d50713fa38f3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24099",
+                          "uuid": "ef7b161c-ea34-4665-83db-f5054bd671eb",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24186",
+                          "uuid": "c827fe13-5f38-4e08-985b-8e6e313b89c1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24165",
+                          "uuid": "77f99050-34bf-4bc6-a1f7-2ef0e208d4ac",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24112",
+                          "uuid": "c61e7e15-ac97-46ab-80f7-e4689153c8f0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24148",
+                          "uuid": "118cce93-3ee8-4eaa-8c0e-568aa9d1f09d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24102",
+                          "uuid": "7dc8c1a0-4c89-4f2f-9c92-af14671bad25",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24116",
+                          "uuid": "cab7d282-85bd-40cd-be01-0392c5ee476f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24151",
+                          "uuid": "57a31f1a-8831-4ada-84aa-391afff9cee7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24072",
+                          "uuid": "d72e2430-ab54-485f-b69c-050889d4ab06",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24196",
+                          "uuid": "6da195b9-2d8a-4aa1-8ae6-6e282e7678ee",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24111",
+                          "uuid": "c20ad4af-516a-4242-b2c3-99d79fc0a9f6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24122",
+                          "uuid": "399b1a1e-e85b-4638-bec0-ac255b4c10a6",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24091",
+                          "uuid": "a3c76e8a-10a2-447d-8bdc-4251aa307c65",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        },
+                        {
+                          "value": "24172",
+                          "uuid": "3de91f9c-3efd-4f60-8f3d-0a684649c358",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:17.735+0000",
+                          "change": "VX-1487036"
+                        }
+                      ],
+                      "uuid": "52eee395-93d0-4f45-b93e-4b9aef14384b",
+                      "user": "admin",
+                      "timestamp": "2022-06-10T09:14:17.735+0000",
+                      "change": "VX-1487036"
+                    },
+                    {
+                      "name": "gnm_nearline_id",
+                      "value": [
+                        {
+                          "value": "a2d942ac-9fef-11ec-a895-8e29f591bdb6-1180",
+                          "uuid": "7431a562-a822-4f98-9bc5-ed79948d898b",
+                          "user": "admin",
+                          "timestamp": "2022-03-11T06:58:47.114+0000",
+                          "change": "VX-991032"
+                        }
+                      ],
+                      "uuid": "9f564a20-0f56-49f1-a172-691d8fc762a3",
+                      "user": "admin",
+                      "timestamp": "2022-03-11T06:58:47.114+0000",
+                      "change": "VX-991032"
+                    },
+                    {
+                      "name": "gnm_category",
+                      "value": [
+                        {
+                          "value": "Branding",
+                          "uuid": "c965ba1e-3cd3-472c-9c34-c0676e805da5",
+                          "user": "admin",
+                          "timestamp": "2022-03-10T14:32:47.619+0000",
+                          "change": "VX-990354"
+                        }
+                      ],
+                      "uuid": "f0f83ea0-a6e2-45bc-bffb-19c15a92e008",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:32:47.619+0000",
+                      "change": "VX-990354"
+                    }
+                  ],
+                  "group": [],
+                  "uuid": "f4a788ac-d501-4a77-bff2-ad590739a454",
+                  "user": "admin",
+                  "timestamp": "2022-06-10T09:14:17.735+0000",
+                  "change": "VX-1487036"
+                }
+              ],
+              "start": "-INF",
+              "end": "+INF"
+            }
+          ]
+        },
+        "shape": [
+          {
+            "id": "VX-253794",
+            "created": "2022-03-10T14:32:47.754+0000",
+            "essenceVersion": 0,
+            "tag": [
+              "original"
+            ],
+            "mimeType": [
+              "video/quicktime"
+            ],
+            "containerComponent": {
+              "duration": {
+                "samples": 1000000,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 1000000
+                }
+              },
+              "format": "mov,mp4,m4a,3gp,3g2,mj2",
+              "firstSMPTETimecode": "00:00:00:00",
+              "startTimecode": 0,
+              "startTimestamp": {
+                "samples": 0,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 25
+                }
+              },
+              "roundedTimeBase": 25,
+              "dropFrame": false,
+              "timeCodeTimeBase": {
+                "numerator": 1,
+                "denominator": 25
+              },
+              "mediaInfo": {
+                "property": [
+                  {
+                    "key": "Codec",
+                    "value": "MPEG-4"
+                  },
+                  {
+                    "key": "Codec ID",
+                    "value": "qt"
+                  },
+                  {
+                    "key": "Codec ID/Url",
+                    "value": "http://www.apple.com/quicktime/download/standalone.html"
+                  },
+                  {
+                    "key": "Codec/Extensions usually used",
+                    "value": "mov mp4 m4v m4a m4b m4p 3ga 3gpa 3gpp 3gp 3gpp2 3g2 k3g jpm jpx mqv ismv isma ismt f4a f4b f4v"
+                  },
+                  {
+                    "key": "CodecID_Compatible",
+                    "value": "qt"
+                  },
+                  {
+                    "key": "CodecID_Version",
+                    "value": "2005.03"
+                  },
+                  {
+                    "key": "Codecs Video",
+                    "value": "ap4h"
+                  },
+                  {
+                    "key": "Commercial name",
+                    "value": "MPEG-4"
+                  },
+                  {
+                    "key": "Count",
+                    "value": "328"
+                  },
+                  {
+                    "key": "Count of stream of this kind",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Count of video streams",
+                    "value": "1"
+                  },
+                  {
+                    "key": "DataSize",
+                    "value": "3131692"
+                  },
+                  {
+                    "key": "Duration",
+                    "value": "1000"
+                  },
+                  {
+                    "key": "Encoded date",
+                    "value": "UTC 2019-03-22 08:53:07"
+                  },
+                  {
+                    "key": "Encoded_Library_Name",
+                    "value": "Apple QuickTime"
+                  },
+                  {
+                    "key": "File extension",
+                    "value": "mov"
+                  },
+                  {
+                    "key": "File last modification date",
+                    "value": "UTC 2019-11-12 03:40:10"
+                  },
+                  {
+                    "key": "File last modification date (local)",
+                    "value": "2019-11-12 03:40:10"
+                  },
+                  {
+                    "key": "File size",
+                    "value": "4180260"
+                  },
+                  {
+                    "key": "FooterSize",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Format",
+                    "value": "MPEG-4"
+                  },
+                  {
+                    "key": "Format profile",
+                    "value": "QuickTime"
+                  },
+                  {
+                    "key": "Format/Extensions usually used",
+                    "value": "mov mp4 m4v m4a m4b m4p 3ga 3gpa 3gpp 3gp 3gpp2 3g2 k3g jpm jpx mqv ismv isma ismt f4a f4b f4v"
+                  },
+                  {
+                    "key": "Frame count",
+                    "value": "25"
+                  },
+                  {
+                    "key": "Frame rate",
+                    "value": "25.000"
+                  },
+                  {
+                    "key": "HeaderSize",
+                    "value": "1048568"
+                  },
+                  {
+                    "key": "Internet media type",
+                    "value": "video/mp4"
+                  },
+                  {
+                    "key": "IsStreamable",
+                    "value": "Yes"
+                  },
+                  {
+                    "key": "Kind of stream",
+                    "value": "General"
+                  },
+                  {
+                    "key": "OtherCount",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Other_Format_List",
+                    "value": "QuickTime TC"
+                  },
+                  {
+                    "key": "Other_Format_WithHint_List",
+                    "value": "QuickTime TC"
+                  },
+                  {
+                    "key": "Other_Language_List",
+                    "value": "English"
+                  },
+                  {
+                    "key": "Overall bit rate",
+                    "value": "33442080"
+                  },
+                  {
+                    "key": "Overall bit rate mode",
+                    "value": "VBR"
+                  },
+                  {
+                    "key": "Proportion of this stream",
+                    "value": "0.25084"
+                  },
+                  {
+                    "key": "Stream identifier",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Stream size",
+                    "value": "1048580"
+                  },
+                  {
+                    "key": "Tagged date",
+                    "value": "UTC 2019-03-22 08:53:08"
+                  },
+                  {
+                    "key": "Video_Format_List",
+                    "value": "ProRes"
+                  },
+                  {
+                    "key": "Video_Format_WithHint_List",
+                    "value": "ProRes"
+                  },
+                  {
+                    "key": "Video_Language_List",
+                    "value": "English"
+                  },
+                  {
+                    "key": "Writing library",
+                    "value": "Apple QuickTime"
+                  },
+                  {
+                    "key": "©TIM",
+                    "value": "00:00:00:00"
+                  },
+                  {
+                    "key": "©TSC",
+                    "value": "25"
+                  },
+                  {
+                    "key": "©TSZ",
+                    "value": "1"
+                  }
+                ]
+              },
+              "file": [
+                {
+                  "id": "VX-854790",
+                  "path": "Branding/January_2022/Branding_Assets/Features/01 Open.mov",
+                  "uri": [
+                    "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/01%20Open.mov"
+                  ],
+                  "state": "CLOSED",
+                  "size": 4180260,
+                  "hash": "6dde97b5cf82cece95b4ffe925323666a74c237f",
+                  "timestamp": "2022-04-22T13:25:34.483+0000",
+                  "refreshFlag": 1,
+                  "storage": "VX-4",
+                  "metadata": {}
+                }
+              ],
+              "id": "VX-752894",
+              "metadata": [
+                {
+                  "key": "creation_time",
+                  "value": "2019-03-22 08:53:07"
+                },
+                {
+                  "key": "componentOriginalFilename",
+                  "value": "Branding/January_2022/Branding_Assets/Features/01 Open.mov"
+                },
+                {
+                  "key": "drop_frame",
+                  "value": "false"
+                },
+                {
+                  "key": "major_brand",
+                  "value": "qt  "
+                },
+                {
+                  "key": "rounded_time_base",
+                  "value": "25"
+                },
+                {
+                  "key": "start_timecode",
+                  "value": "0"
+                },
+                {
+                  "key": "compatible_brands",
+                  "value": "qt  "
+                },
+                {
+                  "key": "minor_version",
+                  "value": "537199360"
+                }
+              ]
+            },
+            "videoComponent": [
+              {
+                "resolution": {
+                  "width": 1920,
+                  "height": 1080
+                },
+                "pixelFormat": "yuv422p16le",
+                "maxBFrames": 0,
+                "pixelAspectRatio": {
+                  "horizontal": 1,
+                  "vertical": 1
+                },
+                "fieldOrder": "progressive",
+                "codecTimeBase": {
+                  "numerator": 1,
+                  "denominator": 25
+                },
+                "averageFrameRate": {
+                  "numerator": 25,
+                  "denominator": 1
+                },
+                "realBaseFrameRate": {
+                  "numerator": 25,
+                  "denominator": 1
+                },
+                "displayWidth": {
+                  "numerator": 1920,
+                  "denominator": 1
+                },
+                "displayHeight": {
+                  "numerator": 1080,
+                  "denominator": 1
+                },
+                "containerSAR": {
+                  "horizontal": 1,
+                  "vertical": 1
+                },
+                "colr_primaries": 1,
+                "colr_transfer_function": 1,
+                "colr_matrix": 1,
+                "max_packet_size": 161440,
+                "bitDepth": 16,
+                "bitsPerPixel": 32,
+                "colorPrimaries": "BT709",
+                "mediaInfo": {
+                  "property": [
+                    {
+                      "key": "Bit rate",
+                      "value": "25053440"
+                    },
+                    {
+                      "key": "Bit rate mode",
+                      "value": "VBR"
+                    },
+                    {
+                      "key": "Bits/(Pixel*Frame)",
+                      "value": "0.483"
+                    },
+                    {
+                      "key": "Chroma subsampling",
+                      "value": "4:4:4"
+                    },
+                    {
+                      "key": "Codec",
+                      "value": "ap4h"
+                    },
+                    {
+                      "key": "Codec ID",
+                      "value": "ap4h"
+                    },
+                    {
+                      "key": "Codec ID/Url",
+                      "value": "http://www.apple.com/quicktime/download/standalone.html"
+                    },
+                    {
+                      "key": "Codec/CC",
+                      "value": "ap4h"
+                    },
+                    {
+                      "key": "Color primaries",
+                      "value": "BT.709"
+                    },
+                    {
+                      "key": "Commercial name",
+                      "value": "ProRes"
+                    },
+                    {
+                      "key": "Count",
+                      "value": "338"
+                    },
+                    {
+                      "key": "Count of stream of this kind",
+                      "value": "1"
+                    },
+                    {
+                      "key": "Delay",
+                      "value": "0"
+                    },
+                    {
+                      "key": "Delay, origin",
+                      "value": "Container"
+                    },
+                    {
+                      "key": "Delay_DropFrame",
+                      "value": "No"
+                    },
+                    {
+                      "key": "Delay_Settings",
+                      "value": "DropFrame=No / 24HourMax=No / IsVisual=No"
+                    },
+                    {
+                      "key": "Display aspect ratio",
+                      "value": "1.778"
+                    },
+                    {
+                      "key": "Duration",
+                      "value": "1000"
+                    },
+                    {
+                      "key": "Encoded date",
+                      "value": "UTC 2019-03-22 08:53:07"
+                    },
+                    {
+                      "key": "Format",
+                      "value": "ProRes"
+                    },
+                    {
+                      "key": "Format profile",
+                      "value": "4444"
+                    },
+                    {
+                      "key": "Format version",
+                      "value": "Version 1"
+                    },
+                    {
+                      "key": "Frame count",
+                      "value": "25"
+                    },
+                    {
+                      "key": "Frame rate",
+                      "value": "25.000"
+                    },
+                    {
+                      "key": "Frame rate mode",
+                      "value": "CFR"
+                    },
+                    {
+                      "key": "Height",
+                      "value": "1080"
+                    },
+                    {
+                      "key": "ID",
+                      "value": "1"
+                    },
+                    {
+                      "key": "Kind of stream",
+                      "value": "Video"
+                    },
+                    {
+                      "key": "Language",
+                      "value": "en"
+                    },
+                    {
+                      "key": "Matrix coefficients",
+                      "value": "BT.709"
+                    },
+                    {
+                      "key": "Pixel aspect ratio",
+                      "value": "1.000"
+                    },
+                    {
+                      "key": "Proportion of this stream",
+                      "value": "0.74916"
+                    },
+                    {
+                      "key": "Rotation",
+                      "value": "0.000"
+                    },
+                    {
+                      "key": "Scan type",
+                      "value": "Progressive"
+                    },
+                    {
+                      "key": "Stream identifier",
+                      "value": "0"
+                    },
+                    {
+                      "key": "Stream size",
+                      "value": "3131680"
+                    },
+                    {
+                      "key": "StreamOrder",
+                      "value": "0"
+                    },
+                    {
+                      "key": "Tagged date",
+                      "value": "UTC 2019-03-22 08:53:07"
+                    },
+                    {
+                      "key": "Transfer characteristics",
+                      "value": "BT.709"
+                    },
+                    {
+                      "key": "Width",
+                      "value": "1920"
+                    },
+                    {
+                      "key": "Writing library",
+                      "value": "Apple"
+                    },
+                    {
+                      "key": "colour_description_present",
+                      "value": "Yes"
+                    }
+                  ],
+                  "Bit_rate_mode": "VBR"
+                },
+                "file": [
+                  {
+                    "id": "VX-854790",
+                    "path": "Branding/January_2022/Branding_Assets/Features/01 Open.mov",
+                    "uri": [
+                      "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/01%20Open.mov"
+                    ],
+                    "state": "CLOSED",
+                    "size": 4180260,
+                    "hash": "6dde97b5cf82cece95b4ffe925323666a74c237f",
+                    "timestamp": "2022-04-22T13:25:34.483+0000",
+                    "refreshFlag": 1,
+                    "storage": "VX-4",
+                    "metadata": {}
+                  }
+                ],
+                "id": "VX-752895",
+                "metadata": [
+                  {
+                    "key": "creation_time",
+                    "value": "2019-03-22 08:53:07"
+                  },
+                  {
+                    "key": "handler_name",
+                    "value": "Apple Alias Data Handler"
+                  },
+                  {
+                    "key": "componentOriginalFilename",
+                    "value": "Branding/January_2022/Branding_Assets/Features/01 Open.mov"
+                  },
+                  {
+                    "key": "language",
+                    "value": "eng"
+                  },
+                  {
+                    "key": "timecode",
+                    "value": "00:00:00:00"
+                  }
+                ],
+                "codec": "prores",
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 25
+                },
+                "itemTrack": "V1",
+                "essenceStreamId": 0,
+                "bitrate": 25053440,
+                "numberOfPackets": 25,
+                "pid": 1,
+                "duration": {
+                  "samples": 25,
+                  "timeBase": {
+                    "numerator": 1,
+                    "denominator": 25
+                  }
+                },
+                "edl": {
+                  "timeScale": {
+                    "numerator": 1,
+                    "denominator": 25
+                  },
+                  "entry": [
+                    {
+                      "start": 0,
+                      "length": 25,
+                      "mediaRate": 65536
+                    }
+                  ]
+                },
+                "startTimestamp": {
+                  "samples": 0,
+                  "timeBase": {
+                    "numerator": 1,
+                    "denominator": 25
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "access": [],
+        "externalId": [],
+        "id": "VX-128712",
+        "start": "-INF",
+        "end": "+INF"
+      },
+      "timespan": [
+        {
+          "field": [],
+          "start": "-INF",
+          "end": "+INF"
+        }
+      ],
+      "start": "-INF",
+      "end": "+INF",
+      "type": "Item",
+      "id": "VX-128712",
+      "base": "0@PAL"
+    },
+    {
+      "item": {
+        "metadata": {
+          "revision": "VX-990347,VX-990348,VX-1487039,VX-990350,VX-990351,VX-990352,VX-991034",
+          "timespan": [
+            {
+              "field": [
+                {
+                  "name": "title",
+                  "value": [
+                    {
+                      "value": "GuardianBug-2018-4K.png (Branding_Assets)",
+                      "uuid": "1a040805-3663-415c-8237-80214f617055",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:32:28.643+0000",
+                      "change": "VX-990347"
+                    }
+                  ],
+                  "uuid": "f29b3398-5a61-4c8f-86f5-b46b5e7802b3",
+                  "user": "admin",
+                  "timestamp": "2022-03-10T14:32:28.643+0000",
+                  "change": "VX-990347"
+                },
+                {
+                  "name": "itemId",
+                  "value": [
+                    {
+                      "value": "VX-128711",
+                      "uuid": "206820d1-e936-4f38-adcf-1b370ec7e7bc",
+                      "user": "system",
+                      "timestamp": "2022-03-10T14:32:28.872+0000",
+                      "change": "VX-990350"
+                    }
+                  ],
+                  "uuid": "4e11aee6-27e1-424e-8634-db0b68732d2d",
+                  "user": "system",
+                  "timestamp": "2022-03-10T14:32:28.872+0000",
+                  "change": "VX-990350"
+                }
+              ],
+              "group": [
+                {
+                  "name": "Asset",
+                  "field": [
+                    {
+                      "name": "gnm_containing_projects",
+                      "value": [
+                        {
+                          "value": "24158",
+                          "uuid": "0c099419-a450-49c2-a090-e15b1c7a0709",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24091",
+                          "uuid": "b000a677-c4a0-48a7-b99c-3dc24a311a37",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24115",
+                          "uuid": "5b5f9071-9363-4e22-8154-965d02637cf1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24185",
+                          "uuid": "8aecb7d2-2e5b-4096-a315-f815b653e68f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24107",
+                          "uuid": "b6d0c762-f3e8-4ac2-9fed-20cb278d0d47",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24123",
+                          "uuid": "0db17909-1d6d-4127-be79-186787da00f5",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24056",
+                          "uuid": "ca4308c8-15ff-494a-8a65-90e1ca1fcf59",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24049",
+                          "uuid": "c22d7dd2-2680-41ed-a289-5e0ba412b6f7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24164",
+                          "uuid": "251633b4-a6c3-450d-801d-e58a91d9523a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24170",
+                          "uuid": "5e536f65-88eb-4fdc-a6fb-9aab3ccbcb07",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24137",
+                          "uuid": "a837d9ff-3689-45a6-84fa-4748c5b0664f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24072",
+                          "uuid": "bb9a8a75-9593-48ca-95e3-9b91c1c5ac7e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24050",
+                          "uuid": "6bc87b84-aa96-4ddd-aaf9-185947bb4757",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24134",
+                          "uuid": "7397587a-8db3-4099-9a7e-988ef7d8c3e0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24195",
+                          "uuid": "d168787a-b9d4-4b7c-a1ac-a192d99bcd41",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24085",
+                          "uuid": "4eb401d5-7728-4d46-8c09-9d2b8e7eb123",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24172",
+                          "uuid": "ce0b19c1-315d-44e3-88a0-1f59f214cc79",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24168",
+                          "uuid": "78a0f82a-e48c-4544-a168-568bc01d6dcd",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24176",
+                          "uuid": "f08e87aa-b559-4ebc-8e54-d6e50f7e3fb7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24144",
+                          "uuid": "0283c265-50b1-40ae-94d5-f11a66df1830",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24105",
+                          "uuid": "0fa3851f-c065-41e6-8c38-54338a27ab5b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24111",
+                          "uuid": "2f227c79-bd64-4a2a-9793-6f27bc3ad175",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24054",
+                          "uuid": "33d6d290-12e8-45c9-9dc7-0667d9314b43",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24113",
+                          "uuid": "0800e950-98df-4130-9926-ccd20f98c256",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24159",
+                          "uuid": "38e79d2b-ae1a-4441-a6bc-9ef56721169a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24082",
+                          "uuid": "06a62bae-d5c0-4170-8b3b-c4e9bbc1d88e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24140",
+                          "uuid": "df51c7cd-885f-40a7-96a3-4f6bf2079278",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24155",
+                          "uuid": "3ca694c2-da96-4cda-ad3d-680aa48094b0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24148",
+                          "uuid": "d48f74a0-2953-44a8-a0e4-a2371f145514",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24095",
+                          "uuid": "50b728b4-94ca-4a5d-8842-7fc070c3a1ee",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24057",
+                          "uuid": "57e613eb-bee8-4181-a30f-884abda07629",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24188",
+                          "uuid": "b90295e6-e7a7-40d4-a956-cf27ffd87a47",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24093",
+                          "uuid": "a0afe5c4-5ccb-4b0c-bcbe-41690bb07426",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24161",
+                          "uuid": "caa4539c-c729-4211-b65d-22835ead0ca0",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24146",
+                          "uuid": "44edcc95-a658-4686-b946-e75797f1fd7f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24194",
+                          "uuid": "53b06e92-2777-4675-b220-a85b1108a49f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24153",
+                          "uuid": "05350907-e2fa-45ea-8849-b118898c41f4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24048",
+                          "uuid": "78bf1e98-c4a6-4ba8-a0b7-bda4a6f0bf42",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24181",
+                          "uuid": "b3f41398-23b0-45bd-8780-94ac5a78160f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24150",
+                          "uuid": "a542d907-b1b1-4379-98aa-01f0394e2f87",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24160",
+                          "uuid": "9583541b-f250-434f-b946-77ddb6238d8e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24166",
+                          "uuid": "cfac54e5-fff5-4208-a73f-c66b2b259025",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24061",
+                          "uuid": "67106eb3-cbd0-4486-a76e-34e572412f5f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24156",
+                          "uuid": "84b68737-18eb-4efc-8abd-7f121a481974",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24117",
+                          "uuid": "b2510cbf-cce0-4978-8f83-18caec72145e",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24099",
+                          "uuid": "1f3a1969-b568-4918-a6d3-bde113a94aa4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24096",
+                          "uuid": "e3346afb-8ea3-46b2-b4cd-97c233cc22c3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24112",
+                          "uuid": "51b22d62-6157-41b1-86a5-ee593cdede48",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24103",
+                          "uuid": "36df5ef4-bbc9-4ed3-8ff6-71c75b719383",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24059",
+                          "uuid": "e6545a3f-cf00-4a39-aff6-5bc6492505d3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24152",
+                          "uuid": "3e12b030-5f99-42a8-9f22-f1548dbdccd9",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24081",
+                          "uuid": "6bc50073-e223-447c-a2fb-b3e109212e23",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24122",
+                          "uuid": "07b46ddf-5a57-41ac-9fee-8942a0c9c635",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24079",
+                          "uuid": "71e10332-fc01-4e36-9949-a5bd17d14d80",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24076",
+                          "uuid": "6fb866b4-f275-4b19-89f2-486488d29a9c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24197",
+                          "uuid": "1d19131a-5c13-4f9d-b4e3-0a85d9d22860",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24149",
+                          "uuid": "a8069456-71df-4cec-8a8b-c41618d8c4cc",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24147",
+                          "uuid": "42a53c51-835c-4053-8f76-a72854cacb09",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24102",
+                          "uuid": "c6d500fb-2776-48c2-ad6f-d746ad6729b3",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24186",
+                          "uuid": "da046c3e-4c2c-47cb-ba92-d09f0bf77f85",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24097",
+                          "uuid": "9344c3d6-ac14-4442-b0d8-dcbb34b269c4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24178",
+                          "uuid": "9a232ef1-107f-43c4-b492-76d6723e1242",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24177",
+                          "uuid": "401590f9-a959-4567-9cb4-fad9692caad4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24141",
+                          "uuid": "9e44d5c6-16c8-468e-9805-572b2dff2a6d",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24196",
+                          "uuid": "7d5cee37-107d-4306-85f9-1c29c8f59531",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24053",
+                          "uuid": "7d336076-1d9c-468e-8860-395799e6ec06",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24108",
+                          "uuid": "4abd64a9-d7c0-4bea-a0b6-79d218a724d4",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24121",
+                          "uuid": "0d11dc6c-bfd0-4db4-a512-e3b819afc83f",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24104",
+                          "uuid": "e4aaffe2-71c3-4a3a-bba6-561c711248b2",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24173",
+                          "uuid": "e32c0c31-c8b2-4647-adbd-db35d8821b47",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24043",
+                          "uuid": "9531289f-fe4c-4ea7-af6a-f1e9b681d452",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24126",
+                          "uuid": "605d8afa-1422-44cf-9127-dc7fb56af3dc",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24187",
+                          "uuid": "8936c23e-4cd6-4f15-9d0c-3de9c4ff671a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24165",
+                          "uuid": "94947a24-30c7-4da9-8ba3-d8ed445ec648",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24116",
+                          "uuid": "d7fc4eaf-ab1f-49c9-af06-e3808d182677",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24066",
+                          "uuid": "9e61829e-bd4d-4e49-996c-8684dfe46b81",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24151",
+                          "uuid": "4b0c554f-bcf2-4f35-88b1-a9c02ae57990",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24135",
+                          "uuid": "726ba764-a0df-4824-9a12-2d7a60bd57e7",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24084",
+                          "uuid": "43f82c85-022c-442b-9f4c-ac0bbc345c84",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24169",
+                          "uuid": "b9d362d0-8f51-4589-b125-7b1711e86f12",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24129",
+                          "uuid": "f752045d-e2c3-4956-9c8c-d9d1de85f648",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24136",
+                          "uuid": "40706f60-97c7-4ea5-a68a-41fc96b54771",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24090",
+                          "uuid": "89257a1b-16f2-41b4-9dc6-38182e428c50",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24045",
+                          "uuid": "92bfd33c-38c8-4a53-b5bf-1bc91dbfaab1",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24086",
+                          "uuid": "31acf6fd-1897-4a46-b3c6-244f2c16712c",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24120",
+                          "uuid": "0f3e8e9f-61fe-4f3d-9940-02b4abf37a49",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24167",
+                          "uuid": "1dee31d7-096a-4f9b-889d-e804a97fde5b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24110",
+                          "uuid": "8db8837c-f8a2-4bcf-85a0-2d57758bd507",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24154",
+                          "uuid": "cf3fae33-9d33-41f6-8974-6632ddfe2205",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24142",
+                          "uuid": "84494b48-26a4-463c-a4e6-14873c437e2a",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24118",
+                          "uuid": "e44e7a3d-8865-440d-8847-bd3424cfd511",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        },
+                        {
+                          "value": "24070",
+                          "uuid": "1d352b05-5a5b-48a6-8ad9-c773957d9f9b",
+                          "user": "admin",
+                          "timestamp": "2022-06-10T09:14:23.062+0000",
+                          "change": "VX-1487039"
+                        }
+                      ],
+                      "uuid": "17300c27-68f1-47ec-8754-ff839f92bca8",
+                      "user": "admin",
+                      "timestamp": "2022-06-10T09:14:23.062+0000",
+                      "change": "VX-1487039"
+                    },
+                    {
+                      "name": "gnm_nearline_id",
+                      "value": [
+                        {
+                          "value": "e2d2b229-a01c-11ec-9140-b595a1474e09-961",
+                          "uuid": "4bce21a3-5241-4293-a270-5fce12eb0301",
+                          "user": "admin",
+                          "timestamp": "2022-03-11T06:58:49.333+0000",
+                          "change": "VX-991034"
+                        }
+                      ],
+                      "uuid": "28ca3037-a5b9-4fa0-8032-394adfdab607",
+                      "user": "admin",
+                      "timestamp": "2022-03-11T06:58:49.333+0000",
+                      "change": "VX-991034"
+                    },
+                    {
+                      "name": "gnm_category",
+                      "value": [
+                        {
+                          "value": "Branding",
+                          "uuid": "a5a1d155-1785-4a70-a743-131640e212aa",
+                          "user": "admin",
+                          "timestamp": "2022-03-10T14:32:28.643+0000",
+                          "change": "VX-990347"
+                        }
+                      ],
+                      "uuid": "0915f9b7-aec9-45b9-b11f-1d7d6091d433",
+                      "user": "admin",
+                      "timestamp": "2022-03-10T14:32:28.643+0000",
+                      "change": "VX-990347"
+                    }
+                  ],
+                  "group": [],
+                  "uuid": "c823bbfe-64ac-4615-bb59-9d0c3a814cac",
+                  "user": "admin",
+                  "timestamp": "2022-06-10T09:14:23.062+0000",
+                  "change": "VX-1487039"
+                }
+              ],
+              "start": "-INF",
+              "end": "+INF"
+            }
+          ]
+        },
+        "shape": [
+          {
+            "id": "VX-253792",
+            "created": "2022-03-10T14:32:28.832+0000",
+            "essenceVersion": 0,
+            "tag": [
+              "original"
+            ],
+            "mimeType": [
+              "image/png"
+            ],
+            "containerComponent": {
+              "duration": {
+                "samples": 0,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 1
+                }
+              },
+              "format": "PNG",
+              "mediaInfo": {
+                "property": [
+                  {
+                    "key": "Codec",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Codec/Extensions usually used",
+                    "value": "png pns"
+                  },
+                  {
+                    "key": "Codec/Info",
+                    "value": "Portable Network Graphic"
+                  },
+                  {
+                    "key": "Codecs Image",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Commercial name",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Count",
+                    "value": "325"
+                  },
+                  {
+                    "key": "Count of image streams",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Count of stream of this kind",
+                    "value": "1"
+                  },
+                  {
+                    "key": "File extension",
+                    "value": "png"
+                  },
+                  {
+                    "key": "File last modification date",
+                    "value": "UTC 2020-06-23 06:01:50"
+                  },
+                  {
+                    "key": "File last modification date (local)",
+                    "value": "2020-06-23 07:01:50"
+                  },
+                  {
+                    "key": "File size",
+                    "value": "47143"
+                  },
+                  {
+                    "key": "Format",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Format/Extensions usually used",
+                    "value": "png pns"
+                  },
+                  {
+                    "key": "Format/Info",
+                    "value": "Portable Network Graphic"
+                  },
+                  {
+                    "key": "Image_Format_List",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Image_Format_WithHint_List",
+                    "value": "PNG"
+                  },
+                  {
+                    "key": "Internet media type",
+                    "value": "image/png"
+                  },
+                  {
+                    "key": "Kind of stream",
+                    "value": "General"
+                  },
+                  {
+                    "key": "Proportion of this stream",
+                    "value": "0.00000"
+                  },
+                  {
+                    "key": "Stream identifier",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Stream size",
+                    "value": "0"
+                  }
+                ]
+              },
+              "file": [
+                {
+                  "id": "VX-854785",
+                  "path": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-4K.png",
+                  "uri": [
+                    "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/00%20Bugs/GuardianBug-2018-4K.png"
+                  ],
+                  "state": "CLOSED",
+                  "size": 47143,
+                  "hash": "df4e862890ec887ef7a4f54e64e6f06bda2da317",
+                  "timestamp": "2022-04-22T13:25:34.475+0000",
+                  "refreshFlag": 1,
+                  "storage": "VX-4",
+                  "metadata": {}
+                }
+              ],
+              "id": "VX-752890",
+              "metadata": [
+                {
+                  "key": "XMP_METADATA",
+                  "value": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"XMP Core 5.1.2\">\n   <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n      <rdf:Description xmlns:xmpMM=\"http://ns.adobe.com/xap/1.0/mm/\" xmlns:stEvt=\"http://ns.adobe.com/xap/1.0/sType/ResourceEvent#\" rdf:about=\"\">\n         <xmpMM:InstanceID>xmp.iid:86673fbd-4bf4-4ef7-ab81-624871534595</xmpMM:InstanceID>\n         <xmpMM:DocumentID>xmp.did:94f0750c-c5e0-41c1-92dd-83e40c3d6f33</xmpMM:DocumentID>\n         <xmpMM:OriginalDocumentID>xmp.did:94f0750c-c5e0-41c1-92dd-83e40c3d6f33</xmpMM:OriginalDocumentID>\n         \n      </rdf:Description>\n      <rdf:Description xmlns:xmp=\"http://ns.adobe.com/xap/1.0/\" rdf:about=\"\">\n         <xmp:MetadataDate>2019-02-28T11:40:44Z</xmp:MetadataDate>\n         <xmp:ModifyDate>2019-02-28T11:40:43Z</xmp:ModifyDate>\n      </rdf:Description>\n   </rdf:RDF>\n</x:xmpmeta><?xpacket end=\"w\"?>"
+                },
+                {
+                  "key": "componentOriginalFilename",
+                  "value": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-4K.png"
+                }
+              ]
+            },
+            "videoComponent": [
+              {
+                "resolution": {
+                  "width": 3840,
+                  "height": 2160
+                },
+                "file": [
+                  {
+                    "id": "VX-854785",
+                    "path": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-4K.png",
+                    "uri": [
+                      "file:///srv/Multimedia2/Media%20Production/Assets/Branding/January_2022/Branding_Assets/Features/00%20Bugs/GuardianBug-2018-4K.png"
+                    ],
+                    "state": "CLOSED",
+                    "size": 47143,
+                    "hash": "df4e862890ec887ef7a4f54e64e6f06bda2da317",
+                    "timestamp": "2022-04-22T13:25:34.475+0000",
+                    "refreshFlag": 1,
+                    "storage": "VX-4",
+                    "metadata": {}
+                  }
+                ],
+                "id": "VX-752891",
+                "metadata": [
+                  {
+                    "key": "image_png_IHDR_interlace_method",
+                    "value": "0 (Not interlaced)"
+                  },
+                  {
+                    "key": "image_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_pages",
+                    "value": "1"
+                  },
+                  {
+                    "key": "image_png_IHDR_bit_depth_orig",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_date_modify",
+                    "value": "2020-06-23T07:01:50+01:00"
+                  },
+                  {
+                    "key": "image_png_IHDR_bit_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_png_IHDR_color_type_orig",
+                    "value": "6"
+                  },
+                  {
+                    "key": "image_colorspace",
+                    "value": "sRGB"
+                  },
+                  {
+                    "key": "image_date_create",
+                    "value": "2022-03-10T14:21:16+00:00"
+                  },
+                  {
+                    "key": "image_png_IHDR_width_height",
+                    "value": "3840, 2160"
+                  },
+                  {
+                    "key": "image_resolution_x",
+                    "value": "0.01"
+                  },
+                  {
+                    "key": "image_resolution_y",
+                    "value": "0.01"
+                  },
+                  {
+                    "key": "componentOriginalFilename",
+                    "value": "Branding/January_2022/Branding_Assets/Features/00 Bugs/GuardianBug-2018-4K.png"
+                  },
+                  {
+                    "key": "image_format",
+                    "value": "Portable Network Graphics"
+                  },
+                  {
+                    "key": "image_resolution_unit",
+                    "value": "dpcm"
+                  },
+                  {
+                    "key": "image_png_IHDR_color_type",
+                    "value": "6 (RGBA)"
+                  }
+                ],
+                "codec": "PNG",
+                "itemTrack": "V1",
+                "essenceStreamId": 0
+              }
+            ]
+          }
+        ],
+        "access": [],
+        "externalId": [],
+        "id": "VX-128711",
+        "start": "-INF",
+        "end": "+INF"
+      },
+      "timespan": [
+        {
+          "field": [],
+          "start": "-INF",
+          "end": "+INF"
+        }
+      ],
+      "start": "-INF",
+      "end": "+INF",
+      "type": "Item",
+      "id": "VX-128711"
+    }
+  ],
+  "facet": []
+}
