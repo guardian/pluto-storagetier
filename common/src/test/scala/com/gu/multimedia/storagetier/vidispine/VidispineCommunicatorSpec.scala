@@ -1,10 +1,12 @@
 package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials, ContentDispositionType, `Content-Type`}
 import akka.http.scaladsl.HttpExt
-import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
-import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, HttpResponse, MediaRange, MediaTypes, StatusCodes}
+import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, MediaRange, MediaTypes, StatusCodes}
 import akka.stream.Materializer
+import org.mockito.ArgumentCaptor
+import org.specs2.matcher.Matcher
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.specification.AfterAll
@@ -314,23 +316,23 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
   "VidispineCommunicator.filesByProject" should {
     "find items associated with a project id" in {
       val mockHttp = mock[HttpExt]
-      val listResponse = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("sample_items_for_project_doc.json")))
 
-      mockHttp.singleRequest(
-        any,
-        any,
-        any,
-        any
-      ) returns Future(listResponse)
+      val listResponseFirst20 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_a.json")))
+      val listResponseNext20 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_b.json")))
+      val listResponseLast4 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_c.json")))
 
+      def beFirst: Matcher[HttpRequest] = (h: HttpRequest) => (h.uri.toString().contains("first=1"))
+      mockHttp.singleRequest(beFirst, any, any, any) returns Future(listResponseFirst20)
+      def beSecond: Matcher[HttpRequest] = (h: HttpRequest) => (h.uri.path.toString().contains("first=21"))
+      mockHttp.singleRequest(beSecond, any, any, any) returns Future(listResponseNext20)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=41")), any, any, any) returns Future(listResponseLast4)
 
       val toTest = new VidispineCommunicator(fakeConfig) {
         override def callHttp: HttpExt = mockHttp
       }
 
-      val result = Await.result(toTest.filesByProject(23), 1.second)
-
-      ok
+      val result = Await.result(toTest.getFilesOfProject(23), 1.second)
+      result.size mustEqual 44
     }
   }
 }
