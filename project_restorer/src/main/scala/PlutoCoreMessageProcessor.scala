@@ -4,6 +4,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
+
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.Vault

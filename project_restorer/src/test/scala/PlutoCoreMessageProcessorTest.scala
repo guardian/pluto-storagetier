@@ -8,6 +8,7 @@ import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, Vidispine
 import com.om.mxs.client.japi.{MxsObject, Vault}
 =======
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, ProcessorConfiguration}
+import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import com.rabbitmq.client.{Channel, Connection, ConnectionFactory}
 >>>>>>> f2e89b6 (Add new framework argument in handleMessage)
