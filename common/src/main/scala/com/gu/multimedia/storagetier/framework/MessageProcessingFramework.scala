@@ -201,19 +201,19 @@ class MessageProcessingFramework (ingest_queue_name:String,
   }
 
 
-  def bulkSendMessages[T:io.circe.Encoder](outputExchange:String, routingKey:String, msgs:Seq[T], retry:Int=0) = {
+  def bulkSendMessages[T:io.circe.Encoder](routingKey:String, msgs:Seq[T], retry:Int=0) = {
     withChannel( {chan =>
       for {
-          _ <- Try { chan.exchangeDeclare(outputExchange, "topic", true)}
-          result <- {val sendResults = msgs.map(msg=> internalSendMsg(chan, outputExchange, routingKey, msg.asJson.noSpaces))
+          _ <- Try { chan.exchangeDeclare(output_exchange_name, "topic", true)}
+          result <- {val sendResults = msgs.map(msg=> internalSendMsg(chan, output_exchange_name, routingKey, msg.asJson.noSpaces))
           val failures = sendResults.collect({ case Failure(err) => err })
             if(failures.nonEmpty){
-              logger.error(s"${failures.length} messages failed to send to $outputExchange.")
+              logger.error(s"${failures.length} messages failed to send to $output_exchange_name.")
               failures.foreach(err => {
                 logger.error(s"\t${err.getMessage}")
                 logger.debug(s"${err.getMessage}", err)
               })
-              Failure(new RuntimeException(s"${failures.length} / ${msgs.length} messages failed to send to $outputExchange as $routingKey"))
+              Failure(new RuntimeException(s"${failures.length} / ${msgs.length} messages failed to send to $output_exchange_name as $routingKey"))
             } else {
               Success()
           }
