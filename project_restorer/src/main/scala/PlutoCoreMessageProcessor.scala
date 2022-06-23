@@ -44,16 +44,12 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
   }
 
 
-  def sendToMessageExchange(msgs: Seq[OnlineOutputMessage], routingKey: String, framework: MessageProcessingFramework) = {
-    framework.bulkSendMessages("Nearline.project.e", routingKey, msgs)
-  }
-
   def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework):Future[Either[String, Json]] = {
        matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
           if(results.length < 10000 ){
-            sendToMessageExchange(results, routingKey, framework)
+            framework.bulkSendMessages("nearline.project-restorer.associatedmsgs", routingKey, results)
             val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
             Right(msg.asJson)
           }
