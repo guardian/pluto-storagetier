@@ -54,6 +54,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig,
         searchAssociatedMedia(updateMessage.id, vault).map(results=> {
 
           if(results.length < 10000 ){
+            framework.bulkSendMessages("nearline.project-restorer.associatedmsgs", routingKey, results)
             val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
             Right(msg.asJson)
           }

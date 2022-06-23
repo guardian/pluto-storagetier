@@ -29,7 +29,6 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
       )
 
-      val queue = "input-queue"
       val f = new MessageProcessingFramework("input-queue",
         "output-exchg",
         "retry-exchg",

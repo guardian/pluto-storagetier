@@ -190,7 +190,9 @@ class MessageProcessingFramework (ingest_queue_name:String,
   def withChannel[T](block:Channel=>Try[T]):Try[T] = {
     Try { conn.createChannel() }.flatMap(ch=>{
       block(ch) match {
-        case result@Success(_)=>result
+        case result@Success(_)=>
+          Try { channel.close() }
+          return result
         case err@Failure(_)=>
           Try { channel.close() } //swallow the exception if it fails
           err
@@ -202,19 +204,18 @@ class MessageProcessingFramework (ingest_queue_name:String,
   def bulkSendMessages[T:io.circe.Encoder](outputExchange:String, routingKey:String, msgs:Seq[T], retry:Int=0) = {
     withChannel( {chan =>
       for {
-        _ <- Try { chan.exchangeDeclare(outputExchange, "topic", true)}
-        result <- {val sendResults = msgs.map(_.asJson.noSpaces)
-        .map(stringContent => internalSendMsg(chan, outputExchange, routingKey, stringContent))
-        val failures = sendResults.collect({ case Failure(err) => err })
-          if(failures.nonEmpty){
-            logger.error(s"${failures.length} messages failed to send to $outputExchange.")
-            failures.foreach(err => {
-              logger.error(s"\t${err.getMessage}")
-              logger.debug(s"${err.getMessage}", err)
-            })
-            Failure(new RuntimeException(s"${failures.length} / ${msgs.length} messages failed to send to $outputExchange as $routingKey"))
-          } else {
-            Success(())
+          _ <- Try { chan.exchangeDeclare(outputExchange, "topic", true)}
+          result <- {val sendResults = msgs.map(msg=> internalSendMsg(chan, outputExchange, routingKey, msg.asJson.noSpaces))
+          val failures = sendResults.collect({ case Failure(err) => err })
+            if(failures.nonEmpty){
+              logger.error(s"${failures.length} messages failed to send to $outputExchange.")
+              failures.foreach(err => {
+                logger.error(s"\t${err.getMessage}")
+                logger.debug(s"${err.getMessage}", err)
+              })
+              Failure(new RuntimeException(s"${failures.length} / ${msgs.length} messages failed to send to $outputExchange as $routingKey"))
+            } else {
+              Success()
           }
         }
       } yield result
