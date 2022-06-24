@@ -86,7 +86,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was no(mockedMessageProcessor).handleMessage(any, any)
+      there was no(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "reject and retry a valid message if there is no configured handler" in {
@@ -143,7 +143,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was no(mockedMessageProcessor).handleMessage(any, any)
+      there was no(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "pass a valid message to the configured handler and return a successful reply" in {
@@ -156,9 +156,11 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       implicit val connectionFactoryProvider:ConnectionFactoryProvider = mock[ConnectionFactoryProvider]
       connectionFactoryProvider.get() returns mockRmqFactory
 
+      val mockedMsgProcessingFramework = mock[MessageProcessingFramework]
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(MessageProcessorReturnValue(responseMsg)))
+      mockedMessageProcessor.handleMessage(any, any, any ) returns Future(Right(MessageProcessorReturnValue
+      (responseMsg)))
       val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
         ProcessorConfiguration("some-exchange",Seq("input.routing.key"), Seq("output.routing.key"), mockedMessageProcessor, Some(replyuuid))
@@ -170,6 +172,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         "failed-exchg",
         "failed-q",
         handlers)(mockRmqChannel, mockRmqConnection)
+
 
       val envelope = new Envelope(12345678L, false, "some-exchange","some.routing.key")
       val msgProps = new BasicProperties.Builder().messageId("fake-message-id").build()
@@ -209,7 +212,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was one(mockedMessageProcessor).handleMessage(any, any)
+      there was one(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "send the reply multiple times if the handler response requests it" in {
@@ -222,9 +225,10 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       implicit val connectionFactoryProvider:ConnectionFactoryProvider = mock[ConnectionFactoryProvider]
       connectionFactoryProvider.get() returns mockRmqFactory
 
+      val mockedMsgProcessorFramework = mock[MessageProcessingFramework]
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = MessageProcessorReturnValue(Map("status"->"ok").asJson, Seq(RMQDestination("other-exchange","other.routing.key")))
-      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(responseMsg))
+      mockedMessageProcessor.handleMessage(any, any, any) returns Future(Right(responseMsg))
       val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
         ProcessorConfiguration("some-exchange",Seq("input.routing.key"), Seq("output.routing.key"), mockedMessageProcessor, Some(replyuuid))
@@ -281,7 +285,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was one(mockedMessageProcessor).handleMessage(any, any)
+      there was one(mockedMessageProcessor).handleMessage(any, any, any)
     }
 
     "pass a valid message to the configured handler and return a successful reply to the second routing key pair" in {
@@ -294,9 +298,10 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       implicit val connectionFactoryProvider:ConnectionFactoryProvider = mock[ConnectionFactoryProvider]
       connectionFactoryProvider.get() returns mockRmqFactory
 
+      val mockedMsgProcessorFramework = mock[MessageProcessingFramework]
       val mockedMessageProcessor = mock[MessageProcessor]
       val responseMsg = Map("status"->"ok").asJson
-      mockedMessageProcessor.handleMessage(any, any) returns Future(Right(MessageProcessorReturnValue(responseMsg)))
+      mockedMessageProcessor.handleMessage(any, any, any) returns Future(Right(MessageProcessorReturnValue(responseMsg)))
       val replyuuid = UUID.fromString("1ffd2f4d-f67a-41ef-bb62-0cb6ab8bdbf8")
       val handlers = Seq(
         ProcessorConfiguration("some-exchange",Seq("input.routing.key","second.routing.key"), Seq("output.routing.key","second.output.key"), mockedMessageProcessor, Some(replyuuid))
@@ -347,7 +352,7 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
         any,
         any
       )
-      there was one(mockedMessageProcessor).handleMessage(any, any)
+      there was one(mockedMessageProcessor).handleMessage(any, any,any)
     }
   }
 
@@ -361,8 +366,10 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
     implicit val connectionFactoryProvider:ConnectionFactoryProvider = mock[ConnectionFactoryProvider]
     connectionFactoryProvider.get() returns mockRmqFactory
 
+    val mockedMsgProcessorFramework = mock[MessageProcessingFramework]
+
     val mockedMessageProcessor = mock[MessageProcessor]
-    mockedMessageProcessor.handleMessage(any, any) returns Future(Left("test error"))
+    mockedMessageProcessor.handleMessage(any, any, any) returns Future(Left("test error"))
 
     val handlers = Seq(
       ProcessorConfiguration("some-exchange","input.routing.key", "output.routing.key", mockedMessageProcessor)
@@ -406,6 +413,6 @@ class MessageProcessingFrameworkSpec extends Specification with Mockito {
       any,
       any
     )
-    there was no(mockedMessageProcessor).handleMessage(any, any)
+    there was no(mockedMessageProcessor).handleMessage(any, any,any)
   }
 }

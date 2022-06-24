@@ -1,5 +1,3 @@
-
-import Main.retryLimit
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
@@ -11,7 +9,7 @@ import sun.misc.{Signal, SignalHandler}
 
 import java.util.concurrent.Executors
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext}
 import scala.util.{Failure, Success}
 
 object Main {

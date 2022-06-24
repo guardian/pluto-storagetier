@@ -4,6 +4,7 @@ import com.rabbitmq.client.AMQP.BasicProperties
 import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider}
 import com.rabbitmq.client.{AMQP, Channel, Connection, Consumer, Envelope, LongString, ShutdownSignalException}
 import io.circe.Json
+import io.circe.syntax.EncoderOps
 
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -132,7 +133,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
             Future.fromTry(rejectMessage(envelope, Some(properties), msg))
           } else {
             val targetConfig = matchingConfigurations.head
-            targetConfig.processor.handleMessage(envelope.getRoutingKey, msg).map({
+            targetConfig.processor.handleMessage(envelope.getRoutingKey, msg, MessageProcessingFramework.this).map({
               case Left(errDesc)=>
                 logger.warn(s"MsgID ${properties.getMessageId} Retryable failure: \"$errDesc\"")
                 rejectMessage(envelope, Option(properties), msg)
@@ -186,6 +187,50 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }
   }
 
+  def withChannel[T](block:Channel=>Try[T]):Try[T] = {
+    Try { conn.createChannel() }.flatMap(ch=>{
+      block(ch) match {
+        case result@Success(_)=>
+          Try { channel.close() }
+          return result
+        case err@Failure(_)=>
+          Try { channel.close() } //swallow the exception if it fails
+          err
+      }
+    })
+  }
+
+
+  def bulkSendMessages[T:io.circe.Encoder](routingKey:String, msgs:Seq[T], retry:Int=0) = {
+    withChannel( {chan =>
+      for {
+          _ <- Try { chan.exchangeDeclare(output_exchange_name, "topic", true)}
+          result <- {val sendResults = msgs.map(msg=> internalSendMsg(chan, output_exchange_name, routingKey, msg.asJson.noSpaces))
+          val failures = sendResults.collect({ case Failure(err) => err })
+            if(failures.nonEmpty){
+              logger.error(s"${failures.length} messages failed to send to $output_exchange_name.")
+              failures.foreach(err => {
+                logger.error(s"\t${err.getMessage}")
+                logger.debug(s"${err.getMessage}", err)
+              })
+              Failure(new RuntimeException(s"${failures.length} / ${msgs.length} messages failed to send to $output_exchange_name as $routingKey"))
+            } else {
+              Success()
+          }
+        }
+      } yield result
+    })
+  }
+  private def internalSendMsg(chan:Channel, outputExchange:String, routingKey:String, stringContent:String) = Try {
+
+    val msgProps = new AMQP.BasicProperties.Builder()
+      .contentType("application/json")
+      .contentEncoding("UTF-8")
+      .messageId(UUID.randomUUID().toString)
+      .build()
+
+    chan.basicPublish(outputExchange, routingKey, false,msgProps, stringContent.getBytes(cs) )
+  }
   /**
    * reliably decode a raw byte array into a UTF-8 string.
    * @param raw raw byte array
