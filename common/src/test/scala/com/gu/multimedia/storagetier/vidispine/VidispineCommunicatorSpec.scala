@@ -320,19 +320,25 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       val listResponseFirst20 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_a.json")))
       val listResponseNext20 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_b.json")))
       val listResponseLast4 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_c.json")))
+      val listResponseNoHits = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_d_no_hits.json")))
 
-      def beFirst: Matcher[HttpRequest] = (h: HttpRequest) => (h.uri.toString().contains("first=1"))
-      mockHttp.singleRequest(beFirst, any, any, any) returns Future(listResponseFirst20)
-      def beSecond: Matcher[HttpRequest] = (h: HttpRequest) => (h.uri.path.toString().contains("first=21"))
-      mockHttp.singleRequest(beSecond, any, any, any) returns Future(listResponseNext20)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=1")), any, any, any) returns Future(listResponseFirst20)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=21")), any, any, any) returns Future(listResponseNext20)
       mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=41")), any, any, any) returns Future(listResponseLast4)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=45")), any, any, any) returns Future(listResponseNoHits)
 
       val toTest = new VidispineCommunicator(fakeConfig) {
         override def callHttp: HttpExt = mockHttp
       }
 
-      val result = Await.result(toTest.getFilesOfProject(23), 1.second)
+      val result = Await.result(toTest.getFilesOfProject(23, 100), 1.second)
       result.size mustEqual 44
+
+      val result2 = Await.result(toTest.getFilesOfProject(23, 33), 1.second)
+      result2.size mustEqual 44
+
+      val result3 = Await.result(toTest.getFilesOfProject(23, 20), 1.second)
+      result3.size mustEqual 44
     }
   }
 }

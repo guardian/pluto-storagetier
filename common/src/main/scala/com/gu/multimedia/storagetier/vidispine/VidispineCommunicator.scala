@@ -1,5 +1,5 @@
 package com.gu.multimedia.storagetier.vidispine
-
+import com.gu.multimedia.storagetier.messages.VidispineField;
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -15,6 +15,7 @@ import org.slf4j.{LoggerFactory, MDC}
 import java.net.URLEncoder
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.concurrent.{ExecutionContext, Future}
+
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
@@ -235,43 +236,26 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
     ))
   }
 
-  def getFilesOfProject(projectId:Int): Future[Seq[VSOnlineOutputMessage]] = {
-    val files = recursivelyDoSomething(projectId = projectId, pageSize = 20)
-
-    val items = files.map({
-        case (list) => {
-
-          val filtered = list.collect({ case Some(t) => t })
-
-          println(s"list.size = ${list.size}, filtered.size = ${filtered.size}")
-          filtered.foreach({ case (msg) => println(s"    - ${msg.itemId.getOrElse(msg.filePath)}") })
-
-          filtered
-        }})
-    items
+  def getFilesOfProject(projectId: Int, pageSize: Int = 100): Future[Seq[VSOnlineOutputMessage]] = {
+      recursivelyGetFilesOfProject(projectId, pageSize = pageSize).map(_.collect({case Some(t) => t}))
   }
 
-  def recursivelyDoSomething(projectId: Int, start: Int = 1, pageSize:Int, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
-    getPageOfFilesByProject(projectId, start).flatMap(results => {
-      if (results.isEmpty || results.size < pageSize || start > 10000) {
-        println(s"We're The Monkees, pageSize = $pageSize, results.size = ${results.size}, existingResults.size = ${existingResults.size}")
+  def recursivelyGetFilesOfProject(projectId: Int, start: Int = 1, pageSize: Int = 100, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
+    getPageOfFilesOfProject(projectId, start, pageSize).flatMap(results => {
+      if (results.isEmpty || start > 10000) {
         Future(existingResults ++ results)
       } else {
-        println(s">>> Hey hey (starting at $start) >>> results.size = ${results.size}")
-        recursivelyDoSomething(projectId, start + results.size, pageSize, existingResults ++ results)
+        recursivelyGetFilesOfProject(projectId, start + results.size, pageSize, existingResults ++ results)
       }
     })
   }
 
-  // write a method on VidispineCommunicator to “find items associated with a project id”. Project ID is an integer parameter coming in
-  def getPageOfFilesByProject(projectId:Int, currentItem:Int = 1): Future[Seq[Option[VSOnlineOutputMessage]]] = {
+  def getPageOfFilesOfProject(projectId:Int, currentItem:Int = 1, pageSize: Int = 100): Future[Seq[Option[VSOnlineOutputMessage]]] = {
     import io.circe.generic.auto._
-    val startAt = currentItem
-    val pageSize = 20
 
     val searchResult = callToVidispine[SearchResultDocument](
       HttpRequest(
-        uri = s"${config.baseUri}/API/search;first=$startAt;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
+        uri = s"${config.baseUri}/API/search;first=$currentItem;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
         method = HttpMethods.PUT,
         entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, s"""
                                                                |<ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
@@ -281,19 +265,13 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
                                                                |  </field>
                                                                |  <intervals>generic</intervals>
                                                                |</ItemSearchDocument>
-                                                               |""".stripMargin)
-      )
-    )
+                                                               |""".stripMargin)))
 
-    val output = searchResult
-      .map({
-        case Some(doc) =>
-          val outputMessages = doc.entry.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId))
-          outputMessages
+      searchResult.map({
+        case Some(searchResultDocument) =>
+          searchResultDocument.entry.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId))
         case None => Seq[Option[VSOnlineOutputMessage]]()
       })
-
-    output
   }
 
 
