@@ -4,10 +4,8 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
-
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -23,16 +21,15 @@ import scala.concurrent.{ExecutionContext, Future}
 class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:VidispineConfig)(implicit mat:Materializer,
                                                                                               matrixStoreBuilder: MXSConnectionBuilder,
                                                                                               vidispineCommunicator: VidispineCommunicator,
-                                                                                              ec:ExecutionContext)
-  extends
-  MessageProcessor {
+                                                                                              ec:ExecutionContext) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def onlineFilesByProject(projectId:String): Unit = {
-
+  def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] = {
+    vidispineCommunicator.getFilesOfProject(projectId)
+      .map(_.map(OnlineOutputMessage.apply))
   }
 
-  def filesByProject(vault:Vault, projectId:String) = {
+  def filesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = {
     val sinkFactory = Sink.seq[OnlineOutputMessage]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
@@ -43,21 +40,18 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:Vid
       .run()
   }
 
-
-  def searchAssociatedMedia(projectId: Int, vault: Vault)  = {
+  def searchAssociatedMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
    for {
      result <- filesByProject(vault, projectId.toString)
    } yield result
   }
 
-
   def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework):Future[Either[String, Json]] = {
-       matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
-        searchAssociatedMedia(updateMessage.id, vault).map(results=> {
-
-          if(results.length < 10000 ){
-            framework.bulkSendMessages(routingKey, results)
-            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
+      matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
+        searchAssociatedMedia(updateMessage.id, vault).map(nearlineResults => {
+          if (nearlineResults.length < 10000 ){
+            framework.bulkSendMessages(routingKey, nearlineResults)
+            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = 0)
             Right(msg.asJson)
           }
           else {
@@ -65,6 +59,19 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:Vid
           }
         })
       }
+
+    // TODO integrate with the above so we only send one RestorerSummaryMessage
+    // TODO Add test case
+//    searchAssociatedOnlineMedia(updateMessage.id, vidispineCommunicator).map(onlineResults => {
+//      if (onlineResults.length < 10000) {
+//        framework.bulkSendMessages(routingKey, onlineResults)
+//        val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline =  0, numberOfAssociatedFilesOnline = onlineResults.length)
+//        Right(msg.asJson)
+//      }
+//      else {
+//        throw new RuntimeException("Too many files attached to project")
+//      }
+//    })
   }
 
   /**
