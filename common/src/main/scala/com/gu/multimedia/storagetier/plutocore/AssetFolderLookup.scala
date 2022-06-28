@@ -32,7 +32,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
   private val multiSlashRemover = "^/{2,}".r
 
   /**
-   * internal method that performs a call to pluto, handles response codes/retries and unmarshals reutrned JSON to a domain object.
+   * internal method that performs a call to pluto, handles response codes/retries and unmarshals returned JSON to a domain object.
    * If the server returns a 200 response then the content is parsed as JSON and unmarshalled into the given object
    * If the server returns a 404 response then None is returned
    * If the server returns a 403 or a 400 then a failed future is returned
@@ -158,7 +158,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
 
   /**
    * try to find the project record associated with the given file.
-   * Internally, this calles "assetFolderRecordLookup"
+   * Internally, this calls "assetFolderRecordLookup"
    * @param forFile a Path representing the _file name_ (not directory!) to look up
    * @return a Future that contains the project record, or None if there was nothing found. On error, the future will fail.
    */

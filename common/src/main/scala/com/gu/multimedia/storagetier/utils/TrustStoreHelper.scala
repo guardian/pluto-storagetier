@@ -117,7 +117,7 @@ object TrustStoreHelper {
   }
 
   /**
-   * convenience function that builds a custom TrustManager, xconfigures an SSLContext to use it and then sets this context
+   * convenience function that builds a custom TrustManager, configures an SSLContext to use it and then sets this context
    * as the default one
    * @param keyStorePaths sequence of paths to supplementary keystores
    * @return
