@@ -87,7 +87,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
       val onlineOutput = OnlineOutputMessage.apply(results)
       val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig) {
-        override def filesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutput))
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutput))
       }
       val updateMessage = ProjectUpdateMessage(
         1234,
