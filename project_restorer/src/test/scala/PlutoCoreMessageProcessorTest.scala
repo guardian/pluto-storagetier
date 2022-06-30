@@ -76,11 +76,6 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "return message with correct amount of associated files" in {
-      implicit val mockActorSystem = mock[ActorSystem]
-      val vault = mock[Vault]
-      implicit val mockMat = mock[Materializer]
-      implicit val mockBuilder = MXSConnectionBuilderMock(vault)
-
       val vsConfig = VidispineConfig("https://test-case","test","test")
 
       val entry = MxsMetadata.empty.withValue("MXFS_PATH", "1234").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")
@@ -112,11 +107,6 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "fail if project has too many associated online files" in {
-      implicit val mockActorSystem = mock[ActorSystem]
-      val vault = mock[Vault]
-      implicit val mockMat = mock[Materializer]
-      implicit val mockBuilder = MXSConnectionBuilderMock(vault)
-
       val vsConfig = VidispineConfig("https://test-case", "test", "test")
 
       val entry = MxsMetadata.empty
@@ -142,11 +132,6 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "fail if project has too many associated nearline files" in {
-      implicit val mockActorSystem = mock[ActorSystem]
-      val vault = mock[Vault]
-      implicit val mockMat = mock[Materializer]
-      implicit val mockBuilder = MXSConnectionBuilderMock(vault)
-
       val vsConfig = VidispineConfig("https://test-case","test","test")
 
       val entry = MxsMetadata.empty.withValue("MXFS_PATH", "1234").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")
