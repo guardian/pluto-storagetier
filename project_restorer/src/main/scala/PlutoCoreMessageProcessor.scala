@@ -24,13 +24,18 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:Vid
   private val logger = LoggerFactory.getLogger(getClass)
 
   def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] = {
+    onlineFilesByProject(vidispineCommunicator, projectId)
+  }
+
+  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
     vidispineCommunicator.getFilesOfProject(projectId)
       .map(_.map(OnlineOutputMessage.apply))
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
    for {
-     result <- nearlineFilesByProject(vault, projectId.toString)
+     result <-
+       nearlineFilesByProject(vault, projectId.toString)
    } yield result
   }
 
@@ -45,36 +50,31 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:Vid
       .run()
   }
 
-  def getNearlineResultsHelper(projectId: Int): Future[Either[String, Seq[OnlineOutputMessage]]] = {
+  def getNearLineResults(projectId: Int) = {
     matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
-      searchAssociatedNearlineMedia(projectId, vault).map(r => Right(r))
+      searchAssociatedNearlineMedia(projectId, vault).map(Right.apply)
     }
   }
 
-  def getOnlineResults(projectId: Int): Future[Seq[OnlineOutputMessage]] = {
-    searchAssociatedOnlineMedia(projectId, vidispineCommunicator)
-  }
-
-  def getNearLineResults(projectId: Int): Future[Seq[OnlineOutputMessage]] = {
-    getNearlineResultsHelper(projectId).map( {
-      case Right(res) => res
-      case Left(_) => Seq()
-    })
+  def getOnlineResults(projectId: Int) = {
+    searchAssociatedOnlineMedia(projectId, vidispineCommunicator).map(Right.apply)
   }
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
-
     Future.sequence(Seq(getNearLineResults(updateMessage.id), getOnlineResults(updateMessage.id))).map(allResults => {
-      val nearlineResults = allResults.head
-      val onlineResults = allResults(1)
-      if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
-        framework.bulkSendMessages(routingKey, nearlineResults)
-        framework.bulkSendMessages(routingKey, onlineResults)
-        val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
-        return Future(Right(MessageProcessorConverters.contentToMPRV(msg.asJson)))
-      }
-      else {
-        return Future.failed(new RuntimeException(s"Too many files attached to project ${updateMessage.id}"))
+      (allResults.head, allResults(1)) match {
+        case (Right(nearlineResults), Right(onlineResults)) =>
+          if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
+            framework.bulkSendMessages(routingKey, nearlineResults)
+            framework.bulkSendMessages(routingKey, onlineResults)
+            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
+            Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+          } else {
+            throw new RuntimeException(s"Too many files attached to project ${updateMessage.id}, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
+          }
+        case (Left(onlineErr), _)=>
+          logger.error("Could not connect to Matrix store: $onlineErr")
+          Left(onlineErr)
       }
     })
   }
