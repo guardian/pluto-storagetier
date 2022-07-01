@@ -33,10 +33,12 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
-   for {
-     result <-
-       nearlineFilesByProject(vault, projectId.toString)
-   } yield result
+    for {
+      result <-
+        nearlineFilesByProject(vault, projectId.toString)
+    } yield result
+    // Would this single line do exactly the same thing as the above 4?:
+    // nearlineFilesByProject(vault, projectId.toString)
   }
 
   def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = {
@@ -72,9 +74,9 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
           } else {
             throw new RuntimeException(s"Too many files attached to project ${updateMessage.id}, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
           }
-        case (Left(onlineErr), _)=>
+        case (Left(nearlineErr), _)=>
           logger.error("Could not connect to Matrix store: $onlineErr")
-          Left(onlineErr)
+          Left(nearlineErr)
       }
     })
   }

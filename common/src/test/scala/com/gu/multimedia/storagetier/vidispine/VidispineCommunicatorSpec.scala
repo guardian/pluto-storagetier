@@ -32,6 +32,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
   }
 
   val fakeConfig = VidispineConfig("https://test-case","test","test")
+
   "VidispineCommunicator.findItemShape" should {
     "make a request to /API/item/shape for a video and unmarshal the return value" in {
       val rawJsonShapeDoc = readSampleDoc("sample_shape_doc.json")
