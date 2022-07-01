@@ -4,7 +4,7 @@ import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorConverters, MessageProcessorReturnValue}
-import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -17,10 +17,10 @@ import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig, vidispineConfig:VidispineConfig)(implicit mat:Materializer,
-                                                                                              matrixStoreBuilder: MXSConnectionBuilder,
-                                                                                              vidispineCommunicator: VidispineCommunicator,
-                                                                                              ec:ExecutionContext) extends MessageProcessor {
+class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
+                                                             matrixStoreBuilder: MXSConnectionBuilder,
+                                                             vidispineCommunicator: VidispineCommunicator,
+                                                             ec:ExecutionContext) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] = {

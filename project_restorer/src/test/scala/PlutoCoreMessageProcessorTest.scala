@@ -63,7 +63,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "drop message in handleMessage if wrong routing key" in {
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
 
       val emptyJson = Json.fromString("")
 
@@ -75,25 +75,19 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       result.failed.get.getMessage mustEqual "Not meant to receive this"
     }
 
+
     "return message with correct amount of associated files" in {
-      val vsConfig = VidispineConfig("https://test-case","test","test")
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
-      val entry = MxsMetadata.empty.withValue("MXFS_PATH", "1234").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")
-
-      val singleNearlineResult = ObjectMatrixEntry("file1", Some(entry), None)
-      val singleOnlineResult = VSOnlineOutputMessage("ONLINE", 233, Some("1234"), Some("VX-1"), "VX-2", "Branding")
-
-      val onlineOutputForNearline = OnlineOutputMessage.apply(singleNearlineResult)
-      val onlineOutputForOnline = OnlineOutputMessage.apply(singleOnlineResult)
-
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig) {
-        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutputForNearline))
-        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutputForOnline))
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
 
-      val result = Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 3.seconds)
+      val result = Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds)
 
       result must beRight
       val resData = result.map(_.content).getOrElse("".asJson).as[RestorerSummaryMessage]
@@ -102,58 +96,58 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       summaryMessage.projectId mustEqual 233
       summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
       summaryMessage.projectState mustEqual "Completed"
-      summaryMessage.numberOfAssociatedFilesNearline mustEqual 1
-      summaryMessage.numberOfAssociatedFilesOnline mustEqual 1
+      summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
+      summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
     }
 
+
     "fail if project has too many associated online files" in {
-      val vsConfig = VidispineConfig("https://test-case", "test", "test")
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val tooManyOnlineResults = for (i <- 1 to 10001) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
-      val entry = MxsMetadata.empty
-        .withValue("MXFS_PATH", "1234")
-        .withValue("GNM_PROJECT_ID", 233)
-        .withValue("GNM_TYPE", "rushes")
-
-      val singleNearlineResult = ObjectMatrixEntry("file1", Some(entry), None)
-      val singleOnlineResult = VSOnlineOutputMessage("ONLINE", 233, Some("1234"), Some("VX-1"), "VX-2", "Branding")
-
-      val onlineOutputForNearline = OnlineOutputMessage.apply(singleNearlineResult)
-      val manyOnlineResults = for (i <- 1 to 10001) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
-
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig) {
-        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(Seq(onlineOutputForNearline))
-        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(manyOnlineResults)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(tooManyOnlineResults)
       }
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
       val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 3.seconds)}
       result must beFailedTry
-      result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 1, onlineResults = 10001"
+      result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 2, onlineResults = 10001"
     }
 
     "fail if project has too many associated nearline files" in {
-      val vsConfig = VidispineConfig("https://test-case","test","test")
+      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val onlineResults = for (i <- 1 to 2) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
-      val entry = MxsMetadata.empty.withValue("MXFS_PATH", "1234").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")
-
-      val singleNearlineResult = ObjectMatrixEntry("file1", Some(entry), None)
-      val singleOnlineResult = VSOnlineOutputMessage("ONLINE", 233, Some("1234"), Some("VX-1"), "VX-2", "Branding")
-
-      val manyNearlineResults = for (i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry("file1", Some(entry), None))
-      val onlineOutputForNearline = Seq(OnlineOutputMessage.apply(singleNearlineResult))
-      val onlineOutputForOnline = Seq(OnlineOutputMessage.apply(singleOnlineResult))
-
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig, vsConfig) {
-        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(manyNearlineResults)
-        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineOutputForOnline)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(tooManyNearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
 
-      val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 3.seconds)}
+      val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds)}
 
       result must beFailedTry
-      result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 10001, onlineResults = 1"
+      result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 10001, onlineResults = 2"
+    }
+
+    "fail if project has too many associated nearline and online files" in {
+      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val onlineResults = for (i <- 1 to 10002) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(tooManyNearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
+      }
+
+      val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
+
+      val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds)}
+
+      result must beFailedTry
+      result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 10001, onlineResults = 10002"
     }
   }
 }

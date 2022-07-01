@@ -62,7 +62,7 @@ object Main {
         OUTPUT_EXCHANGE_NAME,
         "core.project.#",
         "storagetier.restorer",
-        new PlutoCoreMessageProcessor(matrixStoreConfig, vidispineConfig)
+        new PlutoCoreMessageProcessor(matrixStoreConfig)
       )
     )
 
