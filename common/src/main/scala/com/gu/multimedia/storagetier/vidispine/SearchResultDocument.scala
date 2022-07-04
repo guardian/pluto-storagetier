@@ -1,5 +1,7 @@
 package com.gu.multimedia.storagetier.vidispine
 
+import org.slf4j.LoggerFactory
+
 case class SearchResultDocument(
     hits: Int,
     entry: List[SearchResultItemSimplified]
@@ -45,7 +47,7 @@ case class VSOnlineOutputMessage(
     mediaCategory: String
 )
 object VSOnlineOutputMessage {
-
+  private val logger = LoggerFactory.getLogger(getClass)
   def fromResponseItem(
       itemSimplified: SearchResultItemSimplified,
       projectId: Int
@@ -75,6 +77,7 @@ object VSOnlineOutputMessage {
           )
         )
       case _ =>
+        logger.warn(s"VS response missing nearlineId ($nearlineId) and/or mediaCategory ($mediaCategory)")
         None
     }
   }
