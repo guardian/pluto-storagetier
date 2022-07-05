@@ -33,12 +33,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
-    for {
-      result <-
-        nearlineFilesByProject(vault, projectId.toString)
-    } yield result
-    // Would this single line do exactly the same thing as the above 4?:
-    // nearlineFilesByProject(vault, projectId.toString)
+    nearlineFilesByProject(vault, projectId.toString)
   }
 
   def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = {
@@ -52,7 +47,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
       .run()
   }
 
-  def getNearLineResults(projectId: Int) = {
+  def getNearlineResults(projectId: Int) = {
     matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
       searchAssociatedNearlineMedia(projectId, vault).map(Right.apply)
     }
@@ -63,20 +58,30 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
   }
 
   def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
-    Future.sequence(Seq(getNearLineResults(updateMessage.id), getOnlineResults(updateMessage.id))).map(allResults => {
+    Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id))).map(allResults => {
       (allResults.head, allResults(1)) match {
         case (Right(nearlineResults), Right(onlineResults)) =>
           if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
+            logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
             framework.bulkSendMessages(routingKey, nearlineResults)
+            logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
             framework.bulkSendMessages(routingKey, onlineResults)
+            logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project ${updateMessage.id}")
             val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
             Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
           } else {
             throw new RuntimeException(s"Too many files attached to project ${updateMessage.id}, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
           }
         case (Left(nearlineErr), _)=>
-          logger.error("Could not connect to Matrix store: $onlineErr")
+          logger.error(s"Could not connect to Matrix store: $nearlineErr")
           Left(nearlineErr)
+        case (_, Left(onlineErr))=>
+          logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
+          Left(onlineErr)
+        case (Left(nearlineErr), Left(onlineErr))=>
+          logger.error(s"Could not connect to Matrix store: $nearlineErr")
+          logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
+          Left(s"nearlineErr: $nearlineErr; onlineErr: $onlineErr")
       }
     })
   }

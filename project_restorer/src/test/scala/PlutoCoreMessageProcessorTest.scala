@@ -157,7 +157,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       val onlineResults = for (i <- 1 to 2) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
-        override def getNearLineResults(projectId: Int) = Future(Left("No vault for you!"))
+        override def getNearlineResults(projectId: Int) = Future(Left("No vault for you!"))
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
 
