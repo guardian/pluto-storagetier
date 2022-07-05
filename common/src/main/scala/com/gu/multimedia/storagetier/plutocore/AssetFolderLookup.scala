@@ -167,11 +167,15 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
 
     assetFolderRecordLookup(forFile)
       .flatMap(
-        _.map(record=>{
-          val req = HttpRequest(uri = s"${config.baseUri}/api/project/${record.project}")
-          callToPluto[ProjectRecord](req)
-        }).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] into a Future[Option[Option]]
+        _.map(record => getProjectMetadata(record.project)
+        ).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] into a Future[Option[Option]]
       )
+  }
+
+  private def getProjectMetadata(projectId: String) = {
+    import ProjectRecordEncoder._
+    val req = HttpRequest(uri = s"${config.baseUri}/api/project/$projectId")
+    callToPluto[ProjectRecord](req)
   }
 
   def commissionLookup(commissionId:Int) = {
