@@ -1,10 +1,12 @@
 package com.gu.multimedia.storagetier.vidispine
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials, ContentDispositionType, `Content-Type`}
 import akka.http.scaladsl.HttpExt
-import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
-import akka.http.scaladsl.model.{HttpEntity, HttpMethods, HttpRequest, HttpResponse, MediaRange, MediaTypes, StatusCodes}
+import akka.http.scaladsl.model.{ContentType, ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, MediaRange, MediaTypes, StatusCodes}
 import akka.stream.Materializer
+import org.mockito.ArgumentCaptor
+import org.specs2.matcher.Matcher
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import org.specs2.specification.AfterAll
@@ -30,6 +32,7 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
   }
 
   val fakeConfig = VidispineConfig("https://test-case","test","test")
+
   "VidispineCommunicator.findItemShape" should {
     "make a request to /API/item/shape for a video and unmarshal the return value" in {
       val rawJsonShapeDoc = readSampleDoc("sample_shape_doc.json")
@@ -308,6 +311,29 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       vx22 must beSome
       vx22.get.tag.contains("lowres") must beTrue
       vx22.get.getLikelyFile must beSome
+    }
+  }
+
+  "VidispineCommunicator.filesByProject" should {
+    "find items associated with a project id" in {
+      val mockHttp = mock[HttpExt]
+
+      val listResponseFirst20 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_a.json")))
+      val listResponseNext20 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_b.json")))
+      val listResponseLast4 = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_c.json")))
+      val listResponseNoHits = HttpResponse(StatusCodes.OK, entity=HttpEntity(readSampleDoc("project_24173_contents_d_no_hits.json")))
+
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=1")), any, any, any) returns Future(listResponseFirst20)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=21")), any, any, any) returns Future(listResponseNext20)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=41")), any, any, any) returns Future(listResponseLast4)
+      mockHttp.singleRequest(argThat((h: HttpRequest) => h.uri.path.toString().contains("first=45")), any, any, any) returns Future(listResponseNoHits)
+
+      val toTest = new VidispineCommunicator(fakeConfig) {
+        override def callHttp: HttpExt = mockHttp
+      }
+
+      val result = Await.result(toTest.getFilesOfProject(23, 100), 1.second)
+      result.size mustEqual 44
     }
   }
 }

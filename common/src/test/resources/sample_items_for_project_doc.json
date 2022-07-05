@@ -1,0 +1,361 @@
+{
+  "hits": 1,
+  "suggestion": [],
+  "autocomplete": [],
+  "entry": [
+    {
+      "item": {
+        "metadata": {
+          "revision": "VX-14802,VX-14801,VX-14806,VX-14808,VX-14809",
+          "timespan": [
+            {
+              "field": [
+                {
+                  "name": "itemId",
+                  "value": [
+                    {
+                      "value": "VX-2186",
+                      "uuid": "f4b120df-2fc0-4b47-9586-9f209a43a90a",
+                      "user": "system",
+                      "timestamp": "2022-03-11T16:29:19.911+0000",
+                      "change": "VX-14806"
+                    }
+                  ],
+                  "uuid": "0ba9087c-8b84-4403-966d-3b8d643cb8e6",
+                  "user": "system",
+                  "timestamp": "2022-03-11T16:29:19.911+0000",
+                  "change": "VX-14806"
+                }
+              ],
+              "group": [
+                {
+                  "name": "Asset",
+                  "field": [
+                    {
+                      "name": "original_filename",
+                      "value": [
+                        {
+                          "value": "/srv/Multimedia2/NextGenDev/Media Production/Deliverables/Tiger Woods Career obit TEST/Comp 1.mp4",
+                          "uuid": "6d34eab8-381b-4163-9d20-7f5ffc1895f0",
+                          "user": "andy_gallagher",
+                          "timestamp": "2022-03-11T16:29:16.165+0000",
+                          "change": "VX-14801"
+                        }
+                      ],
+                      "uuid": "9c26629f-5695-49ce-a686-cf58803579cf",
+                      "user": "andy_gallagher",
+                      "timestamp": "2022-03-11T16:29:16.165+0000",
+                      "change": "VX-14801"
+                    },
+                    {
+                      "name": "gnm_category",
+                      "value": [
+                        {
+                          "value": "Deliverable",
+                          "uuid": "4dfed925-02ed-4f8a-a052-da70969fc648",
+                          "user": "andy_gallagher",
+                          "timestamp": "2022-03-11T16:29:16.165+0000",
+                          "change": "VX-14801"
+                        }
+                      ],
+                      "uuid": "984f6e4d-638c-4d01-9e67-c591dda35798",
+                      "user": "andy_gallagher",
+                      "timestamp": "2022-03-11T16:29:16.165+0000",
+                      "change": "VX-14801"
+                    },
+                    {
+                      "name": "gnm_containing_projects",
+                      "value": [
+                        {
+                          "value": "184",
+                          "uuid": "b8572522-7486-43ee-bd19-a93942ce5fde",
+                          "user": "andy_gallagher",
+                          "timestamp": "2022-03-11T16:29:16.165+0000",
+                          "change": "VX-14801"
+                        }
+                      ],
+                      "uuid": "d919f92b-9f37-4256-a44a-aa34461996ed",
+                      "user": "andy_gallagher",
+                      "timestamp": "2022-03-11T16:29:16.165+0000",
+                      "change": "VX-14801"
+                    },
+                    {
+                      "name": "gnm_nearline_id",
+                      "value": [
+                        {
+                          "value": "54abed58-3d89-11ec-985d-91e8c1d064e1-379",
+                          "uuid": "553b98c2-8b1a-4f7a-8838-f340d3ee317d",
+                          "user": "admin",
+                          "timestamp": "2022-03-11T16:29:26.389+0000",
+                          "change": "VX-14809"
+                        }
+                      ],
+                      "uuid": "a144bd14-075e-4173-aa8f-a9fa2a0b1f76",
+                      "user": "admin",
+                      "timestamp": "2022-03-11T16:29:26.389+0000",
+                      "change": "VX-14809"
+                    }
+                  ],
+                  "group": [],
+                  "uuid": "c0be839b-6087-4928-ab81-c3003a41e7f4",
+                  "user": "admin",
+                  "timestamp": "2022-03-11T16:29:26.389+0000",
+                  "change": "VX-14809"
+                }
+              ],
+              "start": "-INF",
+              "end": "+INF"
+            }
+          ]
+        },
+        "shape": [
+          {
+            "id": "VX-6",
+            "created": "2022-04-05T15:15:59.934+0000",
+            "essenceVersion": 0,
+            "tag": [
+              "original"
+            ],
+            "mimeType": [
+              "image/jpeg"
+            ],
+            "containerComponent": {
+              "duration": {
+                "samples": 0,
+                "timeBase": {
+                  "numerator": 1,
+                  "denominator": 1
+                }
+              },
+              "format": "JPEG",
+              "mediaInfo": {
+                "property": [
+                  {
+                    "key": "Codec",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Codec/Extensions usually used",
+                    "value": "h3d jpeg jpg jpe jps mpo"
+                  },
+                  {
+                    "key": "Codecs Image",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Commercial name",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Count",
+                    "value": "325"
+                  },
+                  {
+                    "key": "Count of image streams",
+                    "value": "1"
+                  },
+                  {
+                    "key": "Count of stream of this kind",
+                    "value": "1"
+                  },
+                  {
+                    "key": "File extension",
+                    "value": "jpg"
+                  },
+                  {
+                    "key": "File last modification date",
+                    "value": "UTC 2022-04-05 15:15:56"
+                  },
+                  {
+                    "key": "File last modification date (local)",
+                    "value": "2022-04-05 15:15:56"
+                  },
+                  {
+                    "key": "File size",
+                    "value": "62095"
+                  },
+                  {
+                    "key": "Format",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Format/Extensions usually used",
+                    "value": "h3d jpeg jpg jpe jps mpo"
+                  },
+                  {
+                    "key": "Image_Format_List",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Image_Format_WithHint_List",
+                    "value": "JPEG"
+                  },
+                  {
+                    "key": "Internet media type",
+                    "value": "image/jpeg"
+                  },
+                  {
+                    "key": "Kind of stream",
+                    "value": "General"
+                  },
+                  {
+                    "key": "Proportion of this stream",
+                    "value": "0.00000"
+                  },
+                  {
+                    "key": "Stream identifier",
+                    "value": "0"
+                  },
+                  {
+                    "key": "Stream size",
+                    "value": "0"
+                  }
+                ]
+              },
+              "file": [
+                {
+                  "id": "VX-12",
+                  "path": "277376345_5106182082737509_3252463230985591335_n.jpg",
+                  "uri": [
+                    "file:///srv/media1/277376345_5106182082737509_3252463230985591335_n.jpg"
+                  ],
+                  "state": "CLOSED",
+                  "size": 62095,
+                  "hash": "0bba571affc32b202b1efef2ef8cc06d2c46d466",
+                  "timestamp": "2022-04-05T15:16:21.775+0000",
+                  "refreshFlag": 1,
+                  "storage": "VX-1",
+                  "metadata": {
+                    "field": [
+                      {
+                        "key": "created",
+                        "value": "1649171756374"
+                      },
+                      {
+                        "key": "mtime",
+                        "value": "1649171756374"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "id": "VX-11",
+              "metadata": [
+                {
+                  "key": "XMP_METADATA",
+                  "value": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?><x:xmpmeta xmlns:x=\"adobe:ns:meta/\" x:xmptk=\"XMP Core 5.1.2\">\n   <rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n      <rdf:Description rdf:about=\"\"/>\n   </rdf:RDF>\n</x:xmpmeta><?xpacket end=\"w\"?>"
+                },
+                {
+                  "key": "componentOriginalFilename",
+                  "value": "277376345_5106182082737509_3252463230985591335_n.jpg"
+                }
+              ]
+            },
+            "videoComponent": [
+              {
+                "resolution": {
+                  "width": 960,
+                  "height": 915
+                },
+                "file": [
+                  {
+                    "id": "VX-12",
+                    "path": "277376345_5106182082737509_3252463230985591335_n.jpg",
+                    "uri": [
+                      "file:///srv/media1/277376345_5106182082737509_3252463230985591335_n.jpg"
+                    ],
+                    "state": "CLOSED",
+                    "size": 62095,
+                    "hash": "0bba571affc32b202b1efef2ef8cc06d2c46d466",
+                    "timestamp": "2022-04-05T15:16:21.775+0000",
+                    "refreshFlag": 1,
+                    "storage": "VX-1",
+                    "metadata": {
+                      "field": [
+                        {
+                          "key": "created",
+                          "value": "1649171756374"
+                        },
+                        {
+                          "key": "mtime",
+                          "value": "1649171756374"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "id": "VX-12",
+                "metadata": [
+                  {
+                    "key": "image_jpeg_sampling_factor",
+                    "value": "2x2,1x1,1x1"
+                  },
+                  {
+                    "key": "image_depth",
+                    "value": "8"
+                  },
+                  {
+                    "key": "image_pages",
+                    "value": "1"
+                  },
+                  {
+                    "key": "image_date_create",
+                    "value": "2022-04-05T15:16:13+00:00"
+                  },
+                  {
+                    "key": "image_date_modify",
+                    "value": "2022-04-05T15:16:13+00:00"
+                  },
+                  {
+                    "key": "componentOriginalFilename",
+                    "value": "277376345_5106182082737509_3252463230985591335_n.jpg"
+                  },
+                  {
+                    "key": "image_jpeg_colorspace",
+                    "value": "2"
+                  },
+                  {
+                    "key": "image_format",
+                    "value": "Joint Photographic Experts Group JFIF format"
+                  },
+                  {
+                    "key": "image_colorspace",
+                    "value": "sRGB"
+                  },
+                  {
+                    "key": "image_icc_copyright",
+                    "value": "CC0"
+                  },
+                  {
+                    "key": "image_icc_description",
+                    "value": "uRGB"
+                  }
+                ],
+                "codec": "JPEG",
+                "itemTrack": "V1",
+                "essenceStreamId": 0
+              }
+            ]
+          }
+        ],
+        "access": [],
+        "externalId": [],
+        "id": "VX-2186",
+        "start": "-INF",
+        "end": "+INF"
+      },
+      "timespan": [
+        {
+          "field": [],
+          "start": "-INF",
+          "end": "+INF"
+        }
+      ],
+      "start": "-INF",
+      "end": "+INF",
+      "type": "Item",
+      "id": "VX-2186"
+    }
+  ],
+  "facet": []
+}

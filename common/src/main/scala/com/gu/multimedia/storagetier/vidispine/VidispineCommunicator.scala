@@ -1,26 +1,26 @@
 package com.gu.multimedia.storagetier.vidispine
-
+import com.gu.multimedia.storagetier.messages.VidispineField;
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, MediaRange, MediaRanges, MediaTypes}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Accept, Authorization, BasicHttpCredentials}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Keep, Sink, Source, StreamConverters}
-import akka.util.ByteString
-import org.slf4j.{LoggerFactory, MDC}
-import io.circe.generic.auto._
+import akka.stream.scaladsl.{Keep, StreamConverters}
+import cats.implicits._
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
-
-import scala.concurrent.duration._
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
-import cats.implicits._
+import io.circe.generic.auto._
+import org.slf4j.{LoggerFactory, MDC}
 
 import java.net.URLEncoder
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
+
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
+
+  private final val maxFilesToFetch = 10000
 
   protected def callHttp = Http()
 
@@ -207,8 +207,8 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   }
 
   def setMetadataValue(itemId:String, field:String, value:String) = {
-    import io.circe.syntax._
     import io.circe.generic.auto._
+    import io.circe.syntax._
     val doc = MetadataWrite.simpleKeyValue(field, value)
     callToVidispine[ItemResponseSimplified](HttpRequest(
       uri = s"${config.baseUri}/API/item/$itemId/metadata",
@@ -218,8 +218,8 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   }
 
   def setGroupedMetadataValue(itemId:String, groupName:String, field:String, value:String) = {
-    import io.circe.syntax._
     import io.circe.generic.auto._
+    import io.circe.syntax._
     val doc = MetadataWrite.groupedKeyValue(groupName, field, value)
     callToVidispine[ItemResponseSimplified](HttpRequest(
       uri = s"${config.baseUri}/API/item/$itemId/metadata",
@@ -229,7 +229,6 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   }
 
   def searchByPath(pathToFind:String) = {
-    import io.circe.syntax._
     import io.circe.generic.auto._
 
     val encodedPath = URLEncoder.encode(pathToFind, "UTF-8")
@@ -238,6 +237,49 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       method = HttpMethods.GET
     ))
   }
+
+  def getFilesOfProject(projectId: Int, pageSize: Int = 100): Future[Seq[VSOnlineOutputMessage]] = {
+      recursivelyGetFilesOfProject(projectId, pageSize = pageSize).map(_.collect({case Some(t) => t}))
+  }
+
+
+
+  def recursivelyGetFilesOfProject(projectId: Int, start: Int = 1, pageSize: Int = 100, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
+    getPageOfFilesOfProject(projectId, start, pageSize).flatMap(results => {
+      if (results.isEmpty || start > maxFilesToFetch) {
+        if (start > maxFilesToFetch) logger.warn(s"Exiting early from getting online files, because we have found more than maxFilesToFetch: $maxFilesToFetch, namely ${existingResults.length + results.length} files")
+        Future(existingResults ++ results)
+      } else {
+        recursivelyGetFilesOfProject(projectId, start + results.size, pageSize, existingResults ++ results)
+      }
+    })
+  }
+
+  def getPageOfFilesOfProject(projectId:Int, currentItem:Int = 1, pageSize: Int = 100): Future[Seq[Option[VSOnlineOutputMessage]]] = {
+    import io.circe.generic.auto._
+
+    val doc =
+      <ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
+        <field>
+          <name>gnm_containing_projects</name>
+          <value>{projectId}</value>
+        </field>
+        <intervals>generic</intervals>
+      </ItemSearchDocument>
+
+    val searchResult = callToVidispine[SearchResultDocument](
+      HttpRequest(
+        uri = s"${config.baseUri}/API/search;first=$currentItem;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
+        method = HttpMethods.PUT,
+        entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, doc.toString)))
+
+      searchResult.map({
+        case Some(searchResultDocument) =>
+          searchResultDocument.entry.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId))
+        case None => Seq[Option[VSOnlineOutputMessage]]()
+      })
+  }
+
 
   /**
    * returns a sequence of ShapeDocuments for every shape on the given item.

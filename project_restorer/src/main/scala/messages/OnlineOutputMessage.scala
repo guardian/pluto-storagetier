@@ -1,8 +1,9 @@
 package messages
 
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
+import com.gu.multimedia.storagetier.vidispine.{SearchResultItemSimplified, VSOnlineOutputMessage}
 /**
- * Converts an ObjectMatrixEntry object to an OnlineOutputMessage message
+ * Converts an ObjectMatrixEntry object or Vidispine object to an OnlineOutputMessage message
  * for every associated file in a project
  * */
 
@@ -27,5 +28,15 @@ object OnlineOutputMessage {
       case _=>
         throw new RuntimeException(s"Objectmatrix file ${file.oid} is missing either GNM_PROJECT_ID or GNM_TYPE fields")
     }
+  }
+
+  def apply(file: VSOnlineOutputMessage): OnlineOutputMessage = {
+    new OnlineOutputMessage(
+      file.mediaTier,
+      file.projectId,
+      file.filePath,
+      file.itemId,
+      file.nearlineId,
+      file.mediaCategory)
   }
 }

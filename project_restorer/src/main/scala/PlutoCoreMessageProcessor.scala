@@ -3,8 +3,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
-import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
+import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorConverters, MessageProcessorReturnValue}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -19,13 +19,24 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
                                                              matrixStoreBuilder: MXSConnectionBuilder,
-                                                             ec:ExecutionContext)
-  extends
-  MessageProcessor {
+                                                             vidispineCommunicator: VidispineCommunicator,
+                                                             ec:ExecutionContext) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
+  def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] = {
+    onlineFilesByProject(vidispineCommunicator, projectId)
+  }
 
-  def filesByProject(vault:Vault, projectId:String) = {
+  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
+    vidispineCommunicator.getFilesOfProject(projectId)
+      .map(_.map(OnlineOutputMessage.apply))
+  }
+
+  def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
+    nearlineFilesByProject(vault, projectId.toString)
+  }
+
+  def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = {
     val sinkFactory = Sink.seq[OnlineOutputMessage]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
@@ -36,28 +47,43 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
       .run()
   }
 
-
-  def searchAssociatedMedia(projectId: Int, vault: Vault)  = {
-   for {
-     result <- filesByProject(vault, projectId.toString)
-   } yield result
+  def getNearlineResults(projectId: Int) = {
+    matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+      searchAssociatedNearlineMedia(projectId, vault).map(Right.apply)
+    }
   }
 
+  def getOnlineResults(projectId: Int) = {
+    searchAssociatedOnlineMedia(projectId, vidispineCommunicator).map(Right.apply)
+  }
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework):Future[Either[String, Json]] = {
-       matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) {vault =>
-        searchAssociatedMedia(updateMessage.id, vault).map(results=> {
-
-          if(results.length < 10000 ){
-            framework.bulkSendMessages(routingKey, results)
-            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, results.length, 0)
-            Right(msg.asJson)
+  def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
+    Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id))).map(allResults => {
+      (allResults.head, allResults(1)) match {
+        case (Right(nearlineResults), Right(onlineResults)) =>
+          if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
+            logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
+            framework.bulkSendMessages(routingKey, nearlineResults)
+            logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
+            framework.bulkSendMessages(routingKey, onlineResults)
+            logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project ${updateMessage.id}")
+            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
+            Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+          } else {
+            throw new RuntimeException(s"Too many files attached to project ${updateMessage.id}, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
           }
-          else {
-            throw new RuntimeException("Too many files attached to project")
-          }
-        })
+        case (Left(nearlineErr), _)=>
+          logger.error(s"Could not connect to Matrix store: $nearlineErr")
+          Left(nearlineErr)
+        case (_, Left(onlineErr))=>
+          logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
+          Left(onlineErr)
+        case (Left(nearlineErr), Left(onlineErr))=>
+          logger.error(s"Could not connect to Matrix store: $nearlineErr")
+          logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
+          Left(s"nearlineErr: $nearlineErr; onlineErr: $onlineErr")
       }
+    })
   }
 
   /**
@@ -70,8 +96,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
    *         with a circe Json body (can be done with caseClassInstance.noSpaces) containing a message body to send
    *         to our exchange with details of the completed operation
    */
-  override def handleMessage(routingKey: String, msg: Json, msgProcessingFramework: MessageProcessingFramework)
-  : Future[Either[String, MessageProcessorReturnValue]] = {
+  override def handleMessage(routingKey: String, msg: Json, msgProcessingFramework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
     routingKey match {
       case "core.project.update" =>
         logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
