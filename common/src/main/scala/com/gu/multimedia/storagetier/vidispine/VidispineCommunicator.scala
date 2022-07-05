@@ -13,12 +13,14 @@ import io.circe.generic.auto._
 import org.slf4j.{LoggerFactory, MDC}
 
 import java.net.URLEncoder
-import scala.concurrent.duration.{FiniteDuration, _}
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
+
+  private final val maxFilesToFetch = 10000
 
   protected def callHttp = Http()
 
@@ -240,9 +242,12 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       recursivelyGetFilesOfProject(projectId, pageSize = pageSize).map(_.collect({case Some(t) => t}))
   }
 
+
+
   def recursivelyGetFilesOfProject(projectId: Int, start: Int = 1, pageSize: Int = 100, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
     getPageOfFilesOfProject(projectId, start, pageSize).flatMap(results => {
-      if (results.isEmpty || start > 10000) {
+      if (results.isEmpty || start > maxFilesToFetch) {
+        if (start > maxFilesToFetch) logger.warn(s"Exiting early from getting online files, because we have found more than maxFilesToFetch: $maxFilesToFetch, namely ${existingResults.length + results.length} files")
         Future(existingResults ++ results)
       } else {
         recursivelyGetFilesOfProject(projectId, start + results.size, pageSize, existingResults ++ results)
@@ -253,19 +258,20 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   def getPageOfFilesOfProject(projectId:Int, currentItem:Int = 1, pageSize: Int = 100): Future[Seq[Option[VSOnlineOutputMessage]]] = {
     import io.circe.generic.auto._
 
+    val doc =
+      <ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
+        <field>
+          <name>gnm_containing_projects</name>
+          <value>{projectId}</value>
+        </field>
+        <intervals>generic</intervals>
+      </ItemSearchDocument>
+
     val searchResult = callToVidispine[SearchResultDocument](
       HttpRequest(
         uri = s"${config.baseUri}/API/search;first=$currentItem;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
         method = HttpMethods.PUT,
-        entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, s"""
-                                                               |<ItemSearchDocument xmlns="http://xml.vidispine.com/schema/vidispine">
-                                                               |  <field>
-                                                               |    <name>gnm_containing_projects</name>
-                                                               |    <value>$projectId</value>
-                                                               |  </field>
-                                                               |  <intervals>generic</intervals>
-                                                               |</ItemSearchDocument>
-                                                               |""".stripMargin)))
+        entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, doc.toString)))
 
       searchResult.map({
         case Some(searchResultDocument) =>
@@ -273,7 +279,6 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
         case None => Seq[Option[VSOnlineOutputMessage]]()
       })
   }
-
 
 
   /**
