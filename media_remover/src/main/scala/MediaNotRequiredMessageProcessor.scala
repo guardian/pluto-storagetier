@@ -23,17 +23,20 @@ import org.slf4j.{LoggerFactory, MDC}
 import java.nio.file.Paths
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
-class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
-    nearlineRecordDAO: NearlineRecordDAO,
-    failureRecordDAO: FailureRecordDAO,
-    ec: ExecutionContext,
-    mat: Materializer,
-    system: ActorSystem,
-    matrixStoreBuilder: MXSConnectionBuilderImpl,
-    mxsConfig: MatrixStoreConfig,
-    vidispineCommunicator: VidispineCommunicator,
-    fileCopier: FileCopier
+class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
+  implicit
+  nearlineRecordDAO: NearlineRecordDAO,
+  failureRecordDAO: FailureRecordDAO,
+  ec: ExecutionContext,
+  mat: Materializer,
+  system: ActorSystem,
+  matrixStoreBuilder: MXSConnectionBuilderImpl,
+  mxsConfig: MatrixStoreConfig,
+  vidispineCommunicator: VidispineCommunicator,
+  fileCopier: FileCopier,
+  uploader: FileUploader
 ) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -235,7 +238,20 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
 //  }
 
   def _existsInDeepArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage): Boolean = {
-
+    val fileSize = 0 // TODO should come from onlineOutputMessage??
+    val checksum = None // TODO should come from onlineOutputMessage??
+    val objectKey = onlineOutputMessage.filePath.getOrElse("nopath")
+    uploader.objectExistsWithSizeAndOptionalChecksum(objectKey, fileSize, checksum) match {
+      case Success(true)=>
+        logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
+        true
+      case Success(false)=>
+        logger.info(s"No file $objectKey with matching size $fileSize found, do not delete")
+        false
+      case Failure(err)=>
+        logger.warn(s"Could not connect to deep archive to check if media exists, do not delete. Err: $err")
+        false
+    }
   }
 
   def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) :Either[String, String] = ???

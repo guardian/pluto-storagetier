@@ -73,6 +73,14 @@ object Main {
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
     implicit lazy val fileCopier = new FileCopier()
 
+    implicit lazy val uploader = FileUploader.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
+      case Left(err)=>
+        logger.error(s"Could not initialise FileUploader: $err")
+        Await.ready(actorSystem.terminate(), 30.seconds)
+        sys.exit(1)
+      case Right(u)=>u
+    }
+
     val config = Seq(
       ProcessorConfiguration(
         exchangeName = OUTPUT_EXCHANGE_NAME,
