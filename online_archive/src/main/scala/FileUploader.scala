@@ -57,6 +57,42 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     }
   }
 
+  def verifyFileExistsOnS3(objectKey: String, fileSize: Long) = {
+//    objectExistsWithSize(objectKey, fileSize)  match {
+//      case Success(true)=>
+//        logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
+//        Success(true)
+//      case Success(false)=>
+//        logger.info(s"No file ${objectKey} with matching size $fileSize found, do not delete")
+//        Success(false)
+//      case Failure(err)=>
+//        Failure(err)
+//    }
+    logger.info(s"Checking for existing versions of s3://$bucketName/$objectKey with size $fileSize")
+    val req = ListObjectVersionsRequest.builder().bucket(bucketName).prefix(objectKey).build()
+
+    Try { client.listObjectVersions(req) } match {
+      case Success(response)=>
+        val versions = response.versions().asScala
+        logger.info(s"s3://$bucketName/$objectKey has ${versions.length} versions")
+        versions.foreach(v=>logger.info(s"s3://$bucketName/$objectKey @${v.versionId()} with size ${v.size()} and checksum ${v.checksumAlgorithmAsStrings()}"))
+        val matches = versions.filter(_.size()==fileSize)
+        if(matches.nonEmpty) {
+          logger.info(s"Found ${matches.length} existing entries for s3://$bucketName/$objectKey with size $fileSize, not creating a new one")
+          Success(true)
+        } else {
+          logger.info(s"Found no entries for s3://$bucketName/$objectKey with size $fileSize, copy is required")
+          Success(false)
+        }
+      case Failure(_:NoSuchKeyException)=>Success(false)
+      case Failure(err)=>
+        logger.error(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: ${err.getMessage}", err)
+        Failure(err)
+    }
+
+  }
+
+
   private def getObjectMetadata(bucketName: String, key: String) = Try {
     val req = HeadObjectRequest.builder().bucket(bucketName).key(key).build()
     client.headObject(req)
