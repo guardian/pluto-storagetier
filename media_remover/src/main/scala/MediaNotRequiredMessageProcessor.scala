@@ -234,9 +234,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
 //    }
 //  }
 
-  def _existsInDeepArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage): Boolean = ???
+  def _existsInDeepArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage): Boolean = {
 
-  def _removePendingDeletion(onlineOutputMessage: MultiProjectOnlineOutputMessage) :Either[String, String] = ???
+  }
+
+  def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) :Either[String, String] = ???
 
   def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage): Either[String, MediaRemovedMessage] = ???
 
@@ -253,73 +255,67 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
     import MediaRemovedMessage._
     val ignoreReason = maybeProject match {
       case None =>
-        println("Hello processNearlineFileAndProject None")
-        logger.warn(
-          s"No project could be found that is associated with $onlineOutputMessage, assuming that it does need external archive"
-        )
-        throw SilentDropMessage(
-          Some(
-            s"No project could be found that is associated with $onlineOutputMessage, assuming that it is not safe to remove"
-          )
-        )
+        val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
+        logger.warn(noProjectFoundMsg)
+        throw SilentDropMessage(Some(noProjectFoundMsg))
 
       case Some(project) =>
-        if (project.deletable.getOrElse(false)) { //If the project is marked as “deletable”, ...
-          println(s"-> project ${project.id.getOrElse(-1)} IS DELETABLE")
-          logger.info(s"project ${project.id.getOrElse(-1)} is deletable")
-          // logger.info(s"Not archiving '$onlineOutputMessage' as it belongs to '${project.title}' (${project.id.map(i=>s"project id $i").getOrElse("no project id")}) which is marked as deletable")
+        if (project.deletable.getOrElse(false)) {
+          logger.debug(s"-> project ${project.id.getOrElse(-1)} IS DELETABLE")
 
-          // project is COMPLETED or KILLED?
           if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
-            println(s"-> project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
-            logger.info(s"project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
+            // project is COMPLETED or KILLED
+            logger.debug(s"-> project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
 
               if (onlineOutputMessage.mediaCategory.toLowerCase.equals("deliverables")) {
                 // media is DELIVERABLES
-                val msg = s"not removing file ${onlineOutputMessage.itemId}, project ${project.id.getOrElse(-1)} has status ${project.status} and is deletable, BUT the media is a deliverable"
-                println(s"-> $msg")
-                logger.info(msg)
-                throw SilentDropMessage(Some(msg))
+                val notRemovingMsg = s"not removing file ${onlineOutputMessage.itemId}, project ${project.id.getOrElse(-1)} has status ${project.status} and is deletable, BUT the media is a deliverable"
+                logger.debug(s"-> $notRemovingMsg")
+                throw SilentDropMessage(Some(notRemovingMsg))
               } else {
                 // media is NOT DELIVERABLES
                 // TODO Remove "pending deletion" record if exists
+                _removeDeletionPending(onlineOutputMessage)
                 // TODO Delete media from storage
-                println("delete the media")
-                // TDDO delete the media
-                val mediaRemovedMessage = MediaRemovedMessage(onlineOutputMessage.mediaTier, onlineOutputMessage.filePath, onlineOutputMessage.itemId, onlineOutputMessage.nearlineId)
-                Right(MessageProcessorConverters.contentToMPRV(mediaRemovedMessage.asJson))
+                _deleteFromNearline(onlineOutputMessage) match {
+                  case Left(err) => Left(err)
+                  case Right(msg) =>
+                    logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+                    Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+                }
               }
 
           }
           else {
-            val msg = s"not removing file ${onlineOutputMessage.itemId}, project ${project.id.getOrElse(-1)} is deletable, BUT is status is neither ${EntryStatus.Completed} nor ${EntryStatus.Killed}; it is ${project.status}"
-            println(s"-> $msg")
-            logger.info(msg)
-            throw SilentDropMessage(Some(msg))
+            // project is neither COMPLETED nor KILLED
+            val notRemovingMsg = s"not removing file ${onlineOutputMessage.itemId}, project ${project.id.getOrElse(-1)} is deletable, BUT is status is neither ${EntryStatus.Completed} nor ${EntryStatus.Killed}; it is ${project.status}"
+            logger.debug(s"-> $notRemovingMsg")
+            throw SilentDropMessage(Some(notRemovingMsg))
           }
 
-        } else { // not deletable
-          println(s"-> project ${project.id.getOrElse(-1)} IS NOT DELETABLE")
+        } else {
+          // not DELETABLE
+          logger.debug(s"-> project ${project.id.getOrElse(-1)} IS NOT DELETABLE")
 
           if (project.deep_archive.getOrElse(false)) {
             // project is DEEP ARCHIVE
-            println(s"--> project ${project.id.getOrElse(-1)} IS DEEP_ARCHIVE")
+            logger.debug(s"--> project ${project.id.getOrElse(-1)} IS DEEP_ARCHIVE")
 
             if (project.sensitive.getOrElse(false)) {
               // project is SENSITIVE
-              println(s"--> project ${project.id.getOrElse(-1)} IS SENSITIVE")
+              logger.debug(s"--> project ${project.id.getOrElse(-1)} IS SENSITIVE")
 
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
                 // project is COMPLETED or KILLED
-                println(s"--> project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
+                logger.debug(s"--> project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
 
                 if (_existsInInternalArchive(onlineOutputMessage)) {
                   // media EXISTS in INTERNAL ARCHIVE
-                  _removePendingDeletion(onlineOutputMessage)
+                  _removeDeletionPending(onlineOutputMessage)
                   _deleteFromNearline(onlineOutputMessage) match {
                     case Left(err) => Left(err)
                     case Right(msg) =>
-                      println(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+                      logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
                       Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
                   }
                 } else {
@@ -328,32 +324,30 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
                   _outputInternalArchiveCopyRequried(onlineOutputMessage) match {
                     case Left(err) => Left(err)
                     case Right(msg) =>
-                      println(s"--> msg: $msg")
-                      println(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+                      logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
                       Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
                   }
                 }
 
               }
               else {
-                val msg = s"not removing file ${onlineOutputMessage.itemId}, project ${project.id.getOrElse(-1)} is deletable, BUT is status is neither ${EntryStatus.Completed} nor ${EntryStatus.Killed}; it is ${project.status}"
-                println(s"-> $msg")
-                logger.info(msg)
-                throw SilentDropMessage(Some(msg))
+                val notRemovingMsg = s"not removing file ${onlineOutputMessage.itemId}, project ${project.id.getOrElse(-1)} is deletable, BUT is status is neither ${EntryStatus.Completed} nor ${EntryStatus.Killed}; it is ${project.status}"
+                logger.debug(s"-> $notRemovingMsg")
+                throw SilentDropMessage(Some(notRemovingMsg))
               }
-//              Left("Kelly can't handled this")
+
             } else {
-              println(s"--> project ${project.id.getOrElse(-1)} IS NOT SENSITIVE")
+              logger.debug(s"--> project ${project.id.getOrElse(-1)} IS NOT SENSITIVE")
 
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
-                println(s"--> project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
+                logger.debug(s"--> project ${project.id.getOrElse(-1)} is ${EntryStatus.Completed} or ${EntryStatus.Killed}")
 
                 if (_existsInDeepArchive(onlineOutputMessage)) {
-                  _removePendingDeletion(onlineOutputMessage)
+                  _removeDeletionPending(onlineOutputMessage)
                   _deleteFromNearline(onlineOutputMessage) match {
                     case Left(err) => Left(err)
                     case Right(msg) =>
-                      println(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+                      logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
                       Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
                   }
                 } else {
@@ -361,61 +355,29 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
                   _outputDeepArchiveCopyRequried(onlineOutputMessage) match {
                     case Left(err) => Left(err)
                     case Right(msg) =>
-                      println(s"--> msg: $msg")
-                      println(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+                      logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
                       Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
                   }
                 }
 
               }
-              else {
-                // deep_archive + not sensitive + not killed and not completed (GP-785 row 8)
-                val msg = s"not removing nearline media ${onlineOutputMessage.nearlineId}, project ${project.id.getOrElse(-1)} is deep_archive and not sensitive, BUT is status is neither ${EntryStatus.Completed} nor ${EntryStatus.Killed}; it is ${project.status}"
-                println(s"-> $msg")
-                logger.info(msg)
-                throw SilentDropMessage(Some(msg))
+              else { // deep_archive + not sensitive + not killed and not completed (GP-785 row 8)
+                // project is neither COMPLETED nor KILLED
+                val notRemovingMsg = s"not removing nearline media ${onlineOutputMessage.nearlineId}, project ${project.id.getOrElse(-1)} is deep_archive and not sensitive, BUT is status is neither ${EntryStatus.Completed} nor ${EntryStatus.Killed}; it is ${project.status}"
+                logger.debug(s"-> $notRemovingMsg")
+                throw SilentDropMessage(Some(notRemovingMsg))
               }
             }
-//            Left(s"project ${project.id.getOrElse(-1)} is deep_archive")
+
           } else {
-            throw new RuntimeException(
-              s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!"
-            )
+            // We cannot remove media when the project doesn't have deep_archive set
+            logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
+            throw new RuntimeException(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
           }
         }
     }
-      println(s"---> ignoreReason: $ignoreReason")
-      Future(ignoreReason)
-
-//    ignoreReason match {
-//      case Failure(err)=>
-//        println("-> fail")
-//        Future.failed(err)
-//      case None=> //no reason to ignore - we should archive
-////        asLookup.relativizeFilePath(fullPath) match {
-////          case Left(err)=>
-////            logger.error(s"Could not relativize file path $onlineOutputMessage: err. Uploading to $onlineOutputMessage")
-//            Future(Left("doh"))
-////            callUpload(fullPath, fullPath)
-////          case Right(relativePath)=>
-////            callUpload(fullPath, relativePath)
-////          case Some(msg)=>
-////            println(s"-> msg: $msg")
-////            Future(Right(s"{\"msg\": \"$msg\"}".asJson))
-////        }
-//
-//      case Some(reason)=>
-//        logger.info(s"reason: $reason $onlineOutputMessage")
-//        Future.failed(SilentDropMessage(Some(reason.toString)))
-////        Future(Right(onlineOutputMessage.nearlineId.asJson))
-////        val rec = IgnoredRecord(None, onlineOutputMessage.toString, reason, None, None)
-////        //record the fact we ignored the file to the database. This should not raise duplicate record errors.
-////        ignoredRecordDAO
-////          .writeRecord(rec)
-////          .map(recId=> {
-////            Right(rec.copy(id=Some(recId)).asJson)
-////          })
-//    }
+//    logger.debug(s"---> ignoreReason: $ignoreReason")
+    Future(ignoreReason)
   }
 
   def bulkGetProjectMetadata(
@@ -449,20 +411,19 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
   ): Future[Either[String, MessageProcessorReturnValue]] = {
 
     val mds = bulkGetProjectMetadata(mediaNotRequiredMsg)
-//    val mds2 = mds.map(_.map(_.get.status))
     val mds2: Future[Seq[ProjectRecord]] = mds.map(_.map(_.get))
 //      .map(_.head)
 //      .collect({
 //        case x if x. == EntryStatus.New => x
 ////        case x if x.head.status == EntryStatus.New => x
 //      })
-//    mds2.foreach(st => println(st))
-//    mds2.foreach(st => println(s"nah bruh ${st.head.id.getOrElse(-1)}: ${st.head.status}"))
-//    mds2.map(_.foreach(st => println(s"ooowee ${st.id.getOrElse(-1)}: ${st.status}")))
+//    mds2.foreach(st => logger.debug(st))
+//    mds2.foreach(st => logger.debug(s"nah bruh ${st.head.id.getOrElse(-1)}: ${st.head.status}"))
+//    mds2.map(_.foreach(st => logger.debug(s"ooowee ${st.id.getOrElse(-1)}: ${st.status}")))
     val mds3: Future[Seq[ProjectRecord]] = mds2.map(_.collect({
       case x if x.status == EntryStatus.InProduction => x
     }))
-//    mds3.map(_.foreach(st => println(s"filturrd ${st.id.getOrElse(-1)}: ${st.status}")))
+//    mds3.map(_.foreach(st => logger.debug(s"filturrd ${st.id.getOrElse(-1)}: ${st.status}")))
 
     // check if still removable project status
     val removeResultFut = for {
@@ -475,29 +436,19 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
     } yield fileRemoveResult
 
 
-    removeResultFut.map(r => println(s"rrrrrrrrrr: $r"))
+//    removeResultFut.map(r => logger.debug(s"rrrrrrrrrr: $r"))
     removeResultFut
 
-//    println(s"asaffsdfdsfsdsdsdfsfd: $removeResultFut")
+/*
+     handle seq of projects
+     if any is new or in production, then silentdrop
+     do we need to handle differing statuses other than that, say if differeing in sensitivity?
+     may we have to send out deepArchiveRequest AND internalArchiveRequest for the same file??
 
-    // handle seq of projects
-    // if any is new or in production, then silentdrop
-    // do we need to handle differing statuses other than that, say if differeing in sensitivity?
-    // may we have to send out deepArchiveRequest AND internalArchiveRequest for the same file??
+     if at least one sensitive, check if on internalArchive
+     if at least one deep_archive, check if on deepArchive
+*/
 
-    // if at least one sensitive, check if on internalArchive
-    // if at least one deep_archive, check if on deepArchive
-
-//    removeResultFut.map({
-//      case recoverableErr @ Left(_) =>
-//        recoverableErr // FIXME is there a retryable error we can get, or will it always be successful removal or request (some kind of) archival
-//      case Right(_) =>
-//        Right(
-//          mediaNotRequiredMsg.asJson
-//        ) //FIXME should return something like {"id": "VX-123", "removedAt": "2022-07-01T12:11:10"}
-//    })
-
-//    if(!routingKey.endsWith("new") && !routingKey.endsWith("update")) return Future.failed(SilentDropMessage())
 
 //    val projectMdSingle = for {
 //      maybeProject <- asLookup.getProjectMetadata(mediaNotRequiredMsg.projectId.toString)
@@ -506,12 +457,12 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
 //    projectMdSingle.map(da => {
 //      val projStatus = da
 //      projStatus match {
-//        case EntryStatus.New => println(s"aaa2: ${projStatus}")
-//        case EntryStatus.Held => println(s"bbb2: ${projStatus}")
-//        case EntryStatus.Completed => println(s"ccc2: ${projStatus}")
-//        case EntryStatus.Killed => println(s"ddd2: ${projStatus}")
-//        case EntryStatus.InProduction => println(s"eee2: ${projStatus}")
-//        case _ => println("wut?")
+//        case EntryStatus.New => logger.debug(s"aaa2: ${projStatus}")
+//        case EntryStatus.Held => logger.debug(s"bbb2: ${projStatus}")
+//        case EntryStatus.Completed => logger.debug(s"ccc2: ${projStatus}")
+//        case EntryStatus.Killed => logger.debug(s"ddd2: ${projStatus}")
+//        case EntryStatus.InProduction => logger.debug(s"eee2: ${projStatus}")
+//        case _ => logger.debug("wut?")
 //      }
 //    })
   }
@@ -519,7 +470,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(implicit
   private def handleOnline(
       mediaNotRequiredMsg: MultiProjectOnlineOutputMessage
   ) = {
-//    println(s"Online $mediaNotRequiredMsg")
+//    logger.debug(s"Online $mediaNotRequiredMsg")
     if (mediaNotRequiredMsg.projectIds.head == 22)
       Future(Left("testing online"))
     else
