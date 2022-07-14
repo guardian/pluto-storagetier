@@ -291,7 +291,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
-      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
 
       val msgContent =
         """{
@@ -304,12 +304,21 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |}""".stripMargin
 
       val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[MultiProjectOnlineOutputMessage]).right.get
+
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
+        override def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(fakeMediaRemovedMessage)
+      }
+
       val result = Try {
         Await.result(toTest.handleMessage("storagetier.restorer.media_not_required.nearline", msg.right.get, mockMsgFramework), 2.seconds)
       }
 
-
-      println(result)
+      println(s"24-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151924")
@@ -347,7 +356,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
-      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
 
       val msgContentNotDeliverables =
         """{
@@ -360,11 +368,21 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |}""".stripMargin
 
       val msgNotDeliverables = io.circe.parser.parse(msgContentNotDeliverables)
+
+      val msgObj = msgNotDeliverables.flatMap(_.as[MultiProjectOnlineOutputMessage]).right.get
+
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
+        override def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(fakeMediaRemovedMessage)
+      }
+
       val result = Try {
         Await.result(toTest.handleMessage("storagetier.restorer.media_not_required.nearline", msgNotDeliverables.right.get, mockMsgFramework), 2.seconds)
       }
 
-      println(result)
+      println(s"26-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151926")
@@ -476,7 +494,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def _existsInDeepArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage) = true
-        override def _removePendingDeletion(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
+        override def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
         override def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(fakeMediaRemovedMessage)
         override def _storeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(true)
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: MultiProjectOnlineOutputMessage)= ???
@@ -488,7 +506,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       }
 
 
-      println(result)
+      println(s"28-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151928")
@@ -547,7 +565,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def _existsInDeepArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage) = false
-        override def _removePendingDeletion(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
+        override def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
         override def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
         override def _storeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(true)
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(fakeNearlineRecord)
@@ -669,7 +687,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def _existsInDeepArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage) = false
-        override def _removePendingDeletion(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
+        override def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right("pending rec removed")
         override def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(fakeMediaRemovedMessage)
         override def _storeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) = Right(true)
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: MultiProjectOnlineOutputMessage)= ???
@@ -682,7 +700,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       }
 
 
-      println(result)
+      println(s"31-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151931")
