@@ -245,4 +245,66 @@ class FileUploaderSpec extends Specification with Mockito {
       fileUploader.objectExistsWithSize("filePath",8888) must beAFailedTry
     }
   }
+
+  "FileUploader.verifyFileExistsOnS3" should {
+    "return true if there is a pre-existing file with the same size" in {
+      val mockedS3 = mock[S3Client]
+
+      val fakeVersions = Seq(
+        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).build(),
+        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).build(),
+      ).asJavaCollection
+      val fakeVersionsResponse = ListObjectVersionsResponse.builder().versions(fakeVersions).build()
+      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
+
+      val mockTransferManager = mock[S3TransferManager]
+
+
+      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
+      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",50, None) must beASuccessfulTry(true)
+    }
+
+    "return false if there is no pre-existing file with the same size" in {
+      val mockedS3 = mock[S3Client]
+
+      val fakeVersions = Seq(
+        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).build(),
+        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).build(),
+      ).asJavaCollection
+      val fakeVersionsResponse = ListObjectVersionsResponse.builder().versions(fakeVersions).build()
+      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
+
+      val mockTransferManager = mock[S3TransferManager]
+
+
+      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
+      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",8888, None) must beASuccessfulTry(false)
+    }
+
+    "return false if the object does not exist" in {
+      val mockedS3 = mock[S3Client]
+
+      val expectedException = NoSuchKeyException.builder().statusCode(404).build()
+
+      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) throws expectedException
+
+      val mockTransferManager = mock[S3TransferManager]
+
+      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
+      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",8888, None) must beASuccessfulTry(false)
+    }
+
+    "pass on any other exception as a Failure" in {
+      val mockedS3 = mock[S3Client]
+
+      val expectedException = S3Exception.builder().statusCode(500).build()
+
+      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) throws expectedException
+
+      val mockTransferManager = mock[S3TransferManager]
+
+      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
+      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",8888, None) must beAFailedTry
+    }
+  }
 }
