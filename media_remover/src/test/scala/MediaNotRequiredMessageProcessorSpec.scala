@@ -165,7 +165,10 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
+
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -219,6 +222,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -273,6 +277,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -338,6 +343,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -402,6 +408,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -456,6 +463,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -526,6 +534,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -594,6 +603,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -649,6 +659,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val fileCopier = mock[FileCopier]
+      implicit val uploader = mock[FileUploader]
       fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)

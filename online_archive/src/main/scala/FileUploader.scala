@@ -57,7 +57,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     }
   }
 
-  def verifyFileExistsOnS3(objectKey: String, fileSize: Long) = {
+  def objectExistsWithSizeAndOptionalChecksum(objectKey: String, fileSize: Long, checksum: Option[String]) = {
 //    objectExistsWithSize(objectKey, fileSize)  match {
 //      case Success(true)=>
 //        logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
