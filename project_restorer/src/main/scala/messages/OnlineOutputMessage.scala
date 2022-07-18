@@ -10,6 +10,7 @@ import com.gu.multimedia.storagetier.vidispine.{SearchResultItemSimplified, VSOn
 case class OnlineOutputMessage(mediaTier: String,
                                projectId: String,
                                filePath: Option[String],
+                               fileSize: Option[Long],
                                itemId: Option[String],
                                nearlineId: String,
                                mediaCategory: String)
@@ -21,6 +22,7 @@ object OnlineOutputMessage {
           "NEARLINE",
           projectId,
           file.pathOrFilename,
+          file.maybeGetSize(),
           file.stringAttribute("GNM_VIDISPINE_ITEM"),
           file.oid,
           gnmType
@@ -35,6 +37,7 @@ object OnlineOutputMessage {
       file.mediaTier,
       file.projectId.toString,
       file.filePath,
+      None,
       file.itemId,
       file.nearlineId,
       file.mediaCategory)
