@@ -172,7 +172,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
       )
   }
 
-  private def getProjectMetadata(projectId: String) = {
+  def getProjectMetadata(projectId: String) = {
     import ProjectRecordEncoder._
     val req = HttpRequest(uri = s"${config.baseUri}/api/project/$projectId")
     callToPluto[ProjectRecord](req)
