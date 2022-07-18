@@ -73,7 +73,7 @@ object Main {
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
     implicit lazy val fileCopier = new FileCopier()
 
-    implicit lazy val uploader = FileUploader.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
+    implicit lazy val fileUploader = FileUploader.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
       case Left(err)=>
         logger.error(s"Could not initialise FileUploader: $err")
         Await.ready(actorSystem.terminate(), 30.seconds)
@@ -82,12 +82,12 @@ object Main {
     }
 
     val config = Seq(
-      ProcessorConfiguration(
-        exchangeName = OUTPUT_EXCHANGE_NAME,
-        routingKey = Seq("storagetier.nearline.internalarchive.required"),
-        outputRoutingKey = Seq("storagetier.nearline.internalarchive"),
-        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
-      ),
+//      ProcessorConfiguration(
+//        exchangeName = OUTPUT_EXCHANGE_NAME,
+//        routingKey = Seq("storagetier.nearline.internalarchive.required"),
+//        outputRoutingKey = Seq("storagetier.nearline.internalarchive"),
+//        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
+//      ),
       ProcessorConfiguration(
         exchangeName = "storagetier-project-restorer",
         routingKey = Seq("storagetier.restorer.media_not_required.online", "storagetier.restorer.media_not_required.nearline"),
