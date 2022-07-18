@@ -152,6 +152,19 @@ class FileUploaderSpec extends Specification with Mockito {
     }
   }
 
+
+  "FileUploader.eTagIsMd5" should {
+    "reject non-MD5 string" in {
+      FileUploader.eTagIsProbablyMd5("deadbeef") mustEqual false
+    }
+    "reject eTag for multipart upload" in {
+      FileUploader.eTagIsProbablyMd5("d41d8cd98f00b204e9800998ecf8427e-38") mustEqual false
+    }
+    "reject accepts MD5 eTag" in {
+      FileUploader.eTagIsProbablyMd5("599393a2c526c680119d84155d90f1e5") mustEqual true
+    }
+  }
+
   "FileUploader.vsMD5ToS3" should {
     "convert hex string to base64 string" in {
       FileUploader.vsMD5toS3MD5("deadbeef") must beASuccessfulTry("3q2+7w==")
@@ -261,7 +274,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",50, None) must beASuccessfulTry(true)
+      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",50, None) must beASuccessfulTry(true)
     }
 
     "return false if there is no pre-existing file with the same size" in {
@@ -278,7 +291,7 @@ class FileUploaderSpec extends Specification with Mockito {
 
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",8888, None) must beASuccessfulTry(false)
+      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None) must beASuccessfulTry(false)
     }
 
     "return false if the object does not exist" in {
@@ -291,7 +304,7 @@ class FileUploaderSpec extends Specification with Mockito {
       val mockTransferManager = mock[S3TransferManager]
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",8888, None) must beASuccessfulTry(false)
+      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None) must beASuccessfulTry(false)
     }
 
     "pass on any other exception as a Failure" in {
@@ -304,7 +317,7 @@ class FileUploaderSpec extends Specification with Mockito {
       val mockTransferManager = mock[S3TransferManager]
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndOptionalChecksum("filePath",8888, None) must beAFailedTry
+      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None) must beAFailedTry
     }
   }
 }
