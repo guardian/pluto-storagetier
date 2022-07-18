@@ -181,7 +181,7 @@ lazy val `project_restorer` = (project in file("project_restorer"))
 
 lazy val `media_remover` = (project in file("media_remover"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
-  .dependsOn(common, mxscopy, online_archive)
+  .dependsOn(common, mxscopy, online_archive, online_nearline)
   .settings(commonSettings,
     version := sys.props.getOrElse("build.number","DEV"),
     dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
