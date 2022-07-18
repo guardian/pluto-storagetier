@@ -5,7 +5,6 @@ import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.messages.MultiProjectOnlineOutputMessage
-import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
@@ -17,7 +16,6 @@ import matrixstore.MatrixStoreConfig
 import messages.MediaRemovedMessage
 import org.slf4j.{LoggerFactory, MDC}
 
-import java.nio.file.Paths
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -71,7 +69,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   //TODO loopa igenom projects to find most important action/blocker AKA finish up GP-780
 
-  
+
   def getChecksumForNearlineItem(vault: Vault, onlineOutputMessage: MultiProjectOnlineOutputMessage): Future[Option[String]] = {
     for {
       maybeMxsFile <- Future.fromTry(Try {vault.getObject(onlineOutputMessage.nearlineId)})
@@ -154,10 +152,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
     logger.debug(s"---> actionToPerform: ${actionToPerform._1}")
-//    val resultOfAction =
-      performAction(vault, onlineOutputMessage, actionToPerform)
 
-//    Future(resultOfAction)
+    performAction(vault, onlineOutputMessage, actionToPerform)
   }
 
   private def performAction(vault: Vault, onlineOutputMessage: MultiProjectOnlineOutputMessage, actionToPerform: (String, Option[ProjectRecord])) = {
