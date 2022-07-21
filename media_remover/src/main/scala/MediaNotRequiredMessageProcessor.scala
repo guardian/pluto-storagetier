@@ -160,8 +160,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     performAction(vault, onlineOutputMessage, actionToPerform)
   }
 
-  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (String, Option[ProjectRecord])) = {
-    val resultOfAction = actionToPerform match {
+  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (String, Option[ProjectRecord])) =
+    actionToPerform match {
       case ("drop_msg", None) =>
         val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
         logger.warn(noProjectFoundMsg)
@@ -236,8 +236,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         throw new RuntimeException(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
 
     }
-    resultOfAction
-  }
+
 
   def bulkGetProjectMetadata(mediaNotRequiredMsg: OnlineOutputMessage) = {
     mediaNotRequiredMsg.projectIds.map(id => asLookup.getProjectMetadata(id.toString)).sequence
