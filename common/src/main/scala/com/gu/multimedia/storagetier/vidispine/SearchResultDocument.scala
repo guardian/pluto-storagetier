@@ -39,12 +39,13 @@ case class SearchResultItemContentSimplified(
 )
 
 case class VSOnlineOutputMessage(
-    mediaTier: String,
-    projectId: Int,
-    filePath: Option[String],
-    itemId: Option[String],
-    nearlineId: String,
-    mediaCategory: String
+                                  mediaTier: String,
+                                  projectIds: Seq[Int],
+                                  filePath: Option[String],
+                                  fileSize: Option[Long],
+                                  itemId: Option[String],
+                                  nearlineId: Option[String],
+                                  mediaCategory: String
 )
 object VSOnlineOutputMessage {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -54,8 +55,9 @@ object VSOnlineOutputMessage {
   ): Option[VSOnlineOutputMessage] = {
     val mediaTier = "ONLINE"
     val itemId = Option(itemSimplified.id)
-    val filePath =
-      itemSimplified.item.shape.head.getLikelyFile.flatMap(_.getAbsolutePath)
+    val likelyFile = itemSimplified.item.shape.head.getLikelyFile
+    val filePath = likelyFile.flatMap(_.getAbsolutePath)
+    val fileSize = likelyFile.flatMap(_.sizeOption)
     val nearlineId = itemSimplified
       .valuesForField("gnm_nearline_id", Some("Asset"))
       .headOption
@@ -65,14 +67,16 @@ object VSOnlineOutputMessage {
       .headOption
       .map(_.value)
     (nearlineId, mediaCategory) match {
+      //FIXME Why would online care if there's a nearline id?? In that case we would just request a nearline copy - I _think_ nearlineId should be Option[String], no?
       case (Some(nearlineId), Some(mediaCategory)) =>
         Some(
           VSOnlineOutputMessage(
             mediaTier,
-            projectId,
+            Seq(projectId),
             filePath,
+            fileSize,
             itemId,
-            nearlineId,
+            Some(nearlineId),
             mediaCategory
           )
         )
