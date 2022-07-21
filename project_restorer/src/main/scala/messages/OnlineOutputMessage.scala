@@ -35,11 +35,11 @@ object OnlineOutputMessage {
   def apply(file: VSOnlineOutputMessage): OnlineOutputMessage = {
     new OnlineOutputMessage(
       file.mediaTier,
-      file.projectId.toString,
+      file.projectIds.head.toString,
       file.filePath,
       None,
       file.itemId,
-      file.nearlineId,
+      file.nearlineId.get,
       file.mediaCategory)
   }
 }

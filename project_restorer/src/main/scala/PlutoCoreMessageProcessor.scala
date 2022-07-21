@@ -4,13 +4,14 @@ import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
+import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
 import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
-import messages.{OnlineOutputMessage, ProjectUpdateMessage}
+import messages.{InternalOnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
@@ -30,7 +31,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
 
   def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
     vidispineCommunicator.getFilesOfProject(projectId)
-      .map(_.map(OnlineOutputMessage.apply))
+      .map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
@@ -43,7 +44,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
       s"GNM_PROJECT_ID:\"$projectId\"",
       Array("MXFS_PATH","MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
-    ).map(OnlineOutputMessage.apply)
+    ).map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
       .toMat(sinkFactory)(Keep.right)
       .run()
   }

@@ -4,7 +4,7 @@ import cats.implicits.toTraverseOps
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework._
-import com.gu.multimedia.storagetier.messages.MultiProjectOnlineOutputMessage
+import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
@@ -38,7 +38,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   protected def newCorrelationId: String = UUID.randomUUID().toString
 
   override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
-    (msg.as[MultiProjectOnlineOutputMessage], routingKey) match {
+    (msg.as[OnlineOutputMessage], routingKey) match {
       case (Left(err), _) =>
         Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a OnlineOutputMessage: $err"))
 
@@ -68,11 +68,14 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   //TODO loopa igenom projects to find most important action/blocker AKA finish up GP-780
+  //TODO use the results of the not exists on deep archive to store pending deletion record
 
 
-  def getChecksumForNearlineItem(vault: Vault, onlineOutputMessage: MultiProjectOnlineOutputMessage): Future[Option[String]] = {
+  def getChecksumForNearlineItem(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Option[String]] = {
     for {
-      maybeMxsFile <- Future.fromTry(Try {vault.getObject(onlineOutputMessage.nearlineId)})
+      maybeOid <- Future(onlineOutputMessage.nearlineId.get) // we should be able to trust that there is a oid, since we get this message from project_restorer for specifically a nearline item we fetched
+      // TODO should we handle the None oid case gracefully, and if so, how? As is, throws am unhandled NoSuchElementException
+      maybeMxsFile <- Future.fromTry(Try {vault.getObject(maybeOid)})
       maybeMd5 <- MatrixStoreHelper.getOMFileMd5(maybeMxsFile).flatMap({
             case Failure(err) =>
               logger.error(s"Unable to get checksum from appliance, file should be considered unsafe", err)
@@ -84,7 +87,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       } yield maybeMd5
   }
 
-  def existsInDeepArchive(vault: Vault, onlineOutputMessage: MultiProjectOnlineOutputMessage): Future[Boolean] = {
+  def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val fileSize = onlineOutputMessage.fileSize.getOrElse(0L) //TODO just say no? what does it mean that a file has no size?
     val objectKey = onlineOutputMessage.filePath.getOrElse("nopath")
     val maybeChecksumFut = getChecksumForNearlineItem(vault, onlineOutputMessage)
@@ -103,20 +106,20 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     )
   }
 
-  def _removeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage) :Either[String, String] = ???
+  def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) :Either[String, String] = ???
 
-  def _deleteFromNearline(onlineOutputMessage: MultiProjectOnlineOutputMessage): Either[String, MediaRemovedMessage] = ???
+  def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage): Either[String, MediaRemovedMessage] = ???
 
-  def _storeDeletionPending(onlineOutputMessage: MultiProjectOnlineOutputMessage): Either[String, Boolean] = ???
+  def _storeDeletionPending(onlineOutputMessage: OnlineOutputMessage): Either[String, Boolean] = ???
 
-  def _outputDeepArchiveCopyRequried(onlineOutputMessage: MultiProjectOnlineOutputMessage): Either[String, NearlineRecord] = ???
+  def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
 
-  def _existsInInternalArchive(onlineOutputMessage: MultiProjectOnlineOutputMessage): Boolean = ???
+  def _existsInInternalArchive(onlineOutputMessage: OnlineOutputMessage): Boolean = ???
 
-  def _outputInternalArchiveCopyRequried(onlineOutputMessage: MultiProjectOnlineOutputMessage): Either[String, NearlineRecord] = ???
+  def _outputInternalArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
 
 
-  def processNearlineFileAndProject(vault: Vault, onlineOutputMessage: MultiProjectOnlineOutputMessage, maybeProject: Option[ProjectRecord]):Future[Either[String, MessageProcessorReturnValue]] = {
+  def processNearlineFileAndProject(vault: Vault, onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]):Future[Either[String, MessageProcessorReturnValue]] = {
     val actionToPerform = maybeProject match {
       case None =>
         ("drop_msg", None)
@@ -156,7 +159,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     performAction(vault, onlineOutputMessage, actionToPerform)
   }
 
-  private def performAction(vault: Vault, onlineOutputMessage: MultiProjectOnlineOutputMessage, actionToPerform: (String, Option[ProjectRecord])) = {
+  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (String, Option[ProjectRecord])) = {
     val resultOfAction = actionToPerform match {
       case ("drop_msg", None) =>
         val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
@@ -167,7 +170,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         val deletable = project.deletable.getOrElse(false)
         val deep_archive = project.deep_archive.getOrElse(false)
         val sensitive = project.sensitive.getOrElse(false)
-        val notRemovingMsg = s"not removing nearline media ${onlineOutputMessage.nearlineId}, " +
+        val notRemovingMsg = s"not removing nearline media ${onlineOutputMessage.nearlineId.getOrElse("-1")}, " +
           s"project ${project.id.getOrElse(-1)} is deletable($deletable), deep_archive($deep_archive), " +
           s"sensitive($sensitive), status is ${project.status}, " +
           s"media category is ${onlineOutputMessage.mediaCategory}"
@@ -235,11 +238,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     resultOfAction
   }
 
-  def bulkGetProjectMetadata(mediaNotRequiredMsg: MultiProjectOnlineOutputMessage) = {
+  def bulkGetProjectMetadata(mediaNotRequiredMsg: OnlineOutputMessage) = {
     mediaNotRequiredMsg.projectIds.map(id => asLookup.getProjectMetadata(id.toString)).sequence
   }
 
-  def handleNearline(vault: Vault, mediaNotRequiredMsg: MultiProjectOnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+  def handleNearline(vault: Vault, mediaNotRequiredMsg: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     /*
     TODO
      handle seq of projects
@@ -262,6 +265,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     } yield fileRemoveResult
   }
 
-  private def handleOnline(mediaNotRequiredMsg: MultiProjectOnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] =
+  private def handleOnline(mediaNotRequiredMsg: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] =
     Future(Left("testing online"))
 }
