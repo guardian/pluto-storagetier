@@ -2,6 +2,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework._
+import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
@@ -62,6 +63,7 @@ object Main {
   def main(args:Array[String]):Unit = {
     implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
+    implicit lazy val pendingDeletionRecordDAO = new PendingDeletionRecordDAO(db)
     implicit val matrixStore = new MXSConnectionBuilderImpl(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
