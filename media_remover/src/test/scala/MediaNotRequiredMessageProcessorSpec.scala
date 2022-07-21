@@ -41,6 +41,8 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
 
       implicit val mat:Materializer = mock[Materializer]
@@ -101,8 +103,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -159,8 +162,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -223,8 +227,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -288,8 +293,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -344,8 +350,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -412,8 +419,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -480,8 +488,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
@@ -537,8 +546,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
       implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       failureRecordDAO.writeRecord(any) returns Future(234)
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
