@@ -4,6 +4,7 @@ import cats.implicits.toTraverseOps
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework._
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
@@ -185,7 +186,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               case Left(err) => Left(err)
               case Right(msg) =>
                 logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-                Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+                Right(msg.asJson)
             }
            case _ =>
             _storeDeletionPending(onlineOutputMessage)
@@ -193,7 +194,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               case Left(err) => Left(err)
               case Right(msg) =>
                 logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-                Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+                Right(msg.asJson)
           }
         })
 
@@ -206,7 +207,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             case Left(err) => Future(Left(err))
             case Right(msg) =>
               logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-              Future(Right(MessageProcessorConverters.contentToMPRV(msg.asJson)))
+              Future(Right(msg.asJson))
           }
         } else {
           // media does NOT EXIST in INTERNAL ARCHIVE
@@ -215,7 +216,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             case Left(err) => Future(Left(err))
             case Right(msg) =>
               logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-              Future(Right(MessageProcessorConverters.contentToMPRV(msg.asJson)))
+              Future(Right(msg.asJson))
           }
         }
 
@@ -227,7 +228,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Left(err) => Future(Left(err))
           case Right(msg) =>
             logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-            Future(Right(MessageProcessorConverters.contentToMPRV(msg.asJson)))
+            Future(Right(msg.asJson))
         }
 
       case ("just_no", Some(project)) =>
