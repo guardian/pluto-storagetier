@@ -1,11 +1,14 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import cats.implicits.toTraverseOps
+import ch.qos.logback.core.util.FileUtil
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
+import com.gu.multimedia.storagetier.models.common.MediaTiers
+import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
@@ -25,6 +28,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   implicit
   nearlineRecordDAO: NearlineRecordDAO,
   failureRecordDAO: FailureRecordDAO,
+  pendingDeletionRecordDAO: PendingDeletionRecordDAO,
   ec: ExecutionContext,
   mat: Materializer,
   system: ActorSystem,
@@ -53,7 +57,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             "storagetier.restorer.media_not_required.online"
           ) =>
         handleOnline(onlineNotRequired)
-//        Future(Left("handleOnline not implemented yet"))
 
       case (_, _) =>
         logger.warn(
@@ -66,11 +69,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         )
     }
   }
-
-
-  //TODO loopa igenom projects to find most important action/blocker AKA finish up GP-780
-  //TODO use the results of the not exists on deep archive to store pending deletion record
-
 
   def getChecksumForNearlineItem(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Option[String]] = {
     for {
@@ -111,7 +109,44 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage): Either[String, MediaRemovedMessage] = ???
 
-  def _storeDeletionPending(onlineOutputMessage: OnlineOutputMessage): Either[String, Boolean] = ???
+  def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] = {
+    (msg.mediaTier, msg.itemId, msg.nearlineId) match {
+      case ("NEARLINE", _, Some(nearlineId)) =>
+        pendingDeletionRecordDAO
+          .findByNearlineId(nearlineId)
+          .map({
+            case Some(existingRecord)=>
+              existingRecord.copy(
+                attempt = existingRecord.attempt + 1
+              )
+            case None=>
+              PendingDeletionRecord(
+                None,
+                mediaTier = MediaTiers.NEARLINE,
+                originalFilePath = msg.filePath,
+                onlineId = msg.itemId,
+                nearlineId = Some(nearlineId),
+                attempt = 1)
+          })
+          .flatMap(rec=>{
+            pendingDeletionRecordDAO
+              .writeRecord(rec)
+              .map(recId => Right(recId))
+          }
+        )
+      case ("NEARLINE", _, _) =>
+        Future.failed(new RuntimeException("NEARLINE but no nearlineId"))
+
+      case ("ONLINE", Some(onlineId), _) =>
+        logger.warn(s"Not implemented yet - $onlineId ignored")
+        Future.failed(SilentDropMessage(Some(s"Not implemented yet - $onlineId ignored")))
+      case ("ONLINE", _, _) =>
+        Future.failed(new RuntimeException("ONLINE but no onlineId"))
+
+      case (_, _, _) =>
+        Future.failed(new RuntimeException("This should not happen!"))
+    }
+  }
 
   def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
 
@@ -188,8 +223,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                 logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
                 Right(msg.asJson)
             }
-           case _ =>
-            _storeDeletionPending(onlineOutputMessage)
+           case false =>
+            storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
             _outputDeepArchiveCopyRequried(onlineOutputMessage) match {
               case Left(err) => Left(err)
               case Right(msg) =>
@@ -211,7 +246,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           }
         } else {
           // media does NOT EXIST in INTERNAL ARCHIVE
-          _storeDeletionPending(onlineOutputMessage)
+          storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
           _outputInternalArchiveCopyRequried(onlineOutputMessage) match {
             case Left(err) => Future(Left(err))
             case Right(msg) =>
