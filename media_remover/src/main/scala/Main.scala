@@ -128,6 +128,7 @@ object Main {
         Future.sequence(Seq(
           nearlineRecordDAO.initialiseSchema,
           failureRecordDAO.initialiseSchema,
+          pendingDeletionRecordDAO.initialiseSchema,
         ))
           .flatMap(_=>framework.run())
           .onComplete({
