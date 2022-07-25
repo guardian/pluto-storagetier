@@ -3,7 +3,6 @@ import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
@@ -61,8 +60,6 @@ object Main {
   private lazy val retryLimit = sys.env.get("RETRY_LIMIT").map(_.toInt).getOrElse(200)
 
   def main(args:Array[String]):Unit = {
-    implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
-    implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
     implicit lazy val pendingDeletionRecordDAO = new PendingDeletionRecordDAO(db)
     implicit val matrixStore = new MXSConnectionBuilderImpl(
       hosts = matrixStoreConfig.hosts,
@@ -126,8 +123,6 @@ object Main {
         //first initialise all the tables that we need, then run the framework.
         //add in more table initialises as required
         Future.sequence(Seq(
-          nearlineRecordDAO.initialiseSchema,
-          failureRecordDAO.initialiseSchema,
           pendingDeletionRecordDAO.initialiseSchema,
         ))
           .flatMap(_=>framework.run())
