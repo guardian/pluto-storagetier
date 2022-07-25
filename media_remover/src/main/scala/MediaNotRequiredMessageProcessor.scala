@@ -153,54 +153,57 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def _outputInternalArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
 
 
-  def processNearlineFileAndProject(vault: Vault, onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]):Future[Either[String, MessageProcessorReturnValue]] = {
+  def processNearlineFileAndProject(vault: Vault, onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): Future[Either[String, MessageProcessorReturnValue]] = {
     val actionToPerform = maybeProject match {
       case None =>
-        ("drop_msg", None)
+        (MediaNotRequiredMessageProcessor.Action.DropMsg, None)
       case Some(project) =>
         project.deletable match {
           case Some(true) =>
             project.status match {
               case status if status == EntryStatus.Completed || status == EntryStatus.Killed =>
                 onlineOutputMessage.mediaCategory.toLowerCase  match {
-                  case "deliverables" => ("drop_msg", Some(project))
-                  case _ => ("clear_and_delete", Some(project))
+                  case "deliverables" => (MediaNotRequiredMessageProcessor.Action.DropMsg, Some(project))
+                  case _ => (MediaNotRequiredMessageProcessor.Action.ClearAndDelete, Some(project))
                 }
-              case _ => ("drop_msg", Some(project))
+              case _ => (MediaNotRequiredMessageProcessor.Action.DropMsg, Some(project))
             }
           case _ =>
           // not DELETABLE
           if (project.deep_archive.getOrElse(false)) {
             if (project.sensitive.getOrElse(false)) {
-              if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {("check_internal_archive", Some(project))}
-              else {("drop_msg", Some(project))}
+              if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
+                (MediaNotRequiredMessageProcessor.Action.CheckInternalArchive, Some(project))
+              } else {
+                (MediaNotRequiredMessageProcessor.Action.DropMsg, Some(project))
+              }
             } else {
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
-                ("check_deep_archive", Some(project))
+                (MediaNotRequiredMessageProcessor.Action.CheckDeepArchive, Some(project))
               } else { // deep_archive + not sensitive + not killed and not completed (GP-785 row 8)
-                ("drop_msg", Some(project))
+                (MediaNotRequiredMessageProcessor.Action.DropMsg, Some(project))
               }
             }
           } else {
             // We cannot remove media when the project doesn't have deep_archive set
-            ("just_no", Some(project))
+            (MediaNotRequiredMessageProcessor.Action.JustNo, Some(project))
           }
         }
     }
 
-    logger.debug(s"---> actionToPerform: ${actionToPerform._1}")
+    logger.debug(s"---> actionToPerform._1: ${actionToPerform._1}")
 
-    performAction(vault, onlineOutputMessage, actionToPerform)
+    performAction(vault, onlineOutputMessage,actionToPerform)
   }
 
-  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (String, Option[ProjectRecord])) =
+  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])) =
     actionToPerform match {
-      case ("drop_msg", None) =>
+      case (MediaNotRequiredMessageProcessor.Action.DropMsg, None) =>
         val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
         logger.warn(noProjectFoundMsg)
         throw SilentDropMessage(Some(noProjectFoundMsg))
 
-      case ("drop_msg", Some(project)) =>
+      case (MediaNotRequiredMessageProcessor.Action.DropMsg, Some(project)) =>
         val deletable = project.deletable.getOrElse(false)
         val deep_archive = project.deep_archive.getOrElse(false)
         val sensitive = project.sensitive.getOrElse(false)
@@ -211,7 +214,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.debug(s"-> $notRemovingMsg")
         throw SilentDropMessage(Some(notRemovingMsg))
 
-      case ("check_deep_archive", Some(project)) =>
+      case (MediaNotRequiredMessageProcessor.Action.CheckDeepArchive, Some(project)) =>
         existsInDeepArchive(vault, onlineOutputMessage).map({
            case true =>
             _removeDeletionPending(onlineOutputMessage)
@@ -232,7 +235,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         })
 
 
-      case ("check_internal_archive", Some(project)) =>
+      case (MediaNotRequiredMessageProcessor.Action.CheckInternalArchive, Some(project)) =>
         if (_existsInInternalArchive(onlineOutputMessage)) {
           // media EXISTS in INTERNAL ARCHIVE
           _removeDeletionPending(onlineOutputMessage)
@@ -253,7 +256,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           }
         }
 
-      case ("clear_and_delete", Some(project)) =>
+      case (MediaNotRequiredMessageProcessor.Action.ClearAndDelete, Some(project)) =>
         // TODO Remove "pending deletion" record if exists
         _removeDeletionPending(onlineOutputMessage)
         // TODO Delete media from storage
@@ -264,10 +267,17 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             Future(Right(msg.asJson))
         }
 
-      case ("just_no", Some(project)) =>
+      case (MediaNotRequiredMessageProcessor.Action.JustNo, Some(project)) =>
         logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
         throw new RuntimeException(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
 
+      case (action, Some(project)) =>
+        logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, unexpected action $action")
+        throw new RuntimeException(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, unexpected action $action")
+
+      case (action, _) =>
+        logger.warn(s"Cannot remove file: unexpected action $action when no project")
+        throw new RuntimeException(s"Cannot remove file: unexpected action $action when no project")
     }
 
 
@@ -300,4 +310,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   private def handleOnline(mediaNotRequiredMsg: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] =
     Future(Left("testing online"))
+
 }
+
+  object MediaNotRequiredMessageProcessor {
+    object Action extends Enumeration {
+      val CheckDeepArchive, CheckInternalArchive, ClearAndDelete, DropMsg, JustNo  = Value
+    }
+  }
