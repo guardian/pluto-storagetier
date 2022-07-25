@@ -26,8 +26,6 @@ import scala.util.{Failure, Success, Try}
 
 class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   implicit
-  nearlineRecordDAO: NearlineRecordDAO,
-  failureRecordDAO: FailureRecordDAO,
   pendingDeletionRecordDAO: PendingDeletionRecordDAO,
   ec: ExecutionContext,
   mat: Materializer,
