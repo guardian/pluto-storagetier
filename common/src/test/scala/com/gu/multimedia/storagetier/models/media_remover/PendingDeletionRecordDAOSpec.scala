@@ -46,7 +46,7 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
   "PendingDeletionRecordDAO.writeRecord" should {
     "insert a new record, and update it" in {
       //insert a new record, make sure we got something that looks like an id
-      val rec = PendingDeletionRecord(None, MediaTiers.NEARLINE, "", Some("vsid"), Some("nearline-test-id"), 1)
+      val rec = PendingDeletionRecord(None, MediaTiers.NEARLINE, Some("some/file/path"), Some("vsid"), Some("nearline-test-id"), 1)
 
       val result = Await.result(dao.writeRecord(rec), 2.seconds)
       result must beGreaterThanOrEqualTo(1)
@@ -71,7 +71,7 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
     }
 
     "fail if we try to update a record that does not exist" in {
-      val rec = PendingDeletionRecord(Some(123), MediaTiers.NEARLINE, "", Some("vsid"), Some("nearline-test-nonexistent-id"), 1)
+      val rec = PendingDeletionRecord(Some(123), MediaTiers.NEARLINE, Some("some/file/path"), Some("vsid"), Some("nearline-test-nonexistent-id"), 1)
 
       val result = Try { Await.result(dao.writeRecord(rec), 2.seconds) }
       result must beAFailedTry
@@ -81,7 +81,7 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
 
   "NearlineRecordDAO.deleteRecord" should {
     "delete an existing record" in {
-      val rec = PendingDeletionRecord(None, MediaTiers.NEARLINE, "", Some("vsid"), Some("nearline-test-id-to-delete"), 1)
+      val rec = PendingDeletionRecord(None, MediaTiers.NEARLINE, Some("some/file/path"), Some("vsid"), Some("nearline-test-id-to-delete"), 1)
 
       val insertedId = Await.result(db.run(TableQuery[PendingDeletionRecordRow] returning TableQuery[PendingDeletionRecordRow].map(_.id) += rec), 2.seconds)
       val updatedRec = rec.copy(id=Some(insertedId))
@@ -101,7 +101,7 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
 
   "NearlineRecordDAO.deleteRecordByID" should {
     "delete an existing record" in {
-      val rec = PendingDeletionRecord(None, MediaTiers.NEARLINE, "", Some("vsid"), Some("nearline-test-id-to-delete"), 1)
+      val rec = PendingDeletionRecord(None, MediaTiers.NEARLINE, Some("some/file/path"), Some("vsid"), Some("nearline-test-id-to-delete"), 1)
 
       val insertedId = Await.result(db.run(TableQuery[PendingDeletionRecordRow] returning TableQuery[PendingDeletionRecordRow].map(_.id) += rec), 2.seconds)
 
