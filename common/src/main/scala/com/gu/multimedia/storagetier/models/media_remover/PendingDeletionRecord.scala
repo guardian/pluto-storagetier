@@ -5,7 +5,7 @@ import slick.jdbc.PostgresProfile.api._
 
 case class PendingDeletionRecord(id : Option[Int],
                                  mediaTier : MediaTiers.Value,
-                                 originalFilePath : String,
+                                 originalFilePath : Option[String],
                                  onlineId : Option[String],
                                  nearlineId : Option[String],
                                  attempt : Int
@@ -16,7 +16,7 @@ class PendingDeletionRecordRow(tag:Tag) extends Table[PendingDeletionRecord](tag
 
   def id=column[Int]("id", O.PrimaryKey, O.AutoInc)
   def mediaTier = column[MediaTiers.Value]("s_media_tier")
-  def originalFilePath = column[String]("s_original_file_path")
+  def originalFilePath = column[Option[String]]("s_original_file_path")
   def onlineId = column[Option[String]]("s_online_id")
   def nearlineId = column[Option[String]]("s_nearline_id")
   def attempt = column[Int]("i_attempt")
