@@ -4,7 +4,8 @@ import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage}
-import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
+import com.gu.multimedia.storagetier.models.common.MediaTiers
+import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
 import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
 import messages.MediaRemovedMessage
@@ -31,6 +32,193 @@ import scala.util.Try
 
 class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
+
+  "MediaNotRequiredMessageProcessor.getChecksumForNearlineItem" should {
+    "fail if no nearline id" in {
+      val mockMsgFramework = mock[MessageProcessingFramework]
+      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val fileCopier = mock[FileCopier]
+      implicit val fileUploader = mock[FileUploader]
+
+      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+
+      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
+      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
+      fakeProjectDeletableCompletedAndDeliverable.id returns Some(22)
+      fakeProjectDeletableCompletedAndDeliverable.status returns EntryStatus.Completed
+      fakeProjectDeletableCompletedAndDeliverable.deep_archive returns Some(true)
+      fakeProjectDeletableCompletedAndDeliverable.deletable returns Some(true)
+      fakeProjectDeletableCompletedAndDeliverable.sensitive returns None
+      mockAssetFolderLookup.getProjectMetadata("22") returns Future(Some(fakeProjectDeletableCompletedAndDeliverable))
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "NEARLINE",
+          |"projectIds": [22],
+          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"itemId": "VX-151922",
+          |"mediaCategory": "Deliverables"
+          |}""".stripMargin
+
+      val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = Try {
+        Await.result(toTest.getChecksumForNearlineItem(mockVault, msgObj), 2.seconds)
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[NoSuchElementException]
+      result.failed.get.getMessage mustEqual "None.get"
+    }
+  }
+
+
+  "MediaNotRequiredMessageProcessor.storeDeletionPending" should {
+    "fail for NEARLINE if no nearline id" in {
+
+      val mockMsgFramework = mock[MessageProcessingFramework]
+      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      pendingDeletionRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val fileCopier = mock[FileCopier]
+      implicit val fileUploader = mock[FileUploader]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "NEARLINE",
+          |"projectIds": [22],
+          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"itemId": "VX-151922",
+          |"mediaCategory": "Deliverables"
+          |}""".stripMargin
+
+      val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = Try {
+        Await.result(toTest.storeDeletionPending(msgObj), 2.seconds)
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "NEARLINE but no nearlineId"
+    }
+
+
+    "store new record for NEARLINE if no record found" in {
+      val mockMsgFramework = mock[MessageProcessingFramework]
+      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      pendingDeletionRecordDAO.findByNearlineId(any) returns Future(None)
+      pendingDeletionRecordDAO.writeRecord(any) returns Future(234)
+
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val fileCopier = mock[FileCopier]
+      implicit val fileUploader = mock[FileUploader]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "NEARLINE",
+          |"projectIds": [22],
+          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"nearlineId": "1",
+          |"itemId": "VX-151922",
+          |"mediaCategory": "Deliverables"
+          |}""".stripMargin
+
+      val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = Try {
+        Await.result(toTest.storeDeletionPending(msgObj), 2.seconds)
+      }
+
+      result must beSuccessfulTry
+      result.get must beRight(234)
+    }
+
+
+    "store updated record for NEARLINE if record already present" in {
+      val mockMsgFramework = mock[MessageProcessingFramework]
+      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      val existingRecord = PendingDeletionRecord(Some(234), MediaTiers.NEARLINE, Some("some/file/path"), Some("vsid"), Some("nearline-test-id"), 1)
+      val expectedUpdatedRecordToSave = PendingDeletionRecord(Some(234), MediaTiers.NEARLINE, Some("some/file/path"), Some("vsid"), Some("nearline-test-id"), 2)
+      pendingDeletionRecordDAO.findByNearlineId(any) returns Future(Some(existingRecord))
+      pendingDeletionRecordDAO.writeRecord(expectedUpdatedRecordToSave) returns Future(234)
+
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val fileCopier = mock[FileCopier]
+      implicit val fileUploader = mock[FileUploader]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "NEARLINE",
+          |"projectIds": [22],
+          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"nearlineId": "1",
+          |"itemId": "VX-151922",
+          |"mediaCategory": "Deliverables"
+          |}""".stripMargin
+
+      val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = Try {
+        Await.result(toTest.storeDeletionPending(msgObj), 2.seconds)
+      }
+
+      result must beSuccessfulTry
+      result.get must beRight(234)
+    }
+  }
+
 
   "MediaNotRequiredMessageProcessor.handleMessage" should {
 
@@ -396,7 +584,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
         override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = Right(fakeMediaRemovedMessage)
-        override def _storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right(true)
+        override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
       }
 
@@ -467,7 +655,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
         override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
-        override def _storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right(true)
+        override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage) = Right(fakeNearlineRecord)
       }
 
@@ -592,7 +780,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
         override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = Right(fakeMediaRemovedMessage)
-        override def _storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right(true)
+        override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
         override def _existsInInternalArchive(onlineOutputMessage: OnlineOutputMessage) = true
       }
