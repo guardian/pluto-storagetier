@@ -92,6 +92,70 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
     }
   }
 
+  "MediaNotRequiredMessageProcessor.deleteFromNearline" should {
+    "fail if no nearline id" in {
+      val mockMsgFramework = mock[MessageProcessingFramework]
+      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
+      nearlineRecordDAO.writeRecord(any) returns Future(123)
+      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
+      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
+      failureRecordDAO.writeRecord(any) returns Future(234)
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val fileCopier = mock[FileCopier]
+      implicit val fileUploader = mock[FileUploader]
+
+      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+
+      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
+      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
+      fakeProjectDeletableCompletedAndDeliverable.id returns Some(22)
+      fakeProjectDeletableCompletedAndDeliverable.status returns EntryStatus.Completed
+      fakeProjectDeletableCompletedAndDeliverable.deep_archive returns Some(true)
+      fakeProjectDeletableCompletedAndDeliverable.deletable returns Some(true)
+      fakeProjectDeletableCompletedAndDeliverable.sensitive returns None
+      mockAssetFolderLookup.getProjectMetadata("22") returns Future(Some(fakeProjectDeletableCompletedAndDeliverable))
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+//          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+      val msgContent =
+        """{
+          |"mediaTier": "NEARLINE",
+          |"projectIds": [22],
+          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"itemId": "VX-151922",
+          |"mediaCategory": "Deliverables"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = Try {
+        Await.result(toTest.deleteFromNearline(mockVault, msgObj), 2.seconds)
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "Cannot delete from nearline, wrong media tier (NEARLINE), or missing nearline id (None)"
+
+    }
+  }
+
 
   "MediaNotRequiredMessageProcessor.storeDeletionPending" should {
     "fail for NEARLINE if no nearline id" in {
@@ -389,11 +453,11 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId.get)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
-        override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = Right(fakeMediaRemovedMessage)
+        override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
       }
 
       val result = Try {
@@ -455,11 +519,11 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msgNotDeliverables.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId.get)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
-        override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = Right(fakeMediaRemovedMessage)
+        override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
       }
 
       val result = Try {
@@ -573,7 +637,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId.get)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -582,7 +646,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
-        override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = Right(fakeMediaRemovedMessage)
+        override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
       }
@@ -642,7 +706,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId.get)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val fakeNearlineRecord = NearlineRecord.apply("aNearlineId-29", "a/path/29", "aCorrId-29")
 
@@ -653,7 +717,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
-        override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
+        override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage) = Right(fakeNearlineRecord)
       }
@@ -769,7 +833,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId.get)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val mockVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -778,7 +842,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
-        override def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage) = Right(fakeMediaRemovedMessage)
+        override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
         override def _existsInInternalArchive(onlineOutputMessage: OnlineOutputMessage) = true
