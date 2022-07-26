@@ -1,7 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import cats.implicits.toTraverseOps
-import ch.qos.logback.core.util.FileUtil
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework._
@@ -9,7 +8,7 @@ import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecord, FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.Vault
@@ -50,21 +49,14 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           handleNearline(vault, nearlineNotRequired)
         }
 
-      case (
-            Right(onlineNotRequired),
-            "storagetier.restorer.media_not_required.online"
-          ) =>
+      case (Right(onlineNotRequired), "storagetier.restorer.media_not_required.online") =>
         handleOnline(onlineNotRequired)
 
       case (_, _) =>
         logger.warn(
           s"Dropping message $routingKey from project-restorer exchange as I don't know how to handle it. This should be fixed in the code."
         )
-        Future.failed(
-          new RuntimeException(
-            s"Routing key $routingKey dropped because I don't know how to handle it"
-          )
-        )
+        Future.failed(new RuntimeException(s"Routing key $routingKey dropped because I don't know how to handle it"))
     }
   }
 
@@ -89,7 +81,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     val objectKey = onlineOutputMessage.filePath.getOrElse("nopath")
     val maybeChecksumFut = getChecksumForNearlineItem(vault, onlineOutputMessage)
     maybeChecksumFut.map(maybeChecksum =>
-      fileUploader.objectExistsWithSizeAndMaybeChecksum(objectKey,  fileSize, maybeChecksum) match {
+      fileUploader.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, maybeChecksum) match {
         case Success(true) =>
           logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
           true
@@ -103,9 +95,26 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     )
   }
 
-  def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) :Either[String, String] = ???
+  def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage): Either[String, String] = ???
 
-  def _deleteFromNearline(onlineOutputMessage: OnlineOutputMessage): Either[String, MediaRemovedMessage] = ???
+
+  def deleteFromNearline(vault: Vault, msg: OnlineOutputMessage): Future[Either[String, MediaRemovedMessage]] = {
+    (msg.mediaTier, msg.nearlineId) match {
+      case ("NEARLINE", Some(nearlineId)) =>
+        // TODO find and delete any ATT-files before we delete this, the main media file
+        // TODO do we need to wrap this with a Future.fromTry?
+        Try { vault.getObject(nearlineId).delete() } match {
+          case Success(_) =>
+            logger.info(s"Nearline media oid=${msg.nearlineId}, path=${msg.filePath} removed")
+            Future(Right(MediaRemovedMessage(mediaTier = msg.mediaTier, filePath = msg.filePath, nearlineId = Some(nearlineId), itemId = msg.itemId)))
+          case Failure(exception) =>
+            logger.warn(s"Failed to remove nearline media oid=${msg.nearlineId}, path=${msg.filePath}, reason: ${exception.getMessage}")
+            Future(Left(s"Failed to remove nearline media oid=${msg.nearlineId}, path=${msg.filePath}, reason: ${exception.getMessage}"))
+        }
+      case (_,_) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier (${msg.mediaTier}), or missing nearline id (${msg.nearlineId})")
+    }
+  }
+
 
   def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] = {
     (msg.mediaTier, msg.itemId, msg.nearlineId) match {
@@ -153,7 +162,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def _outputInternalArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
 
 
-  def processNearlineFileAndProject(vault: Vault, onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): Future[Either[String, MessageProcessorReturnValue]] = {
+  def getActionToPerform(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): Future[(MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])] = {
     val actionToPerform = maybeProject match {
       case None =>
         (MediaNotRequiredMessageProcessor.Action.DropMsg, None)
@@ -192,11 +201,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
     logger.debug(s"---> actionToPerform._1: ${actionToPerform._1}")
-
-    performAction(vault, onlineOutputMessage,actionToPerform)
+    Future(actionToPerform)
   }
 
-  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])) =
+  private def performAction(vault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = {
     actionToPerform match {
       case (MediaNotRequiredMessageProcessor.Action.DropMsg, None) =>
         val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
@@ -215,23 +223,21 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         throw SilentDropMessage(Some(notRemovingMsg))
 
       case (MediaNotRequiredMessageProcessor.Action.CheckDeepArchive, Some(project)) =>
-        existsInDeepArchive(vault, onlineOutputMessage).map({
-           case true =>
+        existsInDeepArchive(vault, onlineOutputMessage).flatMap({
+          case true =>
             _removeDeletionPending(onlineOutputMessage)
-            _deleteFromNearline(onlineOutputMessage) match {
-              case Left(err) => Left(err)
-              case Right(msg) =>
-                logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-                Right(msg.asJson)
-            }
-           case false =>
+            deleteFromNearline(vault, onlineOutputMessage).map({
+              case Left(value) => Left(value)
+              case Right(value) => Right(value.asJson)
+            })
+          case false =>
             storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
             _outputDeepArchiveCopyRequried(onlineOutputMessage) match {
-              case Left(err) => Left(err)
+              case Left(err) => Future(Left(err))
               case Right(msg) =>
                 logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-                Right(msg.asJson)
-          }
+                Future(Right(msg.asJson))
+            }
         })
 
 
@@ -239,12 +245,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         if (_existsInInternalArchive(onlineOutputMessage)) {
           // media EXISTS in INTERNAL ARCHIVE
           _removeDeletionPending(onlineOutputMessage)
-          _deleteFromNearline(onlineOutputMessage) match {
-            case Left(err) => Future(Left(err))
-            case Right(msg) =>
-              logger.debug(s"--> deleting ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-              Future(Right(msg.asJson))
-          }
+          deleteFromNearline(vault, onlineOutputMessage).map({
+            case Left(value) => Left(value)
+            case Right(value) => Right(value.asJson)
+          })
         } else {
           // media does NOT EXIST in INTERNAL ARCHIVE
           storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
@@ -256,16 +260,16 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           }
         }
 
+
       case (MediaNotRequiredMessageProcessor.Action.ClearAndDelete, Some(project)) =>
         // TODO Remove "pending deletion" record if exists
         _removeDeletionPending(onlineOutputMessage)
-        // TODO Delete media from storage
-        _deleteFromNearline(onlineOutputMessage) match {
-          case Left(err) => Future(Left(err))
+        deleteFromNearline(vault, onlineOutputMessage).map({
+          case Left(err) => Left(err)
           case Right(msg) =>
-            logger.debug(s"--> outputting deep archive copy request for ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-            Future(Right(msg.asJson))
-        }
+            logger.debug(s"--> deleting nearline media ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+            Right(msg.asJson)
+        })
 
       case (MediaNotRequiredMessageProcessor.Action.JustNo, Some(project)) =>
         logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
@@ -279,7 +283,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.warn(s"Cannot remove file: unexpected action $action when no project")
         throw new RuntimeException(s"Cannot remove file: unexpected action $action when no project")
     }
-
+  }
 
   def bulkGetProjectMetadata(mediaNotRequiredMsg: OnlineOutputMessage) = {
     mediaNotRequiredMsg.projectIds.map(id => asLookup.getProjectMetadata(id.toString)).sequence
@@ -290,9 +294,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     TODO
      handle seq of projects
      if any is new or in production, then silentdrop
-     do we need to handle differing statuses other than that, say if differeing in sensitivity?
-     may we have to send out deepArchiveRequest AND internalArchiveRequest for the same file??
-     -> ?
      if at least one sensitive, check if on internalArchive
      if at least one deep_archive, check if on deepArchive
 */
@@ -300,11 +301,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
     for {
       projectRecordMaybe <- projectRecordMaybesFut.map(_.headOption)
-      fileRemoveResult <- processNearlineFileAndProject(
-        vault,
-        mediaNotRequiredMsg,
-        projectRecordMaybe
-      )
+      actionToPerform <- getActionToPerform(mediaNotRequiredMsg, projectRecordMaybe)
+      fileRemoveResult <- performAction(vault, mediaNotRequiredMsg, actionToPerform)
     } yield fileRemoveResult
   }
 
