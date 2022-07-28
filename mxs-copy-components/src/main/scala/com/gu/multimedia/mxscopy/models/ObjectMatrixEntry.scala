@@ -5,7 +5,7 @@ import akka.stream.Materializer
 import com.om.mxs.client.japi.{MXFSFileAttributes, Vault}
 import com.gu.multimedia.mxscopy.helpers.MetadataHelper
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 case class ObjectMatrixEntry(oid:String, attributes:Option[MxsMetadata], fileAttribues:Option[FileAttributes]) {
@@ -63,9 +63,10 @@ object ObjectMatrixEntry {
    * @param oid id of the object matrix blob to interrogate
    * @param vault open vault ID to look it up on. `withVault` can get you this value.
    */
-  def fromOID(oid: String, vault: Vault) = {
-    new ObjectMatrixEntry(oid, None, None).getMxfsMetadata(vault)
-  }
+  def fromOID(oid: String, vault: Vault)(implicit mat:Materializer, ec:ExecutionContext) = for {
+      withMXFS <- Future.fromTry(new ObjectMatrixEntry(oid, None, None).getMxfsMetadata(vault))
+      withMeta <- withMXFS.getMetadata(vault)
+    } yield withMeta
 
   /**
    * Returns an ObjectMatrixEntry that _only_ contains the given OID and NO METADATA YET.
