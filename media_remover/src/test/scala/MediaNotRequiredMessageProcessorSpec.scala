@@ -80,7 +80,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.getChecksumForNearlineItem(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.getChecksumForNearlineItem(mockVault, msgObj.nearlineId.get), 2.seconds)
       }
 
       result must beAFailedTry

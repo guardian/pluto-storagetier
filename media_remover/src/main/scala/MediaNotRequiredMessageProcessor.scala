@@ -6,6 +6,7 @@ import cats.implicits.toTraverseOps
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.{MatrixStoreHelper, MetadataHelper}
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper.getOMFileMd5
+import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.streamcomponents.ChecksumSink
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
@@ -170,6 +171,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 }
 
   protected def callFindByFilenameNew(vault:Vault, fileName:String) = MatrixStoreHelper.findByFilenameNew(vault, fileName)
+  protected def callObjectMatrixEntryFromOID(vault:Vault, fileName:String) = ObjectMatrixEntry.fromOID(fileName, vault)
 
   /**
    * Searches the given vault for files matching the given specification.
@@ -197,10 +199,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       })
   }
 
-  def getChecksumForNearlineItem(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Option[String]] = {
+  def getChecksumForNearlineItem(vault: Vault, oid: String): Future[Option[String]] = {
     for {
-      oid <- Future(onlineOutputMessage.nearlineId.get) // we should be able to trust that there is a oid, since we get this message from project_restorer for specifically a nearline item we fetched
-      // TODO should we handle the None oid case gracefully, and if so, how? As is, throws am unhandled NoSuchElementException
       mxsFile <- Future.fromTry(openMxsObject(vault, oid))
       maybeMd5 <- MatrixStoreHelper.getOMFileMd5(mxsFile).flatMap({
             case Failure(err) =>
@@ -214,17 +214,16 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
   def existsInInternalArchive(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
-    val fileSize = onlineOutputMessage.fileSize.getOrElse(-1L)
-    val fileName = onlineOutputMessage.filePath.getOrElse("")
+    val (fileSize, fileName, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.filePath, onlineOutputMessage.nearlineId)
     for {
-      maybeChecksum <- getChecksumForNearlineItem(vault, onlineOutputMessage)
+      maybeChecksum <- getChecksumForNearlineItem(vault, nearlineId)
       exists <- existsInTargetVaultWithMd5Match(internalArchiveVault, fileName, fileName, fileSize, maybeChecksum)
     } yield exists
   }
 
   def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
-    val (fileSize, objectKey, _) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.filePath, onlineOutputMessage.nearlineId)
-    val maybeChecksumFut = getChecksumForNearlineItem(vault, onlineOutputMessage)
+    val (fileSize, objectKey, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.filePath, onlineOutputMessage.nearlineId)
+    val maybeChecksumFut = getChecksumForNearlineItem(vault, nearlineId)
     maybeChecksumFut.map(maybeChecksum =>
       s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, maybeChecksum) match {
         case Success(true) =>
@@ -268,16 +267,40 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         Future.failed(new RuntimeException("This should not happen!"))
     }
 
+  def deleteSingleAttMedia(vault: Vault, objectMatrixEntry: ObjectMatrixEntry, attributeKey: String, msg: OnlineOutputMessage): Future[Either[String, Boolean]] =
+    objectMatrixEntry.stringAttribute(attributeKey) match {
+      case None =>
+        logger.info(s"No $attributeKey to remove for main nearline media oid=${msg.nearlineId}, path=${msg.filePath}")
+        Future(Right(false))
+      case Some(attOid) =>
+        Try { vault.getObject(attOid).delete() } match {
+          case Success(_) =>
+            logger.info(s"$attributeKey with oid $attOid removed for main nearline media oid=${msg.nearlineId}, path=${msg.filePath}")
+            Future(Right(true))
+          case Failure(exception) =>
+            logger.warn(s"Failed to remove nearline media oid=${msg.nearlineId}, path=${msg.filePath}, reason: ${exception.getMessage}")
+            Future(Left(s"Failed to remove $attributeKey with oid=$attOid for main nearline media oid=${msg.nearlineId}, path=${msg.filePath}, reason: ${exception.getMessage}"))
+        }
+    }
 
-  def dealWithAttFiles(vault: Vault, nearlineId: String) = {
-    ???
+  def dealWithAttFiles(vault: Vault, nearlineId: String, msg: OnlineOutputMessage) = {
+    val combinedRes = for {
+      objectMatrixEntry <- callObjectMatrixEntryFromOID(vault, nearlineId)
+      proxyRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_PROXY_OID", msg)
+      thumbRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_THUMB_OID", msg)
+      metaRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_META_OID", msg)
+    } yield (proxyRes, thumbRes, metaRes)
+
+    combinedRes.map {
+      case (Right(_), Right(_), Right(_)) => Right("Smooth sailing, ATT files removed")
+      case (_, _, _) => Left("One or more ATT files could not be removed. Please look at logs for more info")
+    }
   }
 
   def deleteFromNearline(vault: Vault, msg: OnlineOutputMessage): Future[Either[String, MediaRemovedMessage]] = {
     (msg.mediaTier, msg.nearlineId) match {
       case ("NEARLINE", Some(nearlineId)) =>
-        // TODO find and delete any ATT-files before we delete this, the main media file
-        dealWithAttFiles(vault, nearlineId)
+        dealWithAttFiles(vault, nearlineId, msg)
         // TODO do we need to wrap this with a Future.fromTry?
         Try { vault.getObject(nearlineId).delete() } match {
           case Success(_) =>
@@ -290,7 +313,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case (_,_) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier (${msg.mediaTier}), or missing nearline id (${msg.nearlineId})")
     }
   }
-
 
   def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] = {
     (msg.mediaTier, msg.itemId, msg.nearlineId) match {
