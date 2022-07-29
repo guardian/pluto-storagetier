@@ -8,13 +8,13 @@ import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, NoSuchKeyException, ObjectVersion, PutObjectRequest}
+import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, NoSuchKeyException, PutObjectRequest}
 import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
 
 import java.io.{File, InputStream}
 import java.nio.file.{Files, Paths}
 import java.util.Base64
-import scala.collection.mutable
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
@@ -57,54 +57,6 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
       //tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
-
-
-  def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeNearlineMd5: Option[String])
-//  : Try[Boolean]
-  = {
-    logger.info(s"Checking for existing versions of s3://$bucketName/$objectKey with size $fileSize and nearline checksum $maybeNearlineMd5")
-    val req = ListObjectVersionsRequest.builder().bucket(bucketName).prefix(objectKey).build()
-
-    Try { client.listObjectVersions(req) } match {
-      case Success(response)=>
-        val versions = response.versions().asScala
-        logger.info(s"s3://$bucketName/$objectKey has ${versions.length} versions")
-        versions.foreach(v=>logger.info(s"s3://$bucketName/$objectKey @${v.versionId()} with size ${v.size()}, ETag ${v.eTag()} and checksum algorithm ${v.checksumAlgorithmAsStrings()} (has checksum alg: ${v.hasChecksumAlgorithm})"))
-        val matchesForSize = versions.filter(_.size()==fileSize)
-
-        if(matchesForSize.isEmpty) {
-          logger.info(s"Found no entries for s3://$bucketName/$objectKey with size $fileSize, copy is required")
-          Success(false)
-        } else {
-          /* If we have a nearline MD5, and
-             we have ETags that are MD5s
-             then, the nearline MD5 must match one of the ETags.
-             If not all ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match.
-           */
-          maybeNearlineMd5 match {
-            case Some(nearlineMd5) =>
-              val matchesWithMd5 = matchesForSize.filter(m => eTagIsProbablyMd5(m.eTag))
-              if(matchesWithMd5.isEmpty) {
-                Success(true)
-              } else {
-                matchesWithMd5.count(_.eTag().equals(nearlineMd5)) match { // TODO Check if both checksums are encoded the same way (hex, yes?)
-                  case 0 => Success(false)
-                  case _ => Success(true)
-                }
-              }
-            case None =>
-              logger.info(s"Found ${matchesForSize.length} existing entries for s3://$bucketName/$objectKey with size $fileSize, safe to delete from nearline")
-              Success(true)
-          }
-        }
-      case Failure(_:NoSuchKeyException)=>Success(false)
-      case Failure(err)=>
-        logger.error(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: ${err.getMessage}", err)
-        Failure(err)
-    }
-
-  }
-
 
   private def getObjectMetadata(bucketName: String, key: String) = Try {
     val req = HeadObjectRequest.builder().bucket(bucketName).key(key).build()
@@ -307,11 +259,6 @@ object FileUploader {
   def vsMD5toS3MD5(vsMD5:String) = Try {
     Base64.getEncoder.encodeToString(Hex.decodeHex(vsMD5))
   }
-
-  def eTagIsProbablyMd5(m: String): Boolean = {
-    m.length == 32 && m.forall(c => "abcdefABCDEF0123456789".contains(c))
-  }
-
 
   /**
    * AWS documentation states that there must be <10,000 parts in a multipart upload and each part must be

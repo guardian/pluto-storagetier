@@ -152,19 +152,6 @@ class FileUploaderSpec extends Specification with Mockito {
     }
   }
 
-
-  "FileUploader.eTagIsMd5" should {
-    "reject non-MD5 string" in {
-      FileUploader.eTagIsProbablyMd5("deadbeef") mustEqual false
-    }
-    "reject eTag for multipart upload" in {
-      FileUploader.eTagIsProbablyMd5("d41d8cd98f00b204e9800998ecf8427e-38") mustEqual false
-    }
-    "reject accepts MD5 eTag" in {
-      FileUploader.eTagIsProbablyMd5("599393a2c526c680119d84155d90f1e5") mustEqual true
-    }
-  }
-
   "FileUploader.vsMD5ToS3" should {
     "convert hex string to base64 string" in {
       FileUploader.vsMD5toS3MD5("deadbeef") must beASuccessfulTry("3q2+7w==")
@@ -256,68 +243,6 @@ class FileUploaderSpec extends Specification with Mockito {
 
       val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
       fileUploader.objectExistsWithSize("filePath",8888) must beAFailedTry
-    }
-  }
-
-  "FileUploader.verifyFileExistsOnS3" should {
-    "return true if there is a pre-existing file with the same size" in {
-      val mockedS3 = mock[S3Client]
-
-      val fakeVersions = Seq(
-        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).build(),
-        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).build(),
-      ).asJavaCollection
-      val fakeVersionsResponse = ListObjectVersionsResponse.builder().versions(fakeVersions).build()
-      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
-
-      val mockTransferManager = mock[S3TransferManager]
-
-
-      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",50, None) must beASuccessfulTry(true)
-    }
-
-    "return false if there is no pre-existing file with the same size" in {
-      val mockedS3 = mock[S3Client]
-
-      val fakeVersions = Seq(
-        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).build(),
-        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).build(),
-      ).asJavaCollection
-      val fakeVersionsResponse = ListObjectVersionsResponse.builder().versions(fakeVersions).build()
-      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
-
-      val mockTransferManager = mock[S3TransferManager]
-
-
-      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None) must beASuccessfulTry(false)
-    }
-
-    "return false if the object does not exist" in {
-      val mockedS3 = mock[S3Client]
-
-      val expectedException = NoSuchKeyException.builder().statusCode(404).build()
-
-      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) throws expectedException
-
-      val mockTransferManager = mock[S3TransferManager]
-
-      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None) must beASuccessfulTry(false)
-    }
-
-    "pass on any other exception as a Failure" in {
-      val mockedS3 = mock[S3Client]
-
-      val expectedException = S3Exception.builder().statusCode(500).build()
-
-      mockedS3.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) throws expectedException
-
-      val mockTransferManager = mock[S3TransferManager]
-
-      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
-      fileUploader.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None) must beAFailedTry
     }
   }
 }

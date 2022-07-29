@@ -47,10 +47,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
 
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -103,14 +100,10 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
-
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
 
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -152,7 +145,133 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[RuntimeException]
       result.failed.get.getMessage mustEqual "Cannot delete from nearline, wrong media tier (NEARLINE), or missing nearline id (None)"
+    }
+  }
 
+
+  "MediaNotRequiredMessageProcessor.storeDeletionPending" should {
+    "fail when size is None" in {
+
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        toTest.validateNeededFields(None, Some("path"), Some("id"))
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "fileSize is missing"
+    }
+
+    "fail when size is -1" in {
+
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        toTest.validateNeededFields(Some(-1), Some("path"), Some("id"))
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "fileSize is -1"
+    }
+
+    "fail when path is missing" in {
+
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        toTest.validateNeededFields(Some(2048), None, Some("id"))
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "filePath is missing"
+    }
+
+    "fail when id is missing" in {
+
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        toTest.validateNeededFields(Some(2048), Some("path"), None)
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "media id is missing"
+    }
+
+    "fail when when size, path and id are all missing" in {
+
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        toTest.validateNeededFields(None, None, None)
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "fileSize is missing"
+    }
+
+    "succeed when size, path and id are present" in {
+
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        toTest.validateNeededFields(Some(2048), Some("path"), Some("id"))
+      }
+
+      result must beSuccessfulTry
     }
   }
 
@@ -171,9 +290,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -212,9 +329,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -254,9 +369,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -299,10 +412,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
 
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -318,6 +428,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockAssetFolderLookup.getProjectMetadata("22") returns Future(Some(fakeProjectDeletableCompletedAndDeliverable))
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
@@ -328,6 +439,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["22"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151922",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Deliverables"
@@ -338,7 +450,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -360,9 +472,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -377,6 +487,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockAssetFolderLookup.getProjectMetadata("23") returns Future(Some(fakeProjectDeletableCompletedAndDeliverable))
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
@@ -387,6 +498,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["23"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151923",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Deliverables"
@@ -397,7 +509,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -419,9 +531,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -436,6 +546,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockAssetFolderLookup.getProjectMetadata("24") returns Future(Some(fakeProjectDeletableCompletedAndDeliverable))
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
@@ -444,6 +555,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["24"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151924",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -456,12 +568,12 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
-        override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
+        override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"24-result: $result")
@@ -484,9 +596,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -501,6 +611,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockAssetFolderLookup.getProjectMetadata("26") returns Future(Some(fakeProjectDeletableAndKilled))
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
@@ -510,6 +621,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["26"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151926",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -522,12 +634,12 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
-        override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
+        override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"26-result: $result")
@@ -550,9 +662,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -567,6 +677,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockAssetFolderLookup.getProjectMetadata("27") returns Future(Some(fakeProjectDeletableAndKilled))
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
@@ -577,6 +688,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["27"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151927",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -585,7 +697,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msg = io.circe.parser.parse(msgContentNotDeliverables)
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -607,9 +719,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -628,6 +738,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["28"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151928",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -640,20 +751,21 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
-        override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
+        override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
+        override def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
       }
 
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"28-result: $result")
@@ -676,9 +788,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -697,6 +807,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["29"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151929",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -711,19 +822,20 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val fakeNearlineRecord = NearlineRecord.apply("aNearlineId-29", "a/path/29", "aCorrId-29")
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
-        override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
+        override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage) = Right(fakeNearlineRecord)
+        override def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage) = Right(fakeNearlineRecord)
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beSuccessfulTry
@@ -745,9 +857,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -766,6 +876,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["30"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151930",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -775,13 +886,14 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -803,9 +915,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val fileCopier = mock[FileCopier]
-      implicit val fileUploader = mock[FileUploader]
-      fileCopier.copyFileToMatrixStore(any, any, any) returns Future(Right("some-object-id"))
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -824,6 +934,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": ["31"],
           |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
           |"itemId": "VX-151931",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
@@ -836,20 +947,21 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
 
       val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
-        override def _removeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Right("pending rec removed")
+        override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def _outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
-        override def _existsInInternalArchive(onlineOutputMessage: OnlineOutputMessage) = true
+        override def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
+        override def existsInInternalArchive(mockVault:Vault, mockInternalVault:Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"31-result: $result")
