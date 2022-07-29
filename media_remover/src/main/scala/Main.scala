@@ -70,9 +70,8 @@ object Main {
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
-    implicit lazy val fileCopier = new FileCopier()
 
-    implicit lazy val fileUploader = FileUploader.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
+    implicit lazy val s3ObjectChecker = S3ObjectChecker.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
       case Left(err)=>
         logger.error(s"Could not initialise FileUploader: $err")
         Await.ready(actorSystem.terminate(), 30.seconds)
