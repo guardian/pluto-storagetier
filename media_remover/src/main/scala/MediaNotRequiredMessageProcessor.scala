@@ -44,30 +44,34 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   protected def newCorrelationId: String = UUID.randomUUID().toString
 
   override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
-    (msg.as[OnlineOutputMessage], routingKey) match {
-      case (Left(err), _) =>
-        Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a OnlineOutputMessage: $err"))
-
-      case (Right(onlineOutputMessage), "storagetier.restorer.media_not_required.nearline") =>
-        mxsConfig.internalArchiveVaultId match {
-          case Some(internalArchiveVaultId) =>
-            matrixStoreBuilder.withVaultsFuture(Seq(mxsConfig.nearlineVaultId, internalArchiveVaultId)) { vaults =>
-              val nearlineVault = vaults.head
-              val internalArchiveVault = vaults(1)
-              handleNearline(nearlineVault, internalArchiveVault, onlineOutputMessage)
+    routingKey match {
+      case "storagetier.restorer.media_not_required.nearline" =>
+        msg.as[OnlineOutputMessage] match {
+          case Left(err) =>
+            Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a OnlineOutputMessage: $err"))
+          case Right(onlineOutputMessageNearline) =>
+            // TODO? Move the withVaults inside handleNearline?
+            mxsConfig.internalArchiveVaultId match {
+              case Some(internalArchiveVaultId) =>
+                matrixStoreBuilder.withVaultsFuture(Seq(mxsConfig.nearlineVaultId, internalArchiveVaultId)) { vaults =>
+                  val nearlineVault = vaults.head
+                  val internalArchiveVault = vaults(1)
+                  handleNearline(nearlineVault, internalArchiveVault, onlineOutputMessageNearline)
+                }
+              case None =>
+                logger.error(s"The internal archive vault ID has not been configured, so it's not possible to send an item to internal archive.")
+                Future.failed(new RuntimeException(s"Internal archive vault not configured"))
             }
-          case None =>
-            logger.error(s"The internal archive vault ID has not been configured, so it's not possible to send an item to internal archive.")
-            Future.failed(new RuntimeException(s"Internal archive vault not configured"))
         }
-
-      case (Right(onlineNotRequired), "storagetier.restorer.media_not_required.online") =>
-        handleOnline(onlineNotRequired)
-
-      case (_, _) =>
-        logger.warn(
-          s"Dropping message $routingKey from project-restorer exchange as I don't know how to handle it. This should be fixed in the code."
-        )
+      case "storagetier.restorer.media_not_required.online" =>
+        msg.as[OnlineOutputMessage] match {
+          case Left(err) =>
+            Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a OnlineOutputMessage: $err"))
+          case Right(onlineOutputMessageOnline) =>
+            handleOnline(onlineOutputMessageOnline)
+        }
+      case _ =>
+        logger.warn(s"Dropping message $routingKey from project-restorer exchange as I don't know how to handle it.")
         Future.failed(new RuntimeException(s"Routing key $routingKey dropped because I don't know how to handle it"))
     }
   }
