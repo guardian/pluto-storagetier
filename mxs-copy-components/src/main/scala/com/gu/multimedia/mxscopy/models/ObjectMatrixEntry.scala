@@ -18,7 +18,7 @@ case class ObjectMatrixEntry(oid:String, attributes:Option[MxsMetadata], fileAtt
     )
 
   /**
-   * pull filesystem metadata from the apliance
+   * pull filesystem metadata from the appliance
    * @param vault vault to query
    * @return
    */
