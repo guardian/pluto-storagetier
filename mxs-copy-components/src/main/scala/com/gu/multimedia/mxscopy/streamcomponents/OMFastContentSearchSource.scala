@@ -28,7 +28,7 @@ class OMFastContentSearchSource(vault:Vault, contentSearchString:String, keyword
       val mxsMeta = MxsMetadata(kvs,Map(),Map(),Map())
 
       logger.debug(s"got $mxsMeta")
-      ObjectMatrixEntry(parts.head,attributes = Some(mxsMeta), fileAttribues = None)
+      ObjectMatrixEntry(parts.head, attributes = Some(mxsMeta), fileAttribues = None)
     }
 
     var iterator: Option[Iterator[String]] = None
@@ -77,4 +77,3 @@ class OMFastContentSearchSource(vault:Vault, contentSearchString:String, keyword
 
   }
 }
-
