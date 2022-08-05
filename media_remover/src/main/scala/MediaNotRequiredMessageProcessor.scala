@@ -318,44 +318,31 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
   }
 
-  def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] = {
-    (msg.mediaTier, msg.itemId, msg.nearlineId) match {
-      case ("NEARLINE", _, Some(nearlineId)) =>
-        pendingDeletionRecordDAO
-          .findByNearlineId(nearlineId)
-          .map({
-            case Some(existingRecord)=>
-              existingRecord.copy(
-                attempt = existingRecord.attempt + 1
-              )
-            case None=>
-              PendingDeletionRecord(
-                None,
-                mediaTier = MediaTiers.NEARLINE,
-                originalFilePath = msg.filePath,
-                onlineId = msg.itemId,
-                nearlineId = Some(nearlineId),
-                attempt = 1)
-          })
-          .flatMap(rec=>{
+  def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] =
+    msg.filePath match {
+      case Some(filePath) =>
+        Try { MediaTiers.withName(msg.mediaTier) } match {
+          case Success(tier) =>
             pendingDeletionRecordDAO
-              .writeRecord(rec)
-              .map(recId => Right(recId))
-          }
-        )
-      case ("NEARLINE", _, _) =>
-        Future.failed(new RuntimeException("NEARLINE but no nearlineId"))
-
-      case ("ONLINE", Some(onlineId), _) =>
-        logger.warn(s"Not implemented yet - $onlineId ignored")
-        Future.failed(SilentDropMessage(Some(s"Not implemented yet - $onlineId ignored")))
-      case ("ONLINE", _, _) =>
-        Future.failed(new RuntimeException("ONLINE but no onlineId"))
-
-      case (_, _, _) =>
-        Future.failed(new RuntimeException("This should not happen!"))
+              .findBySourceFilenameAndMediaTier(filePath, tier)
+              .map({
+                case Some(existingRecord) => existingRecord.copy(attempt = existingRecord.attempt + 1)
+                case None =>
+                  PendingDeletionRecord(None, originalFilePath = filePath, objectId = msg.nearlineId, vidispineItemId = msg.itemId, mediaTier = tier, attempt = 1)
+              })
+              .flatMap(rec=>{
+                pendingDeletionRecordDAO
+                  .writeRecord(rec)
+                  .map(recId => Right(recId))
+              })
+          case Failure(ex) =>
+            logger.warn(s"Unexpected value for MediaTier: ${ex.getMessage}")
+            Future.failed(new RuntimeException(s"Cannot store PendingDeletion, unecpected value for mediaTier: '${msg.mediaTier}"))
+        }
+      case None =>
+        logger.warn(s"No filepath for ${msg.asJson}, no use storing a PendingDeletion; dropping message")
+        Future.failed(new RuntimeException("Cannot store PendingDeletion record for item without filepath"))
     }
-  }
 
   def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
   def ni_outputInternalArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Either[String, NearlineRecord] = ???
