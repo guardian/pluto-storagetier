@@ -1,6 +1,8 @@
 package com.gu.multimedia.storagetier.models.media_remover
 
 import com.gu.multimedia.storagetier.models.GenericDAO
+import com.gu.multimedia.storagetier.models.common.MediaTiers
+import com.gu.multimedia.storagetier.models.common.MediaTiersEnumMapper._
 import slick.jdbc.JdbcBackend.Database
 import slick.jdbc.PostgresProfile.api._
 import slick.jdbc.meta.MTable
@@ -83,14 +85,19 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
       ).transactionally
     )
 
+  def findBySourceFilenameAndMediaTier(filename:String, mediaTier: MediaTiers.Value): Future[Option[PendingDeletionRecord]] =
+    db.run(
+      TableQuery[PendingDeletionRecordRow].filter(row => row.originalFilePath===filename && row.mediaTier===mediaTier).result
+    ).map(_.headOption)
+
   def findByOnlineId(vsid: String): Future[Option[PendingDeletionRecord]] =
     db.run(
-      TableQuery[PendingDeletionRecordRow].filter(_.onlineId===vsid).result
+      TableQuery[PendingDeletionRecordRow].filter(_.vidispineItemId===vsid).result
     ).map(_.headOption)
 
   def findByNearlineId(oid: String): Future[Option[PendingDeletionRecord]] =
     db.run(
-      TableQuery[PendingDeletionRecordRow].filter(_.nearlineId===oid).result
+      TableQuery[PendingDeletionRecordRow].filter(_.objectId===oid).result
     ).map(_.headOption)
 
 }
