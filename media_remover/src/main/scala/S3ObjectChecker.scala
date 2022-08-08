@@ -13,8 +13,8 @@ class S3ObjectChecker(client: S3Client, var bucketName: String)(implicit ec:Exec
   private val logger = LoggerFactory.getLogger(getClass)
   import S3ObjectChecker._
 
-  def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeNearlineMd5: Option[String]): Try[Boolean] = {
-    logger.info(s"Checking for existing versions of s3://$bucketName/$objectKey with size $fileSize and nearline checksum $maybeNearlineMd5")
+  def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeLocalMd5: Option[String]): Try[Boolean] = {
+    logger.info(s"Checking for existing versions of s3://$bucketName/$objectKey with size $fileSize and nearline checksum $maybeLocalMd5")
     val req = ListObjectVersionsRequest.builder().bucket(bucketName).prefix(objectKey).build()
 
     Try { client.listObjectVersions(req) } match {
@@ -25,27 +25,28 @@ class S3ObjectChecker(client: S3Client, var bucketName: String)(implicit ec:Exec
         val matchesForSize = versions.filter(_.size()==fileSize)
 
         if(matchesForSize.isEmpty) {
-          logger.info(s"Found no entries for s3://$bucketName/$objectKey with size $fileSize, new copy must be required")
+          logger.info(s"Found no entries for s3://$bucketName/$objectKey with size $fileSize, do require new copy")
           Success(false)
         } else {
           /* If we have a nearline MD5, and
              we have ETags that are MD5s
              then, the nearline MD5 must match one of the ETags.
-             If not all ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match.
+             If not all ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match. // TODO which one is true?
+             If no ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match.      // TODO which one is true?
            */
-          maybeNearlineMd5 match {
-            case Some(nearlineMd5) =>
+          maybeLocalMd5 match {
+            case Some(localMd5) =>
               val matchesWithMd5 = matchesForSize.filter(m => eTagIsProbablyMd5(m.eTag))
               if (matchesWithMd5.isEmpty) {
                 Success(true)
               } else {
-                matchesWithMd5.count(_.eTag().equals(nearlineMd5)) match { // TODO Check if both checksums are encoded the same way (hex, yes?)
+                matchesWithMd5.count(_.eTag().equals(localMd5)) match { // TODO Check if both checksums are encoded the same way (hex, yes?)
                   case 0 => Success(false)
                   case _ => Success(true)
                 }
               }
             case None =>
-              logger.info(s"Found ${matchesForSize.length} existing entries for s3://$bucketName/$objectKey with size $fileSize, safe to delete from nearline")
+              logger.info(s"Found ${matchesForSize.length} existing entries for s3://$bucketName/$objectKey with size $fileSize, safe to delete locally")
               Success(true)
           }
         }

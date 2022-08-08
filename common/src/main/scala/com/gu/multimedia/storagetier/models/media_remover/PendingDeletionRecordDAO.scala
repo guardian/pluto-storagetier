@@ -85,6 +85,24 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
       ).transactionally
     )
 
+
+  /**
+   * sets the "number of times we've tried to delete this media" value for the given record, without touching anything else
+   *
+   * @param pk ID of the record to update
+   * @param newAttemptCount new value to set for the attempt
+   * @return a Future, containing the number of records updated
+   */
+  def updateIdAttemptCount(pk:Int, newAttemptCount:Int) = {
+    val q = for {
+      row <- TableQuery[PendingDeletionRecordRow] if row.id===pk
+    } yield row.attempt
+
+    db.run(
+      q.update(newAttemptCount)
+    )
+  }
+
   def findBySourceFilenameAndMediaTier(filename:String, mediaTier: MediaTiers.Value): Future[Option[PendingDeletionRecord]] =
     db.run(
       TableQuery[PendingDeletionRecordRow].filter(row => row.originalFilePath===filename && row.mediaTier===mediaTier).result
@@ -97,7 +115,7 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
 
   def findByNearlineId(oid: String): Future[Option[PendingDeletionRecord]] =
     db.run(
-      TableQuery[PendingDeletionRecordRow].filter(_.objectId===oid).result
+      TableQuery[PendingDeletionRecordRow].filter(_.nearlineId===oid).result
     ).map(_.headOption)
 
 }

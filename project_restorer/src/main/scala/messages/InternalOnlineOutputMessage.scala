@@ -13,8 +13,8 @@ case class InternalOnlineOutputMessage(mediaTier: String,
                                        projectIds: Seq[Int],
                                        filePath: Option[String],
                                        fileSize: Option[Long],
-                                       itemId: Option[String],
-                                       nearlineId: Option[String],
+                                       vidispineItemId: Option[String],
+                                       objectId: Option[String],
                                        mediaCategory: String)
 object InternalOnlineOutputMessage {
 

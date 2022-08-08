@@ -3,6 +3,7 @@ import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
@@ -72,15 +73,15 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [22],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
-          |"itemId": "VX-151922",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"vidispineItemId": "VX-151922",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.getChecksumForNearlineItem(mockVault, msgObj.nearlineId.get), 2.seconds)
+        Await.result(toTest.getChecksumForNearline(mockVault, msgObj.nearlineId.get), 2.seconds)
       }
 
       result must beAFailedTry
@@ -129,8 +130,8 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [22],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
-          |"itemId": "VX-151922",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"vidispineItemId": "VX-151922",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -300,7 +301,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"mediaTier": "NEARLINE",
           |"projectIds": [22],
           |"nearlineId": "1",
-          |"itemId": "VX-151922",
+          |"vidispineItemId": "VX-151922",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -339,9 +340,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [22],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"nearlineId": "1",
-          |"itemId": "VX-151922",
+          |"vidispineItemId": "VX-151922",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -379,9 +380,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [22],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"nearlineId": "1",
-          |"itemId": "VX-151922",
+          |"vidispineItemId": "VX-151922",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -439,9 +440,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [22],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151922",
+          |"vidispineItemId": "VX-151922",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
@@ -451,7 +452,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -498,9 +499,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [23],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151923",
+          |"vidispineItemId": "VX-151923",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
@@ -510,7 +511,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -555,9 +556,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [24],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151924",
+          |"vidispineItemId": "VX-151924",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -566,7 +567,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.originalFilePath.get, msgObj.vidispineItemId, msgObj.nearlineId)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
@@ -574,13 +575,13 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"24-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151924")
+      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151924")
     }
 
 
@@ -621,9 +622,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [26],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151926",
+          |"vidispineItemId": "VX-151926",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -632,7 +633,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msgNotDeliverables.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.originalFilePath.get, msgObj.vidispineItemId, msgObj.nearlineId)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
@@ -640,13 +641,13 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"26-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151926")
+      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151926")
     }
 
 
@@ -688,9 +689,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [27],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151927",
+          |"vidispineItemId": "VX-151927",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -698,7 +699,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msg = io.circe.parser.parse(msgContentNotDeliverables)
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -738,9 +739,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [28],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151928",
+          |"vidispineItemId": "VX-151928",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -749,7 +750,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.originalFilePath.get, msgObj.vidispineItemId, msgObj.nearlineId)
 
       val mockVault = mock[Vault]
       val mockInternalVault = mock[Vault]
@@ -757,22 +758,22 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
-        override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
+        override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
+        override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage)= ???
       }
 
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"28-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151928")
+      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151928")
     }
 
 
@@ -807,9 +808,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [29],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151929",
+          |"vidispineItemId": "VX-151929",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -818,7 +819,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.originalFilePath.get, msgObj.vidispineItemId, msgObj.nearlineId)
 
       val fakeNearlineRecord = NearlineRecord.apply("aNearlineId-29", "a/path/29", "aCorrId-29")
 
@@ -828,15 +829,15 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
-        override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
+        override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage) = Right(fakeNearlineRecord)
+        override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeNearlineRecord.asJson))
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beSuccessfulTry
@@ -876,9 +877,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [30],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151930",
+          |"vidispineItemId": "VX-151930",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -894,7 +895,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       result must beAFailedTry
@@ -934,9 +935,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         """{
           |"mediaTier": "NEARLINE",
           |"projectIds": [31],
-          |"filePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
-          |"itemId": "VX-151931",
+          |"vidispineItemId": "VX-151931",
           |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
@@ -945,7 +946,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.filePath, msgObj.itemId, msgObj.nearlineId)
+      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.originalFilePath.get, msgObj.vidispineItemId, msgObj.nearlineId)
 
       val mockVault = mock[Vault]
       val mockInternalVault = mock[Vault]
@@ -953,22 +954,22 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockVault.getObject(any) returns mockObject
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
-        override def existsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
+        override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def deleteFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def ni_outputDeepArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage)= ???
-        override def existsInInternalArchive(mockVault:Vault, mockInternalVault:Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
+        override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage)= ???
+        override def nearlineExistsInInternalArchive(mockVault:Vault, mockInternalVault:Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
       }
 
       val result = Try {
-        Await.result(toTest.handleNearline(mockVault, mockInternalVault, msgObj), 2.seconds)
+        Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
       println(s"31-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.itemId must beSome("VX-151931")
+      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151931")
     }
 
 
