@@ -32,9 +32,9 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
     Await.ready(
       db.run(
         DBIO.seq(
-          TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-id").delete,
-          TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-nonexistent-id").delete,
-          TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-id-to_delete").delete,
+          TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-id").delete,
+          TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-nonexistent-id").delete,
+          TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-id-to_delete").delete,
           TableQuery[PendingDeletionRecordRow].filter(_.vidispineItemId==="online-test-id").delete,
           TableQuery[PendingDeletionRecordRow].filter(_.vidispineItemId==="online-test-nonexistent-id").delete,
           TableQuery[PendingDeletionRecordRow].filter(_.vidispineItemId==="online-test-id-to_delete").delete,
@@ -58,7 +58,7 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
       updatedRec mustEqual checkRecords.head
 
       //make sure we have one record in the table
-      val recordCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-id").length.result), 2.seconds)
+      val recordCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-id").length.result), 2.seconds)
       recordCount mustEqual 1
 
       //write an update
@@ -66,7 +66,7 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
       updateResult mustEqual result
 
       //make sure we still have one record in the table
-      val updatedRecordCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-id").length.result), 2.seconds)
+      val updatedRecordCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-id").length.result), 2.seconds)
       updatedRecordCount mustEqual 1
     }
 
@@ -86,14 +86,14 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
       val insertedId = Await.result(db.run(TableQuery[PendingDeletionRecordRow] returning TableQuery[PendingDeletionRecordRow].map(_.id) += rec), 2.seconds)
       val updatedRec = rec.copy(id=Some(insertedId))
 
-      val beforeDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-id-to-delete").length.result),
+      val beforeDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-id-to-delete").length.result),
         2.seconds)
       beforeDeleteCount mustEqual 1
 
       val result = Await.result(dao.deleteRecord(updatedRec), 2.seconds)
       result mustEqual 1  //1 record deleted
 
-      val afterDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.objectId==="nearline-test-id-to-delete").length.result),
+      val afterDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.nearlineId==="nearline-test-id-to-delete").length.result),
         2.seconds)
       afterDeleteCount mustEqual 0
     }
@@ -105,14 +105,14 @@ class PendingDeletionRecordDAOSpec extends Specification with BeforeAll with Aft
 
       val insertedId = Await.result(db.run(TableQuery[PendingDeletionRecordRow] returning TableQuery[PendingDeletionRecordRow].map(_.id) += rec), 2.seconds)
 
-      val beforeDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.objectId === "nearline-test-id-to-delete").length.result),
+      val beforeDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.nearlineId === "nearline-test-id-to-delete").length.result),
         2.seconds)
       beforeDeleteCount mustEqual 1
 
       val result = Await.result(dao.deleteById(insertedId), 2.seconds)
       result mustEqual 1 //1 record deleted
 
-      val afterDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.objectId === "nearline-test-id-to-delete").length.result),
+      val afterDeleteCount = Await.result(db.run(TableQuery[PendingDeletionRecordRow].filter(_.nearlineId === "nearline-test-id-to-delete").length.result),
         2.seconds)
       afterDeleteCount mustEqual 0
     }

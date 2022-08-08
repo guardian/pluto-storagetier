@@ -1,6 +1,6 @@
 package messages
 
-case class MediaRemovedMessage (mediaTier: String,
-                               filePath: Option[String],
-                               itemId: Option[String],
+case class MediaRemovedMessage(mediaTier: String,
+                               originalFilePath: String,
+                               vidispineItemId: Option[String],
                                nearlineId: Option[String])
