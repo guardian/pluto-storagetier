@@ -448,19 +448,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, objectKey, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     val maybeChecksumFut = getChecksumForNearline(vault, nearlineId)
-    maybeChecksumFut.map(maybeChecksum =>
-      s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, maybeChecksum) match {
-        case Success(true) =>
-          logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
-          true
-        case Success(false) =>
-          logger.info(s"No file $objectKey with matching size $fileSize found, do not delete")
-          false
-        case Failure(err) =>
-          logger.warn(s"Could not connect to deep archive to check if media exists, do not delete. Err: $err")
-          false
-      }
-    )
+    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId))
   }
 
 
