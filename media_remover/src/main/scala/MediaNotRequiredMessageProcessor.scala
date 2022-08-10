@@ -204,11 +204,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a NearlineRecord: $err"))
           case Right(nearlineRecord) =>
-            // TODO bruh, duplicate and send to ourselves instead
+            // TODO somehow handle the fact that we need to check both NEARLINE and ONLINE pending deletion records
+            // TODO alt 1: duplicate and send to ourselves; add/split into an OwnMessageProcessor
+            // TODO alt 2: have two projects, one 'online_media_remover', one 'nearline_media_remover'
+            // TODO alt 3: tbd
             ???
-          //            matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
-          //              handleArchiveRecordForNearline(vault, archivedRecord)
-          //            }
         }
 
       case "storagetier.nearline.internalarchive.success.nearline" =>
@@ -253,11 +253,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a ArchivedRecord: $err"))
           case Right(archivedRecord) =>
-            // FIXME nah brah, duplicate and send to ourselves instead
+            // TODO somehow handle the fact that we need to check both NEARLINE and ONLINE pending deletion records
+            // TODO alt 1: duplicate and send to ourselves; add/split into an OwnMessageProcessor
+            // TODO alt 2: have two projects, one 'online_media_remover', one 'nearline_media_remover'
+            // TODO alt 3: tbd
             ???
-//            matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
-//              handleArchiveRecordForNearline(vault, archivedRecord)
-//            }
         }
 
       case key if key == "storagetier.onlinearchive.mediaingest.nearline" || key == "storagetier.onlinearchive.replayed.nearline" =>
@@ -282,9 +282,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.warn(s"Dropping message $routingKey from project-restorer exchange as I don't know how to handle it.")
         Future.failed(new RuntimeException(s"Routing key $routingKey dropped because I don't know how to handle it"))
     }
-
-
-
 
   //------------------------------------------------------------------
 
