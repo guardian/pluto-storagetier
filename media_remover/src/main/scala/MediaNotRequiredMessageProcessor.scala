@@ -40,7 +40,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   protected def newCorrelationId: String = UUID.randomUUID().toString
 
-
   def getOnlineSize(pendingDeletionRecord: PendingDeletionRecord, incomingItemId: Option[String]): Future[Option[Long]] =
     ((pendingDeletionRecord.vidispineItemId, incomingItemId) match {
       case (Some(itemIdFromPendingDeletionRecord), _) => getVidispineSize(itemIdFromPendingDeletionRecord)
@@ -147,21 +146,29 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def handleDeepArchiveCompleteOrReplayedForNearline(vault: Vault, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
     pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(archivedRecord.originalFilePath, MediaTiers.NEARLINE).flatMap({
       case Some(pendingDeletionRecord) =>
-        getOnlineSize(pendingDeletionRecord, archivedRecord.vidispineItemId).flatMap(sizeMaybe => {
-          val (fileSize, objectKey, nearlineId) =
-            validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId)
-          getChecksumForNearline(vault, nearlineId).flatMap(checksumMaybe => {
-            mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId).flatMap({
-              case true =>
-                removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
-                deleteMediaFromNearline(vault, pendingDeletionRecord)
-              case false =>
-                callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
-                NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
+        pendingDeletionRecord.nearlineId match {
+          case Some(nearlineId) =>
+            val nearlineFileSizeFut = Future.fromTry(Try { vault.getObject(nearlineId) }.map(MetadataHelper.getFileSize)) // We fetch the current size, because we don't know how old the message is
+            nearlineFileSizeFut.flatMap(nearlineFileSize => {
+              val (fileSize, objectKey, nearlineId) =
+                validateNeededFields(Some(nearlineFileSize), Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId)
+              getChecksumForNearline(vault, nearlineId).flatMap(checksumMaybe => {
+                mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId).flatMap({
+                  case true =>
+                    removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
+                    deleteMediaFromNearline(vault, pendingDeletionRecord)
+                  case false =>
+                    callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                    NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
+                })
+              })
             })
-          })
-        })
+          case None =>
+            logger.warn(s"Could not get nearline filesize from application for media ${archivedRecord.originalFilePath}")
+            Future(Left(s"Could not get nearline filesize from application for media ${archivedRecord.originalFilePath}"))
+        }
       case None =>
+        logger.debug(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}")
         throw SilentDropMessage(Some(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}"))
     })
 
