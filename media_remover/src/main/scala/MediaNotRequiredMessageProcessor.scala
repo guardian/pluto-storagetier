@@ -127,7 +127,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         getOnlineSize(pendingDeletionRecord, archivedRecord.vidispineItemId).flatMap(sizeMaybe => {
           val (fileSize, objectKey, vsItemId) =
             validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.vidispineItemId)
-          val checksumMaybeFut = Future(None)// NOT_IMPL_getChecksumForOnline(vsItemId)
+          val checksumMaybeFut = NOT_IMPL_getChecksumForOnline(vsItemId)
           checksumMaybeFut.flatMap(checksumMaybe => {
             mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, vsItemId).flatMap({
               case true =>
@@ -208,7 +208,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             // TODO alt 1: duplicate and send to ourselves; add/split into an OwnMessageProcessor
             // TODO alt 2: have two projects, one 'online_media_remover', one 'nearline_media_remover'
             // TODO alt 3: tbd
-            ???
+            Future.failed(new RuntimeException(s"Reacting to routingKey 'storagetier.nearline.internalarchive.success' not fully implemented yet"))
         }
 
       case "storagetier.nearline.internalarchive.success.nearline" =>
@@ -257,7 +257,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             // TODO alt 1: duplicate and send to ourselves; add/split into an OwnMessageProcessor
             // TODO alt 2: have two projects, one 'online_media_remover', one 'nearline_media_remover'
             // TODO alt 3: tbd
-            ???
+            Future.failed(new RuntimeException(s"Reacting to routingKey '$key' not fully implemented yet"))
         }
 
       case key if key == "storagetier.onlinearchive.mediaingest.nearline" || key == "storagetier.onlinearchive.replayed.nearline" =>
