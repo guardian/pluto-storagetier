@@ -561,7 +561,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def deleteFromNearline(vault: Vault, msg: OnlineOutputMessage): Future[Either[String, MediaRemovedMessage]] = {
+  def deleteMediaFromNearline(vault: Vault, msg: OnlineOutputMessage): Future[Either[String, MediaRemovedMessage]] = {
     (msg.mediaTier, msg.originalFilePath, msg.nearlineId) match {
       case ("NEARLINE", Some(filepath), Some(nearlineId)) =>
         dealWithAttFiles(vault, nearlineId, msg)
@@ -675,7 +675,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   private def performActionNearline(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = {
 
     def deleteFromNearlineWrapper(project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-      deleteFromNearline(vault, onlineOutputMessage).map({
+      deleteMediaFromNearline(vault, onlineOutputMessage).map({
         case Left(err) => Left(err)
         case Right(mediaRemovedMessage) =>
           logger.debug(s"--> deleting nearline media ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
