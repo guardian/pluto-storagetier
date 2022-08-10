@@ -23,7 +23,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
 
-class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Specification with Mockito {
+class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Specification with Mockito {
   val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", Some("internal-archive-vault"))
   val vsConfig = VidispineConfig("https://test-case","test","test")
 
