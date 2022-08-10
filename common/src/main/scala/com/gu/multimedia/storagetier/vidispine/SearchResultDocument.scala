@@ -38,17 +38,17 @@ case class SearchResultItemContentSimplified(
     shape: Seq[ShapeDocument]
 )
 
-case class VSOnlineOutputMessage(
-                                  mediaTier: String,
-                                  projectIds: Seq[Int],
-                                  filePath: Option[String],
-                                  fileSize: Option[Long],
-                                  itemId: Option[String],
-                                  nearlineId: Option[String],
-                                  mediaCategory: String
+case class VSOnlineOutputMessage(mediaTier: String,
+                                 projectIds: Seq[Int],
+                                 filePath: Option[String],
+                                 fileSize: Option[Long],
+                                 itemId: Option[String],
+                                 nearlineId: Option[String],
+                                 mediaCategory: String
 )
 object VSOnlineOutputMessage {
   private val logger = LoggerFactory.getLogger(getClass)
+
   def fromResponseItem(
       itemSimplified: SearchResultItemSimplified,
       projectId: Int
@@ -66,22 +66,21 @@ object VSOnlineOutputMessage {
       .valuesForField("gnm_category", Some("Asset"))
       .headOption
       .map(_.value)
-    (nearlineId, mediaCategory) match {
-      //FIXME Why would online care if there's a nearline id?? In that case we would just request a nearline copy - I _think_ nearlineId should be Option[String], no?
-      case (Some(nearlineId), Some(mediaCategory)) =>
+    (itemId, mediaCategory) match {
+      case (Some(itemId), Some(mediaCategory)) =>
         Some(
           VSOnlineOutputMessage(
             mediaTier,
             Seq(projectId),
             filePath,
             fileSize,
-            itemId,
-            Some(nearlineId),
+            Some(itemId),
+            nearlineId,
             mediaCategory
           )
         )
       case _ =>
-        logger.warn(s"VS response for $itemId missing nearlineId ($nearlineId) and/or mediaCategory ($mediaCategory)")
+        logger.warn(s"VS response missing itemId ($itemId) and/or mediaCategory ($mediaCategory)")
         None
     }
   }
