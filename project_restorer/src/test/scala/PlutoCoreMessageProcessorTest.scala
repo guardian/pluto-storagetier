@@ -54,7 +54,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
   val mockObject = mock[MxsObject]
   mockVault.getObject(any) returns mockObject
 
-  "OwnMessageProcessor" should {
+  "PlutoCoreMessageProcessor" should {
 
     implicit val mockActorSystem = mock[ActorSystem]
     val vault = mock[Vault]
@@ -75,8 +75,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       result.failed.get.getMessage mustEqual "Not meant to receive this"
     }
 
-
-    "return message with correct amount of associated files" in {
+    "drop message in handleUpdateMessage if status is In Production" in {
       val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
       val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
@@ -85,9 +84,75 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
 
-      val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
+      val updateMessage = ProjectUpdateMessage(
+        status = EntryStatus.InProduction.toString,
+        id = 233,
+        projectTypeId = 2,
+        title = "abcdefg",
+        created = None,
+        updated = None,
+        user = "le user",
+        workingGroupId = 100,
+        commissionId = 200,
+        deletable = true,
+        deep_archive = false,
+        sensitive = false,
+        productionOffice = "LDN")
 
-      val result = Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds)
+      val result = Try {
+        Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)
+      }
+
+      result must beAFailedTry
+      result.failed.get.getMessage mustEqual "Incoming project update message has a status we don't care about (In Production), dropping it."
+    }
+
+    "drop message in handleUpdateMessage if status is New" in {
+//      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+//      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+//       {
+//        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+//        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
+//      }
+
+      val updateMessage = ProjectUpdateMessage(
+        status = EntryStatus.New.toString,
+        id = 233,
+        projectTypeId = 2,
+        title = "abcdefg",
+        created = None,
+        updated = None,
+        user = "le user",
+        workingGroupId = 100,
+        commissionId = 200,
+        deletable = true,
+        deep_archive = false,
+        sensitive = false,
+        productionOffice = "LDN")
+
+      val result = Try {
+        Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)
+      }
+
+      result must beAFailedTry
+      result.failed.get.getMessage mustEqual "Incoming project update message has a status we don't care about (New), dropping it."
+    }
+
+
+    "return message with correct amount of associated files if status is Completed" in {
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
+      }
+
+      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Completed.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
+
+      val result = Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)
 
       result must beRight
       val resData = result.map(_.content).getOrElse("".asJson).as[RestorerSummaryMessage]
@@ -96,6 +161,54 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       summaryMessage.projectId mustEqual 233
       summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
       summaryMessage.projectState mustEqual "Completed"
+      summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
+      summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
+    }
+
+    "return message with correct amount of associated files if status is Held" in {
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
+      }
+
+      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Held.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
+
+      val result = Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)
+
+      result must beRight
+      val resData = result.map(_.content).getOrElse("".asJson).as[RestorerSummaryMessage]
+      resData must beRight
+      val summaryMessage = resData.right.get
+      summaryMessage.projectId mustEqual 233
+      summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
+      summaryMessage.projectState mustEqual "Held"
+      summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
+      summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
+    }
+
+    "return message with correct amount of associated files if status is Killed" in {
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
+      }
+
+      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Killed.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
+
+      val result = Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)
+
+      result must beRight
+      val resData = result.map(_.content).getOrElse("".asJson).as[RestorerSummaryMessage]
+      resData must beRight
+      val summaryMessage = resData.right.get
+      summaryMessage.projectId mustEqual 233
+      summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
+      summaryMessage.projectState mustEqual "Killed"
       summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
       summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
     }
@@ -111,7 +224,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       }
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
-      val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 3.seconds)}
+      val result = Try { Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 3.seconds)}
       result must beFailedTry
       result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 2, onlineResults = 10001"
     }
@@ -128,7 +241,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
 
-      val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds)}
+      val result = Try { Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)}
 
       result must beFailedTry
       result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 10001, onlineResults = 2"
@@ -146,7 +259,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
 
-      val result = Try { Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds)}
+      val result = Try { Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)}
 
       result must beFailedTry
       result.failed.get.getMessage mustEqual "Too many files attached to project 233, nearlineResults = 10001, onlineResults = 10002"
@@ -163,7 +276,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
       val updateMessage = ProjectUpdateMessage(id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, status = EntryStatus.Completed.toString, productionOffice = "LDN")
 
-      val result =  Await.result(toTest.handleStatusMessage(updateMessage, "routing.key", framework), 2.seconds) 
+      val result =  Await.result(toTest.handleUpdateMessage(updateMessage, "routing.key", framework), 2.seconds)
 
       result must beLeft
       result.left.get mustEqual "No vault for you!"
