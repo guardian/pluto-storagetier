@@ -502,51 +502,29 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
 
-  def deleteSingleAttMedia(vault: Vault, objectMatrixEntry: ObjectMatrixEntry, attributeKey: String, msg: OnlineOutputMessage): Future[Either[String, Boolean]] = {
-    deleteSingleAttMedia(vault, objectMatrixEntry, attributeKey, msg.nearlineId, msg.originalFilePath)
-  }
-
-  def deleteSingleAttMedia(vault: Vault, objectMatrixEntry: ObjectMatrixEntry, attributeKey: String, pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, Boolean]] = {
-    deleteSingleAttMedia(vault, objectMatrixEntry, attributeKey, pendingDeletionRecord.nearlineId, Some(pendingDeletionRecord.originalFilePath))
-  }
-
-  def deleteSingleAttMedia(vault: Vault, objectMatrixEntry: ObjectMatrixEntry, attributeKey: String, nearlineIdForLogMaybe: Option[String], filePathForLogMaybe: Option[String]): Future[Either[String, Boolean]] =
+  def deleteSingleAttMedia(vault: Vault, objectMatrixEntry: ObjectMatrixEntry, attributeKey: String, nearlineIdForLog: String, filePathForLog: String): Future[Either[String, Boolean]] =
     objectMatrixEntry.stringAttribute(attributeKey) match {
       case None =>
-        logger.info(s"No $attributeKey to remove for main nearline media oid=$nearlineIdForLogMaybe, path=$filePathForLogMaybe")
+        logger.info(s"No $attributeKey to remove for main nearline media oid=$nearlineIdForLog, path=$filePathForLog")
         Future(Right(false))
       case Some(attOid) =>
         Try { vault.getObject(attOid).delete() } match {
           case Success(_) =>
-            logger.info(s"$attributeKey with oid $attOid removed for main nearline media oid=$nearlineIdForLogMaybe, path=$filePathForLogMaybe")
+            logger.info(s"$attributeKey with oid $attOid removed for main nearline media oid=$nearlineIdForLog, path=$filePathForLog")
             Future(Right(true))
           case Failure(exception) =>
-            logger.warn(s"Failed to remove nearline media oid=$nearlineIdForLogMaybe, path=$filePathForLogMaybe, reason: ${exception.getMessage}")
-            Future(Left(s"Failed to remove $attributeKey with oid=$attOid for main nearline media oid=$nearlineIdForLogMaybe, path=$filePathForLogMaybe, reason: ${exception.getMessage}"))
+            logger.warn(s"Failed to remove nearline media oid=$nearlineIdForLog, path=$filePathForLog, reason: ${exception.getMessage}")
+            Future(Left(s"Failed to remove $attributeKey with oid=$attOid for main nearline media oid=$nearlineIdForLog, path=$filePathForLog, reason: ${exception.getMessage}"))
         }
     }
 
 
-  def dealWithAttFiles(vault: Vault, nearlineId: String, msg: OnlineOutputMessage): Future[Either[String, String]] = {
+  def dealWithAttFiles(vault: Vault, nearlineId: String, originalFilePath: String): Future[Either[String, String]] = {
     val combinedRes = for {
       objectMatrixEntry <- callObjectMatrixEntryFromOID(vault, nearlineId)
-      proxyRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_PROXY_OID", msg)
-      thumbRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_THUMB_OID", msg)
-      metaRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_META_OID", msg)
-    } yield (proxyRes, thumbRes, metaRes)
-
-    combinedRes.map {
-      case (Right(_), Right(_), Right(_)) => Right("Smooth sailing, ATT files removed")
-      case (_, _, _) => Left("One or more ATT files could not be removed. Please look at logs for more info")
-    }
-  }
-
-  def dealWithAttFiles(vault: Vault, nearlineId: String, pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, String]] = {
-    val combinedRes = for {
-      objectMatrixEntry <- callObjectMatrixEntryFromOID(vault, nearlineId)
-      proxyRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_PROXY_OID", pendingDeletionRecord)
-      thumbRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_THUMB_OID", pendingDeletionRecord)
-      metaRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_META_OID", pendingDeletionRecord)
+      proxyRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_PROXY_OID", nearlineId, originalFilePath)
+      thumbRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_THUMB_OID", nearlineId, originalFilePath)
+      metaRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_META_OID", nearlineId, originalFilePath)
     } yield (proxyRes, thumbRes, metaRes)
 
     combinedRes.map {
@@ -559,7 +537,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def deleteMediaFromNearline(vault: Vault, msg: OnlineOutputMessage): Future[Either[String, MediaRemovedMessage]] = {
     (msg.mediaTier, msg.originalFilePath, msg.nearlineId) match {
       case ("NEARLINE", Some(filepath), Some(nearlineId)) =>
-        dealWithAttFiles(vault, nearlineId, msg)
+        dealWithAttFiles(vault, nearlineId, filepath)
         // TODO do we need to wrap this with a Future.fromTry?
         Try { vault.getObject(nearlineId).delete() } match {
           case Success(_) =>
@@ -577,7 +555,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def deleteMediaFromNearline(vault: Vault, rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = {
     (rec.mediaTier, rec.nearlineId) match {
       case (MediaTiers.NEARLINE, Some(nearlineId)) =>
-        dealWithAttFiles(vault, nearlineId, rec)
+        dealWithAttFiles(vault, nearlineId, rec.originalFilePath)
         // TODO do we need to wrap this with a Future.fromTry?
         Try { vault.getObject(nearlineId).delete() } match {
           case Success(_) =>
