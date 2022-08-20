@@ -93,7 +93,7 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
    * @param newAttemptCount new value to set for the attempt
    * @return a Future, containing the number of records updated
    */
-  def updateIdAttemptCount(pk:Int, newAttemptCount:Int) = {
+  def updateAttemptCount(pk:Int, newAttemptCount:Int) = {
     val q = for {
       row <- TableQuery[PendingDeletionRecordRow] if row.id===pk
     } yield row.attempt

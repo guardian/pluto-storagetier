@@ -87,7 +87,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                       })
 
                   case false =>
-                    pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                    pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                     NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
                 })
             })
@@ -116,7 +116,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                             Right(mediaRemovedMsg)
                         })
                     case false =>
-                      pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                      pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                       NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
                   })
                 case None =>
@@ -149,7 +149,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                       Right(mediaRemovedMsg)
                   })
               case false =>
-                pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                 NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
             })
           })
@@ -179,7 +179,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                           Right(mediaRemovedMsg)
                       })
                   case false =>
-                    pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                    pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                     NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
                 })
               })
