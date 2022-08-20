@@ -87,7 +87,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                       })
 
                   case false =>
-                    callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                    pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                     NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
                 })
             })
@@ -116,7 +116,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                             Right(mediaRemovedMsg)
                         })
                     case false =>
-                      callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                      pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                       NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
                   })
                 case None =>
@@ -149,7 +149,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                       Right(mediaRemovedMsg)
                   })
               case false =>
-                callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                 NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
             })
           })
@@ -179,7 +179,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                           Right(mediaRemovedMsg)
                       })
                   case false =>
-                    callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                    pendingDeletionRecordDAO.updateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                     NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
                 })
               })
@@ -192,11 +192,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.debug(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}")
         throw SilentDropMessage(Some(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}"))
     })
-
-
-  def callUpdateIdAttemptCount(pk: Int, newAttemptCount: Int): Future[Int] = {
-    pendingDeletionRecordDAO.updateIdAttemptCount(pk, newAttemptCount)
-  }
 
 
   override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
