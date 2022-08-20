@@ -78,8 +78,14 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             nearlineFileSize.flatMap(fileSize => {
                 nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, pendingDeletionRecord.originalFilePath, fileSize).flatMap({
                   case true =>
-                    removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
                     deleteMediaFromNearline(vault, pendingDeletionRecord)
+                      .map({
+                        case Left(err) => Left(err)
+                        case Right(mediaRemovedMsg) =>
+                          removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
+                          Right(mediaRemovedMsg)
+                      })
+
                   case false =>
                     callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                     NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
@@ -102,8 +108,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                 case Some(onlineSize) =>
                   onlineExistsInInternalArchive(internalArchiveVault, vsItemId, pendingDeletionRecord.originalFilePath, onlineSize).flatMap({
                     case true =>
-                      removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
                       NOT_IMPL_deleteMediaFromOnline(pendingDeletionRecord)
+                        .map({
+                          case Left(err) => Left(err)
+                          case Right(mediaRemovedMsg) =>
+                            removeDeletionPending(pendingDeletionRecord)
+                            Right(mediaRemovedMsg)
+                        })
                     case false =>
                       callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                       NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
@@ -130,8 +141,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           checksumMaybeFut.flatMap(checksumMaybe => {
             mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, vsItemId).flatMap({
               case true =>
-                removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
                 NOT_IMPL_deleteMediaFromOnline(pendingDeletionRecord)
+                  .map({
+                    case Left(err) => Left(err)
+                    case Right(mediaRemovedMsg) =>
+                      removeDeletionPending(pendingDeletionRecord)
+                      Right(mediaRemovedMsg)
+                  })
               case false =>
                 callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                 NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
@@ -155,8 +171,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               getChecksumForNearline(vault, nearlineId).flatMap(checksumMaybe => {
                 mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId).flatMap({
                   case true =>
-                    removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
                     deleteMediaFromNearline(vault, pendingDeletionRecord)
+                      .map({
+                        case Left(err) => Left(err)
+                        case Right(mediaRemovedMsg) =>
+                          removeDeletionPending(pendingDeletionRecord)
+                          Right(mediaRemovedMsg)
+                      })
                   case false =>
                     callUpdateIdAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                     NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
@@ -676,8 +697,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case (Action.CheckDeepArchiveForNearline, Some(project)) =>
         nearlineMediaExistsInDeepArchive(vault, onlineOutputMessage).flatMap({
           case true =>
-            removeDeletionPendingByMessage(onlineOutputMessage)
             deleteFromNearlineWrapper(project)
+              .map({
+                case Left(err) => Left(err)
+                case Right(mediaRemovedMsg) =>
+                  removeDeletionPendingByMessage(onlineOutputMessage)
+                  Right(mediaRemovedMsg)
+              })
           case false =>
             storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
             NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage)
@@ -687,8 +713,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         nearlineExistsInInternalArchive(vault, internalArchiveVault, onlineOutputMessage).flatMap({
           case true =>
             // nearline media EXISTS in INTERNAL ARCHIVE
-            removeDeletionPendingByMessage(onlineOutputMessage)
             deleteFromNearlineWrapper(project)
+              .map({
+                case Left(err) => Left(err)
+                case Right(mediaRemovedMsg) =>
+                  removeDeletionPendingByMessage(onlineOutputMessage)
+                  Right(mediaRemovedMsg)
+              })
           case false =>
             // nearline media does NOT EXIST in INTERNAL ARCHIVE
             storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
@@ -696,8 +727,14 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         })
 
       case (Action.ClearAndDelete, Some(project)) =>
-        removeDeletionPendingByMessage(onlineOutputMessage)
         deleteFromNearlineWrapper(project)
+          .map({
+            case Left(err) => Left(err)
+            case Right(mediaRemovedMsg) =>
+              removeDeletionPendingByMessage(onlineOutputMessage)
+              Right(mediaRemovedMsg)
+          })
+
 
       case (Action.JustNo, Some(project)) =>
         logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
