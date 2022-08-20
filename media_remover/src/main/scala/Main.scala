@@ -24,10 +24,12 @@ object Main {
     )
   )
   private val OUTPUT_EXCHANGE_NAME = "storagetier-media-remover"
+  private lazy val db = DatabaseProvider.get()
+
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
-  private lazy val db = DatabaseProvider.get()
-  private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider =  ConnectionFactoryProviderReal
+  private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider = ConnectionFactoryProviderReal
+
   private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
     case Left(err)=>
       logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
