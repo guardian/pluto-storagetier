@@ -31,8 +31,7 @@ class S3ObjectChecker(client: S3Client, var bucketName: String)(implicit ec:Exec
           /* If we have a nearline MD5, and
              we have ETags that are MD5s
              then, the nearline MD5 must match one of the ETags.
-             If not all ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match. // TODO which one is true?
-             If no ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match.      // TODO which one is true?
+             If no ETags are simple MD5s, we skip this check and are satisfied by the fact that the objectKey and size match.
            */
           maybeLocalMd5 match {
             case Some(localMd5) =>
@@ -80,15 +79,15 @@ object S3ObjectChecker {
 
   private def wrapJavaMethod[A](blk: ()=>A) = Try { blk() }.toEither.left.map(_.getMessage)
 
-  def createFromEnvVars(varName:String)(implicit ec:ExecutionContext):Either[String, S3ObjectChecker] =
-    sys.env.get(varName) match {
+  def createFromEnvVars(bucketNameVar:String)(implicit ec:ExecutionContext):Either[String, S3ObjectChecker] =
+    sys.env.get(bucketNameVar) match {
       case Some(mediaBucket) =>
         for {
           s3Client <- initS3Client
           result <- Right(new S3ObjectChecker(s3Client, mediaBucket))
         } yield result
       case None =>
-        Left(s"You must specify $varName so we know where uploads are!")
+        Left(s"You must specify $bucketNameVar so we know where uploads are!")
     }
 
   def eTagIsProbablyMd5(m: String): Boolean = {
