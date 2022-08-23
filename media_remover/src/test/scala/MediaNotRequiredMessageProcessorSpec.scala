@@ -140,7 +140,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
       val result = Try {
-        Await.result(toTest.deleteMediaFromNearline(mockVault, msgObj), 2.seconds)
+        Await.result(toTest.deleteMediaFromNearline(mockVault, msgObj.mediaTier, msgObj.originalFilePath, msgObj.nearlineId, msgObj.vidispineItemId), 2.seconds)
       }
 
       result must beAFailedTry
@@ -571,7 +571,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def deleteMediaFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
+        override def deleteMediaFromNearline(mockVault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]) = Future(Right(fakeMediaRemovedMessage.asJson))
       }
 
       val result = Try {
@@ -579,9 +579,10 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       }
 
       println(s"24-result: $result")
+
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151924")
+      result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151924")
     }
 
 
@@ -637,7 +638,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def deleteMediaFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
+        override def deleteMediaFromNearline(mockVault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]) = Future(Right(fakeMediaRemovedMessage.asJson))
       }
 
       val result = Try {
@@ -647,7 +648,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       println(s"26-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151926")
+      result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151926")
     }
 
 
@@ -760,7 +761,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def deleteMediaFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
+        override def deleteMediaFromNearline(mockVault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]) = Future(Right(fakeMediaRemovedMessage.asJson))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage)= ???
       }
@@ -773,7 +774,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       println(s"28-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151928")
+      result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151928")
     }
 
 
@@ -831,7 +832,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def deleteMediaFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = ??? //Right(fakeMediaRemovedMessage)
+        override def deleteMediaFromNearline(mockVault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]) = ??? //Right(fakeMediaRemovedMessage)
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeNearlineRecord.asJson))
       }
@@ -956,7 +957,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(false)
         override def removeDeletionPendingByMessage(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
-        override def deleteMediaFromNearline(mockVault: Vault, onlineOutputMessage: OnlineOutputMessage) = Future(Right(fakeMediaRemovedMessage))
+        override def deleteMediaFromNearline(mockVault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]) = Future(Right(fakeMediaRemovedMessage.asJson))
         override def storeDeletionPending(onlineOutputMessage: OnlineOutputMessage) = Future(Right(1))
         override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage)= ???
         override def nearlineExistsInInternalArchive(mockVault:Vault, mockInternalVault:Vault, onlineOutputMessage: OnlineOutputMessage) = Future(true)
@@ -969,7 +970,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       println(s"31-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      result.get.right.get.content.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151931")
+      result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151931")
     }
 
 
