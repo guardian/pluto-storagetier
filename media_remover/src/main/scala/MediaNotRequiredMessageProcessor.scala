@@ -78,12 +78,12 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             nearlineFileSize.flatMap(fileSize => {
                 nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, pendingDeletionRecord.originalFilePath, fileSize).flatMap({
                   case true =>
-                    deleteMediaFromNearline(vault, pendingDeletionRecord)
+                    deleteMediaFromNearline(vault, pendingDeletionRecord.mediaTier.toString, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId, pendingDeletionRecord.vidispineItemId)
                       .map({
                         case Left(err) => Left(err)
                         case Right(mediaRemovedMsg) =>
                           removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
-                          Right(mediaRemovedMsg)
+                          Right(mediaRemovedMsg.asJson)
                       })
 
                   case false =>
@@ -177,7 +177,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             doesMediaExist.flatMap({
               case true =>
                 for {
-                  result <- deleteMediaFromNearline(vault, pendingDeletionRecord)
+                  result <- deleteMediaFromNearline(vault, pendingDeletionRecord.mediaTier.toString, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId, pendingDeletionRecord.vidispineItemId)
                   _ <- removeDeletionPending(pendingDeletionRecord)
                 } yield result
               case false =>
@@ -550,40 +550,23 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def deleteMediaFromNearline(vault: Vault, msg: OnlineOutputMessage): Future[Either[String, MediaRemovedMessage]] = {
-    (msg.mediaTier, msg.originalFilePath, msg.nearlineId) match {
+  def deleteMediaFromNearline(vault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]): Future[Either[String, MessageProcessorReturnValue]] = {
+    (mediaTier, filePathMaybe, nearlineIdMaybe) match {
       case ("NEARLINE", Some(filepath), Some(nearlineId)) =>
         dealWithAttFiles(vault, nearlineId, filepath)
         // TODO do we need to wrap this with a Future.fromTry?
         Try { vault.getObject(nearlineId).delete() } match {
           case Success(_) =>
             logger.info(s"Nearline media oid=$nearlineId, path=$filepath removed")
-            Future(Right(MediaRemovedMessage(mediaTier = msg.mediaTier, originalFilePath = filepath, nearlineId = Some(nearlineId), vidispineItemId = msg.vidispineItemId)))
+            Future(Right(MediaRemovedMessage(mediaTier = mediaTier, originalFilePath = filepath, nearlineId = Some(nearlineId), vidispineItemId = vidispineItemIdMaybe).asJson))
           case Failure(exception) =>
-            logger.warn(s"Failed to remove nearline media oid=${msg.nearlineId}, path=${msg.originalFilePath}, reason: ${exception.getMessage}")
-            Future(Left(s"Failed to remove nearline media oid=${msg.nearlineId}, path=${msg.originalFilePath}, reason: ${exception.getMessage}"))
+            logger.warn(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}")
+            Future(Left(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}"))
         }
-      case (_, _, _) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier (${msg.mediaTier}), or missing nearline id (${msg.nearlineId})")
+      case (_, _, _) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier ($mediaTier), or missing nearline id ($nearlineIdMaybe)")
     }
   }
 
-
-  def deleteMediaFromNearline(vault: Vault, rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-    (rec.mediaTier, rec.nearlineId) match {
-      case (MediaTiers.NEARLINE, Some(nearlineId)) =>
-        dealWithAttFiles(vault, nearlineId, rec.originalFilePath)
-        // TODO do we need to wrap this with a Future.fromTry?
-        Try { vault.getObject(nearlineId).delete() } match {
-          case Success(_) =>
-            logger.info(s"Nearline media oid=${rec.nearlineId}, path=${rec.originalFilePath} removed")
-            Future(Right(MediaRemovedMessage(rec.mediaTier.toString, rec.originalFilePath, Some(nearlineId), rec.vidispineItemId).asJson))
-          case Failure(exception) =>
-            logger.warn(s"Failed to remove nearline media oid=$nearlineId, path=${rec.originalFilePath}, reason: ${exception.getMessage}")
-            Future(Left(s"Failed to remove nearline media oid=$nearlineId, path=${rec.originalFilePath}, reason: ${exception.getMessage}"))
-        }
-      case (_, _) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier (${rec.mediaTier}), or missing nearline id (${rec.nearlineId})")
-    }
-  }
 
   def NOT_IMPL_deleteMediaFromOnline(rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] =
     (rec.mediaTier, rec.vidispineItemId) match {
@@ -664,7 +647,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   private def performActionNearline(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = {
 
     def deleteFromNearlineWrapper(project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-      deleteMediaFromNearline(vault, onlineOutputMessage).map({
+      deleteMediaFromNearline(vault, onlineOutputMessage.mediaTier, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId, onlineOutputMessage.vidispineItemId).map({
         case Left(err) => Left(err)
         case Right(mediaRemovedMessage) =>
           logger.debug(s"--> deleting nearline media ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
