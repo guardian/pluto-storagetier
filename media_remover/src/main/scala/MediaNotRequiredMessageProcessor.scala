@@ -164,25 +164,25 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case Some(pendingDeletionRecord) =>
         pendingDeletionRecord.nearlineId match {
           case Some(nearlineId) =>
-            val nearlineFileSizeFut = Future.fromTry(Try { vault.getObject(nearlineId) }.map(MetadataHelper.getFileSize)) // We fetch the current size, because we don't know how old the message is
-            nearlineFileSizeFut.flatMap(nearlineFileSize => {
-              val (fileSize, objectKey, nearlineId) =
-                validateNeededFields(Some(nearlineFileSize), Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId)
-              getChecksumForNearline(vault, nearlineId).flatMap(checksumMaybe => {
-                mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId).flatMap({
-                  case true =>
-                    deleteMediaFromNearline(vault, pendingDeletionRecord)
-                      .map({
-                        case Left(err) => Left(err)
-                        case Right(mediaRemovedMsg) =>
-                          removeDeletionPending(pendingDeletionRecord)
-                          Right(mediaRemovedMsg)
-                      })
-                  case false =>
-                    pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
-                    NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
-                })
-              })
+            val doesMediaExist =
+              for {
+                // We fetch the current size, because we don't know how old the message is
+                nearlineFileSize <- Future.fromTry(Try {vault.getObject(nearlineId)}.map(MetadataHelper.getFileSize))
+                (fileSize, objectKey, nearlineId) <-
+                  Future(validateNeededFields(Some(nearlineFileSize), Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId))
+                checksumMaybe <- getChecksumForNearline(vault, nearlineId)
+                doesMediaExist <- mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId)
+              } yield doesMediaExist
+
+            doesMediaExist.flatMap({
+              case true =>
+                for {
+                  result <- deleteMediaFromNearline(vault, pendingDeletionRecord)
+                  _ <- removeDeletionPending(pendingDeletionRecord)
+                } yield result
+              case false =>
+                pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
+                NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
             })
           case None =>
             logger.warn(s"Could not get nearline filesize from application for media ${archivedRecord.originalFilePath}")
