@@ -3,7 +3,8 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
-import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorConverters, MessageProcessorReturnValue}
+import com.gu.multimedia.storagetier.framework._
+import com.gu.multimedia.storagetier.plutocore.EntryStatus
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
@@ -22,6 +23,8 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
                                                              vidispineCommunicator: VidispineCommunicator,
                                                              ec:ExecutionContext) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
+
+  private val statusesMediaNotRequired = List(EntryStatus.Held.toString, EntryStatus.Completed.toString, EntryStatus.Killed.toString)
 
   def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] = {
     onlineFilesByProject(vidispineCommunicator, projectId)
@@ -57,34 +60,41 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     searchAssociatedOnlineMedia(projectId, vidispineCommunicator).map(Right.apply)
   }
 
-  def handleStatusMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
-    Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id))).map(allResults => {
-      (allResults.head, allResults(1)) match {
-        case (Right(nearlineResults), Right(onlineResults)) =>
-          if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
-            logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
-            framework.bulkSendMessages(routingKey, nearlineResults)
-            logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
-            framework.bulkSendMessages(routingKey, onlineResults)
-            logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project ${updateMessage.id}")
-            val msg = RestorerSummaryMessage(updateMessage.id, ZonedDateTime.now(), updateMessage.status, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
-            Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
-          } else {
-            throw new RuntimeException(s"Too many files attached to project ${updateMessage.id}, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
-          }
-        case (Left(nearlineErr), _)=>
-          logger.error(s"Could not connect to Matrix store: $nearlineErr")
-          Left(nearlineErr)
-        case (_, Left(onlineErr))=>
-          logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
-          Left(onlineErr)
-        case (Left(nearlineErr), Left(onlineErr))=>
-          logger.error(s"Could not connect to Matrix store: $nearlineErr")
-          logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
-          Left(s"nearlineErr: $nearlineErr; onlineErr: $onlineErr")
+  def handleUpdateMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
+    updateMessage.status match {
+      case status if statusesMediaNotRequired.contains(status)  =>
+        Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
+          .map(allResults => processResults(allResults, routingKey, framework, updateMessage.id, updateMessage.status))
+      case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
+    }
+
+  private def processResults(allResults: Seq[Either[String, Seq[OnlineOutputMessage]]], routingKey: String, framework: MessageProcessingFramework, projectId: Int, projectStatus: String) = (allResults.head, allResults(1)) match {
+    case (Right(nearlineResults), Right(onlineResults)) =>
+      if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
+        logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
+        framework.bulkSendMessages(routingKey, nearlineResults)
+
+        logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
+        framework.bulkSendMessages(routingKey, onlineResults)
+
+        logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project $projectId")
+        val msg = RestorerSummaryMessage(projectId, ZonedDateTime.now(), projectStatus, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
+
+        Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+      } else {
+        throw new RuntimeException(s"Too many files attached to project $projectId, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
       }
-    })
+    case (Left(nearlineErr), _) =>
+      logger.error(s"Could not connect to Matrix store for nearline results: $nearlineErr")
+      Left(nearlineErr)
+    case (_, Left(onlineErr)) =>
+      logger.error(s"Unexpected error from getOnlineResults: $onlineErr")
+      Left(onlineErr)
+    case (Left(nearlineErr), Left(onlineErr)) =>
+      logger.error(s"Could not connect to Matrix store for nearline results: $nearlineErr. ALSO, unexpected error from getOnlineResults: $onlineErr")
+      Left(s"nearlineErr: $nearlineErr; onlineErr: $onlineErr")
   }
+
 
   /**
    * Override this method in your subclass to handle an incoming message
@@ -105,7 +115,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
           case Right(updateMessage) =>
             logger.info(s"here is an update status ${updateMessage.status}")
-            handleStatusMessage(updateMessage, routingKey, msgProcessingFramework)
+            handleUpdateMessage(updateMessage, routingKey, msgProcessingFramework)
         }
       case _ =>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
