@@ -8,8 +8,6 @@ name := "pluto-storagetier"
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 scalacOptions += "-target:jvm-1.8"
 
-
-
 val akkaVersion = "2.6.16"
 val circeVersion = "0.14.1"
 val slf4jVersion = "1.7.32"
