@@ -108,14 +108,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "drop message in handleUpdateMessage if status is New" in {
-//      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
-//      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
-
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
-//       {
-//        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
-//        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
-//      }
 
       val updateMessage = ProjectUpdateMessage(
         status = EntryStatus.New.toString,
