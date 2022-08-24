@@ -187,25 +187,10 @@ class MessageProcessingFramework (ingest_queue_name:String,
     }
   }
 
-  def withChannel[T](block:Channel=>Try[T]):Try[T] = {
-    Try { conn.createChannel() }.flatMap(ch=>{
-      block(ch) match {
-        case result@Success(_)=>
-          Try { channel.close() }
-          return result
-        case err@Failure(_)=>
-          Try { channel.close() } //swallow the exception if it fails
-          err
-      }
-    })
-  }
-
-
   def bulkSendMessages[T:io.circe.Encoder](routingKey:String, msgs:Seq[T], retry:Int=0) = {
-    withChannel( {chan =>
       for {
-          _ <- Try { chan.exchangeDeclare(output_exchange_name, "topic", true)}
-          result <- {val sendResults = msgs.map(msg=> internalSendMsg(chan, output_exchange_name, routingKey, msg.asJson.noSpaces))
+          _ <- Try { channel.exchangeDeclare(output_exchange_name, "topic", true)}
+          result <- {val sendResults = msgs.map(msg=> internalSendMsg(channel, output_exchange_name, routingKey, msg.asJson.noSpaces))
           val failures = sendResults.collect({ case Failure(err) => err })
             if(failures.nonEmpty){
               logger.error(s"${failures.length} messages failed to send to $output_exchange_name.")
@@ -219,7 +204,6 @@ class MessageProcessingFramework (ingest_queue_name:String,
           }
         }
       } yield result
-    })
   }
   private def internalSendMsg(chan:Channel, outputExchange:String, routingKey:String, stringContent:String) = Try {
 
