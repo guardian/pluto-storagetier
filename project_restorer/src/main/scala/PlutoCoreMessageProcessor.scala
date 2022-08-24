@@ -110,12 +110,19 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     routingKey match {
       case "core.project.update" =>
         logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
-        msg.as[ProjectUpdateMessage] match {
+        msg.as[Seq[ProjectUpdateMessage]] match {
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
-          case Right(updateMessage) =>
-            logger.info(s"here is an update status ${updateMessage.status}")
-            handleUpdateMessage(updateMessage, routingKey, msgProcessingFramework)
+          case Right(updateMessageList) =>
+            logger.info(s"here is an update status ${updateMessageList.headOption.map(_.status)}")
+            if(updateMessageList.length>1) logger.error("Received multiple objects in one event, this is not supported. Events may be dropped.")
+
+            updateMessageList.headOption match {
+              case None=>
+                Future.failed(new RuntimeException("The incoming event was empty"))
+              case Some(updateMessage: ProjectUpdateMessage)=>
+                handleUpdateMessage(updateMessage, routingKey, msgProcessingFramework)
+            }
         }
       case _ =>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
