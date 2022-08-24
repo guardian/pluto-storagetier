@@ -271,7 +271,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
       HttpRequest(
         uri = s"${config.baseUri}/API/search;first=$currentItem;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
         method = HttpMethods.PUT,
-        entity = HttpEntity(ContentTypes.`text/xml(UTF-8)`, doc.toString)))
+        entity = HttpEntity(ContentType(MediaTypes.`application/xml`, HttpCharsets.`UTF-8`), doc.toString)))
 
       searchResult.map({
         case Some(searchResultDocument) =>
