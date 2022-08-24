@@ -64,7 +64,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     updateMessage.status match {
       case status if statusesMediaNotRequired.contains(status)  =>
         Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
-          .map(allResults => processResults(allResults, routingKey, framework, updateMessage.id, updateMessage.status))
+          .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
       case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
     }
 
