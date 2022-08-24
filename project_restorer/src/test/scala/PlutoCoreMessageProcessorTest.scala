@@ -76,7 +76,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "drop message in handleUpdateMessage if status is In Production" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
@@ -135,7 +135,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "return message with correct amount of associated files if status is Completed" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
@@ -159,7 +159,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "return message with correct amount of associated files if status is Held" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
@@ -183,7 +183,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "return message with correct amount of associated files if status is Killed" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
@@ -208,7 +208,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "fail if project has too many associated online files" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val tooManyOnlineResults = for (i <- 1 to 10001) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
@@ -224,7 +224,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "fail if project has too many associated nearline files" in {
-      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val onlineResults = for (i <- 1 to 2) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
@@ -242,7 +242,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "fail if project has too many associated nearline and online files" in {
-      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", 233).withValue("GNM_TYPE", "rushes")), None))
+      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
       val tooManyOnlineResults = for (i <- 1 to 10002) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {

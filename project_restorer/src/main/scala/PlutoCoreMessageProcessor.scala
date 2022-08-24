@@ -43,7 +43,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     val sinkFactory = Sink.seq[OnlineOutputMessage]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
-      Array("MXFS_PATH","MXFS_FILENAME", "__mxs__length")
+      Array("MXFS_PATH","MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
     ).map(OnlineOutputMessage.apply)
       .toMat(sinkFactory)(Keep.right)

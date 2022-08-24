@@ -8,14 +8,14 @@ import com.gu.multimedia.storagetier.vidispine.{SearchResultItemSimplified, VSOn
  * */
 
 case class OnlineOutputMessage(mediaTier: String,
-                               projectId: Int,
+                               projectId: String,
                                filePath: Option[String],
                                itemId: Option[String],
                                nearlineId: String,
                                mediaCategory: String)
 object OnlineOutputMessage {
   def apply(file: ObjectMatrixEntry): OnlineOutputMessage = {
-    (file.intAttribute("GNM_PROJECT_ID"), file.stringAttribute("GNM_TYPE")) match {
+    (file.stringAttribute("GNM_PROJECT_ID"), file.stringAttribute("GNM_TYPE")) match {
       case (Some(projectId), Some(gnmType))=>
         new OnlineOutputMessage(
           "NEARLINE",
@@ -33,7 +33,7 @@ object OnlineOutputMessage {
   def apply(file: VSOnlineOutputMessage): OnlineOutputMessage = {
     new OnlineOutputMessage(
       file.mediaTier,
-      file.projectId,
+      file.projectId.toString,
       file.filePath,
       file.itemId,
       file.nearlineId,
