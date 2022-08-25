@@ -61,7 +61,8 @@ class OMFastContentSearchSource(vault:Vault, contentSearchString:String, keyword
         logger.info(s"Establishing connection to ${vault.getId}")
 
         val searchTermString = if(keywords.nonEmpty) {
-          contentSearchString + "\n" + "keywords: " + keywords.mkString(",")
+          //for some reason, we always lose whatever keyword we put on the start. So add in a dummy one.
+          contentSearchString + "\n" + "keywords: " + (Seq("__mxs__id") ++ keywords).mkString(",")
         } else {
           contentSearchString
         }

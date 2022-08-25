@@ -59,7 +59,7 @@ object Main {
 
     val config = Seq(
       ProcessorConfiguration(
-        OUTPUT_EXCHANGE_NAME,
+        "pluto-core",
         "core.project.#",
         "storagetier.restorer",
         new PlutoCoreMessageProcessor(matrixStoreConfig)

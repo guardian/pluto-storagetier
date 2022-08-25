@@ -77,7 +77,7 @@ object VSOnlineOutputMessage {
           )
         )
       case _ =>
-        logger.warn(s"VS response missing nearlineId ($nearlineId) and/or mediaCategory ($mediaCategory)")
+        logger.warn(s"VS response for $itemId missing nearlineId ($nearlineId) and/or mediaCategory ($mediaCategory)")
         None
     }
   }

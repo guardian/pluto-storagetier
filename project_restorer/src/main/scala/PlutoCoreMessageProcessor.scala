@@ -1,4 +1,3 @@
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
@@ -16,7 +15,6 @@ import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
-
 
 class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
                                                              matrixStoreBuilder: MXSConnectionBuilder,
@@ -43,7 +41,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     val sinkFactory = Sink.seq[OnlineOutputMessage]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
-      Array("MXFS_PATH","MXFS_FILENAME", "__mxs__length")
+      Array("MXFS_PATH","MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
     ).map(OnlineOutputMessage.apply)
       .toMat(sinkFactory)(Keep.right)
@@ -60,11 +58,12 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     searchAssociatedOnlineMedia(projectId, vidispineCommunicator).map(Right.apply)
   }
 
-  def handleUpdateMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
+  def handleUpdateMessage(updateMessage: ProjectUpdateMessage, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
     updateMessage.status match {
       case status if statusesMediaNotRequired.contains(status)  =>
-        Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
-          .map(allResults => processResults(allResults, routingKey, framework, updateMessage.id, updateMessage.status))
+        Future
+          .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
+          .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
       case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
     }
 
@@ -110,12 +109,19 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     routingKey match {
       case "core.project.update" =>
         logger.info(s"Received message of $routingKey from queue: ${msg.noSpaces}")
-        msg.as[ProjectUpdateMessage] match {
+        msg.as[Seq[ProjectUpdateMessage]] match {
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
-          case Right(updateMessage) =>
-            logger.info(s"here is an update status ${updateMessage.status}")
-            handleUpdateMessage(updateMessage, routingKey, msgProcessingFramework)
+          case Right(updateMessageList) =>
+            logger.info(s"here is an update status ${updateMessageList.headOption.map(_.status)}")
+            if(updateMessageList.length>1) logger.error("Received multiple objects in one event, this is not supported. Events may be dropped.")
+
+            updateMessageList.headOption match {
+              case None=>
+                Future.failed(new RuntimeException("The incoming event was empty"))
+              case Some(updateMessage: ProjectUpdateMessage)=>
+                handleUpdateMessage(updateMessage, msgProcessingFramework)
+            }
         }
       case _ =>
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
