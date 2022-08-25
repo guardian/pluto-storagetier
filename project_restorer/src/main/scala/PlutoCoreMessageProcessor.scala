@@ -1,4 +1,3 @@
-
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
@@ -16,7 +15,6 @@ import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
-
 
 class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
                                                              matrixStoreBuilder: MXSConnectionBuilder,
@@ -60,10 +58,11 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     searchAssociatedOnlineMedia(projectId, vidispineCommunicator).map(Right.apply)
   }
 
-  def handleUpdateMessage(updateMessage: ProjectUpdateMessage, routingKey: String, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
+  def handleUpdateMessage(updateMessage: ProjectUpdateMessage, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
     updateMessage.status match {
       case status if statusesMediaNotRequired.contains(status)  =>
-        Future.sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
+        Future
+          .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
           .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
       case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
     }
@@ -121,7 +120,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
               case None=>
                 Future.failed(new RuntimeException("The incoming event was empty"))
               case Some(updateMessage: ProjectUpdateMessage)=>
-                handleUpdateMessage(updateMessage, routingKey, msgProcessingFramework)
+                handleUpdateMessage(updateMessage, msgProcessingFramework)
             }
         }
       case _ =>
