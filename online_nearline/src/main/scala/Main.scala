@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
+import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, DatabaseProvider, MessageProcessingFramework, ProcessorConfiguration}
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.models.nearline_archive.FailureRecordDAO
@@ -71,7 +71,8 @@ object Main {
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
-    implicit lazy val fileCopier = new FileCopier()
+    implicit lazy val checksumChecker = new ChecksumChecker()
+    implicit lazy val fileCopier = new FileCopier(checksumChecker)
 
     val config = Seq(
       ProcessorConfiguration(
