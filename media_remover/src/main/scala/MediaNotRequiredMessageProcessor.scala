@@ -456,17 +456,18 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   def mediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, objectKey: String, nearlineOrItemId: String): Future[Boolean] = {
-    s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe) match {
-      case Success(true) =>
+    s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe).map({
+      case true =>
         logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
-        Future(true)
-      case Success(false) =>
+        true
+      case false =>
         logger.info(s"No file $objectKey with matching size $fileSize found, do not delete")
-        Future(false)
-      case Failure(err) =>
-        logger.warn(s"Could not connect to deep archive to check if media exists, do not delete. Err: $err")
-        Future(false)
-    }
+        false
+    }).recover({
+      case err:Throwable =>
+        logger.warn(s"Could not connect to deep archive to check if media exists, do not delete. Err: ${err.getMessage}")
+        false
+    })
   }
 
   def removeDeletionPending(existingRecord: PendingDeletionRecord): Future[Int] =
