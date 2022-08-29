@@ -142,7 +142,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.vidispineItemId)
           val checksumMaybeFut = NOT_IMPL_getChecksumForOnline(vsItemId)
           checksumMaybeFut.flatMap(checksumMaybe => {
-            mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, vsItemId).flatMap({
+            mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey).flatMap({
               case true =>
                 NOT_IMPL_deleteMediaFromOnline(pendingDeletionRecord)
                   .map({
@@ -174,7 +174,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                 (fileSize, objectKey, nearlineId) <-
                   Future(validateNeededFields(Some(nearlineFileSize), Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId))
                 checksumMaybe <- getChecksumForNearline(vault, nearlineId)
-                doesMediaExist <- mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId)
+                doesMediaExist <- mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey)
               } yield doesMediaExist
 
             doesMediaExist.flatMap({
@@ -451,11 +451,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, objectKey, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     val maybeChecksumFut = getChecksumForNearline(vault, nearlineId)
-    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey, nearlineId))
+    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey))
   }
 
 
-  def mediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, objectKey: String, nearlineOrItemId: String): Future[Boolean] = {
+  def mediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, objectKey: String): Future[Boolean] = {
     s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe).map({
       case true =>
         logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
