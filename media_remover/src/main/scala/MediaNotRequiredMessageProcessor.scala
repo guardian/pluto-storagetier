@@ -1,9 +1,9 @@
 import MediaNotRequiredMessageProcessor.Action
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.mxscopy.helpers.{MatrixStoreHelper, MetadataHelper}
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
+import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
@@ -21,6 +21,7 @@ import matrixstore.MatrixStoreConfig
 import messages.MediaRemovedMessage
 import org.slf4j.{LoggerFactory, MDC}
 
+import java.nio.file.Paths
 import java.util.{Map, UUID}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -34,7 +35,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   matrixStoreBuilder: MXSConnectionBuilderImpl,
   mxsConfig: MatrixStoreConfig,
   vidispineCommunicator: VidispineCommunicator,
-  s3ObjectChecker: S3ObjectChecker
+  s3ObjectChecker: S3ObjectChecker,
+  checksumChecker: ChecksumChecker
 ) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -76,7 +78,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Some(nearlineId) =>
             val nearlineFileSize = Future.fromTry(Try { vault.getObject(nearlineId) }.map(MetadataHelper.getFileSize)) // We fetch the current size, because we don't know how old the message is
             nearlineFileSize.flatMap(fileSize => {
-                nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, pendingDeletionRecord.originalFilePath, fileSize).flatMap({
+              nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, pendingDeletionRecord.originalFilePath, fileSize)
+                .flatMap({
                   case true =>
                     deleteMediaFromNearline(vault, pendingDeletionRecord.mediaTier.toString, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId, pendingDeletionRecord.vidispineItemId)
                       .map({
@@ -313,19 +316,20 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   /**
    * If the given file already exists in the MXS vault (i.e., there is a file with a matching MXFS_PATH _and_ checksum
-   * _and_ file size, then a Right ..
-   * If there is a file with matching MXFS_PATH but checksum and/or size do not match, then ...
+   * _and_ file size, then a Future(true) is returned
+   * If there is a file with matching MXFS_PATH but checksum and/or size do not match, then a Future(false) is returned
+   * We demand that the `maybeLocalChecksum` actually has a value, otherwise we will return Future(false) and log a
+   * warning
    *
    * @param vault    Vault to check
    * @param fileName file name to check on the Vault
    * @param filePath the filepath of the item to check
    * */
-  //  def copyFileToMatrixStore(vault: Vault, fileName: String, filePath: Path): Future[Either[String, String]] = {
   def existsInTargetVaultWithMd5Match(vault: Vault, fileName: String, filePath: String, fileSize: Long, maybeLocalChecksum: Option[String]): Future[Boolean] = {
-    for {
+    (for {
       potentialMatches <- findMatchingFilesOnVault(vault, filePath, fileSize)
       potentialMatchesFiles <- Future.sequence(potentialMatches.map(entry => Future.fromTry(openMxsObject(vault, entry.oid))))
-      alreadyExists <- verifyChecksumMatch(filePath, potentialMatchesFiles, maybeLocalChecksum)
+      alreadyExists <- verifyChecksumMatchUsingChecker(filePath, potentialMatchesFiles, maybeLocalChecksum)
       result <- alreadyExists match {
         case Some(existingId) =>
           logger.info(s"$filePath: Object exists with object id $existingId")
@@ -334,7 +338,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           logger.info(s"$filePath: Out of ${potentialMatches.length} remote matches, none matched the checksum")
           Future(false)
       }
-    } yield result
+    } yield result).recoverWith({
+      case err: Throwable =>
+        logger.warn(s"Could not verify checksum for file $filePath: ${err.getMessage}")
+        Future(false)
+    })
   }
 
   protected def getContextMap() = {
@@ -362,44 +370,16 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
    * @param potentialFiles     potential backup copies of this file
    * @param maybeLocalChecksum stored local checksum; if set this is used instead of re-calculating. Leave this out when calling.
    * @return a Future containing the OID of the first matching file if present or None otherwise
+   * @throws RuntimeException if the `maybeLocalChecksum` is None
    */
-  //  protected def verifyChecksumMatch(filePath:Path, potentialFiles:Seq[MxsObject], maybeLocalChecksum:Option[String]=None):Future[Option[String]] = potentialFiles.headOption match {
-  protected def verifyChecksumMatch(filePath: String, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] =
- {
-   val verifiedMaybeLocalChecksumFut = maybeLocalChecksum match {
-     case None => throw new RuntimeException("Must be called with Some(actualChecksum)")
-     case Some(value) => Future(Some(value))
-   }
-    potentialFiles.headOption match {
-      case None =>
-        logger.info(s"$filePath: No matches found for file checksum")
-        Future(None)
-      case Some(mxsFileToCheck) =>
-        logger.info(s"$filePath: Verifying checksum for MXS file ${mxsFileToCheck.getId}")
-        val savedContext = getContextMap() //need to save the debug context for when we go in and out of akka
-        val requiredChecksums = Seq(
-          verifiedMaybeLocalChecksumFut,
-          getOMFileMd5(mxsFileToCheck)
-        )
-        Future
-          .sequence(requiredChecksums)
-          .map(results => {
-            if (savedContext.isDefined) setContextMap(savedContext.get)
-            val localChecksum = results.head.asInstanceOf[Option[String]]
-            val applianceChecksum = results(1).asInstanceOf[Try[String]]
-            logger.info(s"$filePath: local checksum is $localChecksum, ${mxsFileToCheck.getId} checksum is $applianceChecksum")
-            (localChecksum == applianceChecksum.toOption, localChecksum)
-          })
-          .flatMap({
-            case (true, _) =>
-              logger.info(s"$filePath: Got a checksum match for remote file ${mxsFileToCheck.getId}")
-              Future(Some(potentialFiles.head.getId)) //true => we got a match
-            case (false, localChecksum) =>
-              logger.info(s"$filePath: ${mxsFileToCheck.getId} did not match, trying the next entry of ${potentialFiles.tail.length}")
-              verifyChecksumMatch(filePath, potentialFiles.tail, localChecksum)
-          })
+  protected def verifyChecksumMatchUsingChecker(filePath: String, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = {
+    val verifiedMaybeLocalChecksum: Option[String] = maybeLocalChecksum match {
+      case None => throw new RuntimeException("Must be called with Some(actualChecksum)")
+      case Some(value) => Some(value)
     }
-}
+    checksumChecker.verifyChecksumMatch(Paths.get(filePath), potentialFiles, verifiedMaybeLocalChecksum)
+  }
+
 
   protected def callFindByFilenameNew(vault:Vault, fileName:String) = MatrixStoreHelper.findByFilenameNew(vault, fileName)
   protected def callObjectMatrixEntryFromOID(vault:Vault, fileName:String) = ObjectMatrixEntry.fromOID(fileName, vault)

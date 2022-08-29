@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
+import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
@@ -49,6 +49,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
 
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -105,6 +106,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
 
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -159,6 +161,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -180,6 +183,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -201,6 +205,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -222,6 +227,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -243,6 +249,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -264,6 +271,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -292,6 +300,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -332,6 +341,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -372,6 +382,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
@@ -415,6 +426,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
 
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
@@ -475,6 +487,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -534,6 +547,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -600,6 +614,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -666,6 +681,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -723,6 +739,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -792,6 +809,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -861,6 +879,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
@@ -919,6 +938,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val sys:ActorSystem = mock[ActorSystem]
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
       val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
       mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 

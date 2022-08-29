@@ -1,6 +1,6 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
+import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
@@ -71,6 +71,7 @@ object Main {
       maxIdleSeconds = connectionIdleTime
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
+    implicit lazy val checksumChecker = new ChecksumChecker()
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
 
     implicit lazy val s3ObjectChecker = S3ObjectChecker.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
