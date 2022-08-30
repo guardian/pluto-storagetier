@@ -60,8 +60,10 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
     "return false if the object does not exist" in {
       val mockedS3Async = mock[S3AsyncClient]
 
-      val expectedException = NoSuchKeyException.builder().statusCode(404).build()
-      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns CompletableFuture.failedFuture(expectedException)
+      val noSuchKeyException = NoSuchKeyException.builder().statusCode(404).build()
+      val cfCompletedExceptionally = new CompletableFuture[ListObjectVersionsResponse]
+      cfCompletedExceptionally.completeExceptionally(noSuchKeyException)
+      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns cfCompletedExceptionally
       val s3ObjectChecker = new S3ObjectChecker(mockedS3Async, "bucket")
 
       val result = Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None), 1.second)
@@ -72,15 +74,17 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
     "pass on any other exception as a Failure" in {
       val mockedS3Async = mock[S3AsyncClient]
 
-      val expectedException = S3Exception.builder().statusCode(500).build()
-
-      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) throws expectedException
+      val notNoSuchKeyException = S3Exception.builder().statusCode(500).message("bork").build()
+      val cfCompletedExceptionally = new CompletableFuture[ListObjectVersionsResponse]
+      cfCompletedExceptionally.completeExceptionally(notNoSuchKeyException)
+      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns cfCompletedExceptionally
 
       val s3ObjectChecker = new S3ObjectChecker(mockedS3Async, "bucket")
 
       val result = Try { Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None), 1.second) }
 
       result must beAFailedTry
+      result.failed.get.getMessage mustEqual "Could not check pre-existing versions for s3://bucket/filePath: bork"
     }
   }
 }
