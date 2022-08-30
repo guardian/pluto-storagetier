@@ -1,4 +1,5 @@
 import akka.stream.Materializer
+import com.gu.multimedia.mxscopy.ChecksumChecker
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import org.specs2.mock.Mockito
@@ -17,7 +18,8 @@ class FileCopierSpec extends Specification with Mockito {
       implicit val mat:Materializer = mock[Materializer]
       val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-2.ext")), None)
 
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
       }
 
@@ -27,8 +29,8 @@ class FileCopierSpec extends Specification with Mockito {
     "return the index portion of a filename without extension" in {
       implicit val mat:Materializer = mock[Materializer]
       val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-2")), None)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
       }
 
@@ -38,8 +40,8 @@ class FileCopierSpec extends Specification with Mockito {
     "return 0 if there is no index" in {
       implicit val mat:Materializer = mock[Materializer]
       val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file.ext")), None)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
       }
 
@@ -49,8 +51,8 @@ class FileCopierSpec extends Specification with Mockito {
     "return None if the object does not have a filename set" in {
       implicit val mat:Materializer = mock[Materializer]
       val elem = ObjectMatrixEntry("file1",Some(MxsMetadata.empty), None)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         def callMaybeGetIndex(elem:ObjectMatrixEntry) = maybeGetIndex(elem)
       }
 
@@ -62,8 +64,8 @@ class FileCopierSpec extends Specification with Mockito {
     "return the original filename if there are no matching files on the destination" in {
       implicit val mat:Materializer = mock[Materializer]
       val vault = mock[Vault]
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(Seq())
       }
 
@@ -79,7 +81,8 @@ class FileCopierSpec extends Specification with Mockito {
         ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-1.ext")), None),
         ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file-3.ext")), None),
       )
-      val toTest = new FileCopier() {
+            val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(results)
       }
 
@@ -93,7 +96,8 @@ class FileCopierSpec extends Specification with Mockito {
       val results = Seq(
         ObjectMatrixEntry("file1",Some(MxsMetadata.empty.withValue("MXFS_PATH", "/path/to/some/file.ext")), None)
       )
-      val toTest = new FileCopier() {
+            val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(results)
       }
 
@@ -120,13 +124,19 @@ class FileCopierSpec extends Specification with Mockito {
       val mockFindMatchingFiles = mock[(Vault, Path, Long)=>Future[Seq[ObjectMatrixEntry]]]
       mockFindMatchingFiles(any,any,any) returns Future(Seq())
 
-      val toTest = new FileCopier() {
+      val mockVerifyChecksum = mock[(Path, Seq[MxsObject], Option[String])=>Future[Option[String]]]
+      mockVerifyChecksum.apply(any,any,any) returns Future(None)
+
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path): Future[Right[Nothing, String]] =
           mockCopyUsingHelper(vault, fileName, filePath)
 
         override protected def getSizeFromPath(filePath: Path): Long = mockGetSize(filePath)
 
         override def findMatchingFilesOnNearline(vault: Vault, filePath: Path, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = mockFindMatchingFiles(vault, filePath, fileSize)
+
+        override protected def verifyChecksumMatchUsingHelper(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
       }
 
       val result = Await.result(toTest.copyFileToMatrixStore(mockVault, "file-name.mp4", mockFilePath), 3.seconds)
@@ -155,8 +165,8 @@ class FileCopierSpec extends Specification with Mockito {
 
       val mockVerifyChecksum = mock[(Path, Seq[MxsObject], Option[String])=>Future[Option[String]]]
       mockVerifyChecksum.apply(any,any,any) returns Future(None)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path): Future[Right[Nothing, String]] =
           mockCopyUsingHelper(vault, fileName, filePath)
 
@@ -179,7 +189,7 @@ class FileCopierSpec extends Specification with Mockito {
 
         override def findMatchingFilesOnNearline(vault: Vault, filePath: Path, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = mockFindMatchingFiles(vault, filePath, fileSize)
 
-        override protected def verifyChecksumMatch(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
+        override protected def verifyChecksumMatchUsingHelper(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
       }
 
       val result = Await.result(toTest.copyFileToMatrixStore(mockVault, "file-name.mp4", mockFilePath),
@@ -222,8 +232,8 @@ class FileCopierSpec extends Specification with Mockito {
 
       val mockVerifyChecksum = mock[(Path, Seq[MxsObject], Option[String])=>Future[Option[String]]]
       mockVerifyChecksum.apply(any,any,any) returns Future(None)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path): Future[Right[Nothing, String]] =
           mockCopyUsingHelper(vault, fileName, filePath)
 
@@ -240,7 +250,7 @@ class FileCopierSpec extends Specification with Mockito {
 
         override def findMatchingFilesOnNearline(vault: Vault, filePath: Path, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = mockFindMatchingFiles(vault, filePath, fileSize)
 
-        override protected def verifyChecksumMatch(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
+        override protected def verifyChecksumMatchUsingHelper(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
 
       }
 
@@ -285,8 +295,8 @@ class FileCopierSpec extends Specification with Mockito {
 
       val mockVerifyChecksum = mock[(Path, Seq[MxsObject], Option[String])=>Future[Option[String]]]
       mockVerifyChecksum.apply(any,any,any) returns Future(Some("existing-object-id"))
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path): Future[Right[Nothing, String]] =
           mockCopyUsingHelper(vault, fileName, filePath)
 
@@ -311,7 +321,7 @@ class FileCopierSpec extends Specification with Mockito {
 
         override def findMatchingFilesOnNearline(vault: Vault, filePath: Path, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = mockFindMatchingFiles(vault, filePath, fileSize)
 
-        override protected def verifyChecksumMatch(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
+        override protected def verifyChecksumMatchUsingHelper(filePath: Path, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = mockVerifyChecksum(filePath, potentialFiles, maybeLocalChecksum)
       }
 
       val result = Await.result(toTest.copyFileToMatrixStore(mockVault, "file-name.mp4", mockFilePath),
@@ -341,8 +351,8 @@ class FileCopierSpec extends Specification with Mockito {
 
       val mockFindMatchingFiles = mock[(Vault, Path, Long)=>Future[Seq[ObjectMatrixEntry]]]
       mockFindMatchingFiles.apply(any,any,any) returns Future.failed(new RuntimeException("Some unknown exception"))
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override protected def copyUsingHelper(vault: Vault, fileName: String, filePath: Path): Future[Right[Nothing, String]] =
           mockCopyUsingHelper(vault, fileName, filePath)
 
@@ -401,8 +411,8 @@ class FileCopierSpec extends Specification with Mockito {
           None),
       )
       mockCallFind(any,any) returns Future(returnedObjects)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = mockCallFind(vault, fileName)
       }
 
@@ -456,8 +466,8 @@ class FileCopierSpec extends Specification with Mockito {
           None),
       )
       mockCallFind(any,any) returns Future(returnedObjects)
-
-      val toTest = new FileCopier() {
+      val mockChecksumHelper = mock[ChecksumChecker]
+      val toTest = new FileCopier(mockChecksumHelper) {
         override def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = mockCallFind(vault, fileName)
       }
 
@@ -465,75 +475,6 @@ class FileCopierSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[BailOutException]
-    }
-  }
-
-  "FileCopier.verifyChecksumMatch" should {
-    "determine the local file checksum once and verify it against the checksums of all the remote files" in {
-      implicit val mat:Materializer = mock[Materializer]
-
-      val fakeFiles = Seq(mock[MxsObject], mock[MxsObject], mock[MxsObject], mock[MxsObject])
-      val mockGetChecksumFromPath = mock[Path=>Future[Option[String]]]
-      mockGetChecksumFromPath.apply(any) returns Future(Some("the-correct-checksum"))
-
-      val mockGetOMFileMD5 = mock[MxsObject=>Future[Try[String]]]
-      mockGetOMFileMD5.apply(fakeFiles.head) returns Future(Success("wrong-checksum-1"))
-      mockGetOMFileMD5.apply(fakeFiles(1)) returns Future(Success("wrong-checksum-2"))
-      mockGetOMFileMD5.apply(fakeFiles(2)) returns Future(Success("the-correct-checksum"))
-      mockGetOMFileMD5.apply(fakeFiles(3)) returns Future(Success("wrong-checksum-4"))
-
-      fakeFiles(2).getId returns "the-correct-file"
-
-      val toTest = new FileCopier() {
-        override def getChecksumFromPath(filePath: Path): Future[Option[String]] = mockGetChecksumFromPath(filePath)
-
-        override def getOMFileMd5(mxsFile: MxsObject): Future[Try[String]] = mockGetOMFileMD5(mxsFile)
-
-        def callVerify(filePath:Path, potentialFiles:Seq[MxsObject]) = verifyChecksumMatch(filePath, potentialFiles)
-      }
-
-      val result = Await.result(toTest.callVerify(Paths.get("/path/to/test.file"), fakeFiles), 2.seconds)
-
-      result must beSome("the-correct-file")
-      there was one(mockGetChecksumFromPath).apply(Paths.get("/path/to/test.file"))
-      there were three(mockGetOMFileMD5).apply(any)
-      there was one(mockGetOMFileMD5).apply(fakeFiles.head)
-      there was one(mockGetOMFileMD5).apply(fakeFiles(1))
-      there was one(mockGetOMFileMD5).apply(fakeFiles(2))
-      there was no(mockGetOMFileMD5).apply(fakeFiles(3))
-    }
-
-    "check everything and return no match" in {
-      implicit val mat:Materializer = mock[Materializer]
-
-      val fakeFiles = Seq(mock[MxsObject], mock[MxsObject], mock[MxsObject], mock[MxsObject])
-      val mockGetChecksumFromPath = mock[Path=>Future[Option[String]]]
-      mockGetChecksumFromPath.apply(any) returns Future(Some("the-correct-checksum"))
-
-      val mockGetOMFileMD5 = mock[MxsObject=>Future[Try[String]]]
-      mockGetOMFileMD5.apply(fakeFiles.head) returns Future(Success("wrong-checksum-1"))
-      mockGetOMFileMD5.apply(fakeFiles(1)) returns Future(Success("wrong-checksum-2"))
-      mockGetOMFileMD5.apply(fakeFiles(2)) returns Future(Success("wrong-checksum-3"))
-      mockGetOMFileMD5.apply(fakeFiles(3)) returns Future(Success("wrong-checksum-4"))
-
-      fakeFiles(2).getId returns "the-correct-file"
-
-      val toTest = new FileCopier() {
-        override def getChecksumFromPath(filePath: Path): Future[Option[String]] = mockGetChecksumFromPath(filePath)
-
-        override def getOMFileMd5(mxsFile: MxsObject): Future[Try[String]] = mockGetOMFileMD5(mxsFile)
-
-        def callVerify(filePath:Path, potentialFiles:Seq[MxsObject]) = verifyChecksumMatch(filePath, potentialFiles)
-      }
-
-      val result = Await.result(toTest.callVerify(Paths.get("/path/to/test.file"), fakeFiles), 2.seconds)
-
-      result must beNone
-      there was one(mockGetChecksumFromPath).apply(Paths.get("/path/to/test.file"))
-      there was one(mockGetOMFileMD5).apply(fakeFiles.head)
-      there was one(mockGetOMFileMD5).apply(fakeFiles(1))
-      there was one(mockGetOMFileMD5).apply(fakeFiles(2))
-      there was one(mockGetOMFileMD5).apply(fakeFiles(3))
     }
   }
 }

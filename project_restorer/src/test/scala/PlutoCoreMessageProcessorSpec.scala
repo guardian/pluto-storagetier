@@ -4,6 +4,7 @@ import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilderImpl, MXSConnectionBuilderMock}
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, ProcessorConfiguration}
+import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
 import com.gu.multimedia.storagetier.vidispine.{VSOnlineOutputMessage, VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.{MxsObject, Vault}
@@ -12,7 +13,7 @@ import io.circe.Json
 import io.circe.generic.codec.DerivedAsObjectCodec.deriveCodec
 import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
-import messages.{OnlineOutputMessage, ProjectUpdateMessage}
+import messages.{InternalOnlineOutputMessage, ProjectUpdateMessage}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
@@ -22,7 +23,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.language.postfixOps
 import scala.util.Try
 
-class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Specification with Mockito {
+class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Specification with Mockito {
   val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", Some("internal-archive-vault"))
   val vsConfig = VidispineConfig("https://test-case","test","test")
 
@@ -75,14 +76,10 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
       result.failed.get.getMessage mustEqual "Not meant to receive this"
     }
 
-    "drop message in handleUpdateMessage if status is In Production" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
-        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
-        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
-      }
+    "drop message in handleUpdateMessage if status is In Production" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
 
       val updateMessage = ProjectUpdateMessage(
         status = EntryStatus.InProduction.toString,
@@ -135,8 +132,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "return message with correct amount of associated files if status is Completed" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+      val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
@@ -159,8 +156,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "return message with correct amount of associated files if status is Held" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+      val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
@@ -183,8 +180,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
     }
 
     "return message with correct amount of associated files if status is Killed" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val onlineResults = for (i <- 1 to 3) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+      val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
@@ -208,8 +205,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "fail if project has too many associated online files" in {
-      val nearlineResults = for(i <- 1 to 2) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val tooManyOnlineResults = for (i <- 1 to 10001) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+      val tooManyOnlineResults = for (i <- 1 to 10001) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
@@ -224,8 +221,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "fail if project has too many associated nearline files" in {
-      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val onlineResults = for (i <- 1 to 2) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val tooManyNearlineResults = for(i <- 1 to 10001) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
+      val onlineResults = for (i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(tooManyNearlineResults)
@@ -242,8 +239,8 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "fail if project has too many associated nearline and online files" in {
-      val tooManyNearlineResults = for(i <- 1 to 10001) yield OnlineOutputMessage.apply(ObjectMatrixEntry(s"file$i", Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), None))
-      val tooManyOnlineResults = for (i <- 1 to 10002) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val tooManyNearlineResults = for(i <- 1 to 10001) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
+      val tooManyOnlineResults = for (i <- 1 to 10002) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(tooManyNearlineResults)
@@ -260,7 +257,7 @@ class PlutoCoreMessageProcessorTest(implicit ec: ExecutionContext) extends Speci
 
 
     "retry if vault could not be acquired" in {
-      val onlineResults = for (i <- 1 to 2) yield OnlineOutputMessage.apply(VSOnlineOutputMessage("ONLINE", 233, Some(s"p$i"), Some(s"VX-$i"), s"VX-${i + 1}", "Branding"))
+      val onlineResults = for (i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
         override def getNearlineResults(projectId: Int) = Future(Left("No vault for you!"))

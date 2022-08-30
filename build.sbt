@@ -181,7 +181,7 @@ lazy val `project_restorer` = (project in file("project_restorer"))
 
 lazy val `media_remover` = (project in file("media_remover"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
-  .dependsOn(common)
+  .dependsOn(common, mxscopy)
   .settings(commonSettings,
     version := sys.props.getOrElse("build.number","DEV"),
     dockerPermissionStrategy := DockerPermissionStrategy.MultiStage,
@@ -206,5 +206,8 @@ lazy val `media_remover` = (project in file("media_remover"))
       "org.specs2" %% "specs2-core" % "4.12.3" % Test,
       "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
+      "software.amazon.awssdk" % "s3" % awsSdk2Version,
+      "software.amazon.awssdk" % "s3-transfer-manager" % "2.17.177-PREVIEW",
+      "software.amazon.awssdk" % "url-connection-client" % awsSdk2Version,
     )
   )

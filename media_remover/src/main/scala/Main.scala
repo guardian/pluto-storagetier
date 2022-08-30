@@ -1,9 +1,8 @@
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
-import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, DatabaseProvider, MessageProcessingFramework, ProcessorConfiguration}
-import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
-import com.gu.multimedia.storagetier.models.nearline_archive.FailureRecordDAO
+import com.gu.multimedia.storagetier.framework._
+import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
@@ -24,11 +23,13 @@ object Main {
       Executors.newWorkStealingPool(10)
     )
   )
-  private val OUTPUT_EXCHANGE_NAME = "storagetier-online-nearline"
+  private val OUTPUT_EXCHANGE_NAME = "storagetier-media-remover"
+  private lazy val db = DatabaseProvider.get()
+
   //this will raise an exception if it fails, so do it as the app loads so we know straight away.
   //for this reason, don't declare this as `lazy`; if it's gonna crash, get it over with.
-  private lazy val db = DatabaseProvider.get()
-  private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider =  ConnectionFactoryProviderReal
+  private implicit val rmqConnectionFactoryProvider:ConnectionFactoryProvider = ConnectionFactoryProviderReal
+
   private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
     case Left(err)=>
       logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
@@ -36,11 +37,12 @@ object Main {
     case Right(config)=>config
   }
 
+  val assetFolderLookup = new AssetFolderLookup(plutoConfig)
+
   //maximum time (in seconds) to keep an idle connection open
   private val connectionIdleTime = sys.env.getOrElse("CONNECTION_MAX_IDLE", "750").toInt
 
-  private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-onlinenearline", defaultExecutionContext=Some
-  (executionContext))
+  private implicit lazy val actorSystem:ActorSystem = ActorSystem("storagetier-mediaremover", defaultExecutionContext=Some(executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
 
   private implicit lazy val matrixStoreConfig = new MatrixStoreEnvironmentConfigProvider().get() match {
@@ -60,8 +62,7 @@ object Main {
   private lazy val retryLimit = sys.env.get("RETRY_LIMIT").map(_.toInt).getOrElse(200)
 
   def main(args:Array[String]):Unit = {
-    implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
-    implicit lazy val failureRecordDAO = new FailureRecordDAO(db)
+    implicit lazy val pendingDeletionRecordDAO = new PendingDeletionRecordDAO(db)
     implicit val matrixStore = new MXSConnectionBuilderImpl(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
@@ -70,39 +71,40 @@ object Main {
       maxIdleSeconds = connectionIdleTime
     )
     val assetFolderLookup = new AssetFolderLookup(plutoConfig)
-    implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
     implicit lazy val checksumChecker = new ChecksumChecker()
-    implicit lazy val fileCopier = new FileCopier(checksumChecker)
+    implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
+
+    implicit lazy val s3ObjectChecker = S3ObjectChecker.createFromEnvVars("ARCHIVE_MEDIA_BUCKET") match {
+      case Left(err)=>
+        logger.error(s"Could not initialise FileUploader: $err")
+        Await.ready(actorSystem.terminate(), 30.seconds)
+        sys.exit(1)
+      case Right(u)=>u
+    }
 
     val config = Seq(
+//      ProcessorConfiguration(
+//        exchangeName = OUTPUT_EXCHANGE_NAME,
+//        routingKey = Seq("storagetier.nearline.internalarchive.required"),
+//        outputRoutingKey = Seq("storagetier.nearline.internalarchive"),
+//        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
+//      ),
       ProcessorConfiguration(
-        "assetsweeper",
-        "assetsweeper.asset_folder_importer.file.#",
-        "storagetier.nearline.newfile",
-        new AssetSweeperMessageProcessor()
+        exchangeName = "storagetier-project-restorer",
+        routingKey = Seq("storagetier.restorer.media_not_required.online", "storagetier.restorer.media_not_required.nearline"),
+        outputRoutingKey = Seq("storagetier.mediaremover.removedfile.online", "storagetier.mediaremover.removedfile.nearline"),
+        new MediaNotRequiredMessageProcessor(assetFolderLookup) // may also send "storagetier.nearline.internalarchive.required"
       ),
-      ProcessorConfiguration(
-        OUTPUT_EXCHANGE_NAME,
-        Seq("storagetier.nearline.newfile.success", "storagetier.nearline.metadata.success", "storagetier.nearline.internalarchive.required"),
-        Seq("storagetier.nearline.metadata", "storagetier.nearline.vsupdate", "storagetier.nearline.internalarchive"),
-        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
-      ),
-      ProcessorConfiguration(
-        "vidispine-events",
-        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.metadata.modify", "vidispine.item.shape.modify", "vidispine.itemneedsbackup"),
-        Seq("storagetier.nearline.newfile","storagetier.nearline.newfile", "storagetier.nearline.vidispineupdate", "storagetier.nearline.vidispineupdate", "storagetier.nearline.newfile"),
-        new VidispineMessageProcessor()
-      )
     )
 
     MessageProcessingFramework(
-      "storagetier-online-nearline",
-      OUTPUT_EXCHANGE_NAME,
-      "pluto.storagetier.online-nearline",
-      "storagetier-online-nearline-retry",
-      "storagetier-online-nearline-fail",
-      "storagetier-online-nearline-dlq",
-      config,
+      ingest_queue_name = "storagetier-media-remover",
+      output_exchange_name = OUTPUT_EXCHANGE_NAME,
+      routingKeyForSend = "pluto.storagetier.media-remover",
+      retryExchangeName = "storagetier-media-remover-retry",
+      failedExchangeName = "storagetier-media-remover-fail",
+      failedQueueName = "storagetier-media-remover-dlq",
+      handlers = config,
       maximumRetryLimit = retryLimit
     ) match {
       case Left(err) =>
@@ -123,8 +125,7 @@ object Main {
         //first initialise all the tables that we need, then run the framework.
         //add in more table initialises as required
         Future.sequence(Seq(
-          nearlineRecordDAO.initialiseSchema,
-          failureRecordDAO.initialiseSchema,
+          pendingDeletionRecordDAO.initialiseSchema,
         ))
           .flatMap(_=>framework.run())
           .onComplete({

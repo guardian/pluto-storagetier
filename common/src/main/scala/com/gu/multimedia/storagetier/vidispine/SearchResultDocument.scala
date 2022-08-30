@@ -38,24 +38,26 @@ case class SearchResultItemContentSimplified(
     shape: Seq[ShapeDocument]
 )
 
-case class VSOnlineOutputMessage(
-    mediaTier: String,
-    projectId: Int,
-    filePath: Option[String],
-    itemId: Option[String],
-    nearlineId: String,
-    mediaCategory: String
+case class VSOnlineOutputMessage(mediaTier: String,
+                                 projectIds: Seq[Int],
+                                 filePath: Option[String],
+                                 fileSize: Option[Long],
+                                 itemId: Option[String],
+                                 nearlineId: Option[String],
+                                 mediaCategory: String
 )
 object VSOnlineOutputMessage {
   private val logger = LoggerFactory.getLogger(getClass)
+
   def fromResponseItem(
       itemSimplified: SearchResultItemSimplified,
       projectId: Int
   ): Option[VSOnlineOutputMessage] = {
     val mediaTier = "ONLINE"
     val itemId = Option(itemSimplified.id)
-    val filePath =
-      itemSimplified.item.shape.head.getLikelyFile.flatMap(_.getAbsolutePath)
+    val likelyFile = itemSimplified.item.shape.head.getLikelyFile
+    val filePath = likelyFile.flatMap(_.getAbsolutePath)
+    val fileSize = likelyFile.flatMap(_.sizeOption)
     val nearlineId = itemSimplified
       .valuesForField("gnm_nearline_id", Some("Asset"))
       .headOption
@@ -64,20 +66,21 @@ object VSOnlineOutputMessage {
       .valuesForField("gnm_category", Some("Asset"))
       .headOption
       .map(_.value)
-    (nearlineId, mediaCategory) match {
-      case (Some(nearlineId), Some(mediaCategory)) =>
+    (itemId, mediaCategory) match {
+      case (Some(itemId), Some(mediaCategory)) =>
         Some(
           VSOnlineOutputMessage(
             mediaTier,
-            projectId,
+            Seq(projectId),
             filePath,
-            itemId,
+            fileSize,
+            Some(itemId),
             nearlineId,
             mediaCategory
           )
         )
       case _ =>
-        logger.warn(s"VS response for $itemId missing nearlineId ($nearlineId) and/or mediaCategory ($mediaCategory)")
+        logger.warn(s"VS response missing itemId ($itemId) and/or mediaCategory ($mediaCategory)")
         None
     }
   }

@@ -2,7 +2,12 @@ package com.gu.multimedia.storagetier.models.online_archive
 
 import slick.jdbc.PostgresProfile.api._
 
-case class IgnoredRecord (id:Option[Int], originalFilePath:String, ignoreReason: String, vidispineItemId:Option[String], vidispineVersionId:Option[Int])
+case class IgnoredRecord(id:Option[Int],
+                         originalFilePath:String,
+                         ignoreReason: String,
+                         vidispineItemId:Option[String],
+                         vidispineVersionId:Option[Int]
+                        )
 
 class IgnoredRecordRow(tag:Tag) extends Table[IgnoredRecord](tag, "onlinearchive_ignored_record") {
   def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
