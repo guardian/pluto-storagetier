@@ -587,6 +587,50 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
 
+  def getActionToPerformOnline(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): (Action.Value, Option[ProjectRecord]) =
+    maybeProject match {
+      case None => (Action.DropMsg, None)
+      case Some(project) =>
+        project.status match {
+          case status if status == EntryStatus.Held =>
+            (Action.CheckNearline, Some(project))
+          case _ =>
+            project.deletable match {
+              case Some(true) =>
+                project.status match {
+                  case status if status == EntryStatus.Completed || status == EntryStatus.Killed =>
+                    // deletable + Completed/Killed
+                    (Action.ClearAndDelete, Some(project))
+                  case _ =>
+                    (Action.DropMsg, Some(project))
+                }
+              case _ =>
+                // not DELETABLE
+                if (project.deep_archive.getOrElse(false)) {
+                  if (project.sensitive.getOrElse(false)) {
+                    if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
+                      // not deletable + deep_archive + sensitive + Completed/Killed
+                      (Action.CheckInternalArchive, Some(project))
+                    } else {
+                      (Action.DropMsg, Some(project))
+                    }
+                  } else {
+                    if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
+                      // not deletable + deep_archive + not sensitive + Completed/Killed
+                      (Action.CheckDeepArchiveForOnline, Some(project))
+                    } else {
+                      (Action.DropMsg, Some(project))
+                    }
+                  }
+                } else {
+                  // not deletable + not deep_archive
+                  (Action.JustNo, Some(project))
+                }
+            }
+        }
+    }
+
+
   def getActionToPerformNearline(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): (Action.Value, Option[ProjectRecord]) =
     maybeProject match {
       case None => (Action.DropMsg, None)
@@ -714,7 +758,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     for {
       /* ignore all but the first project - we're only getting the main project as of yet */
-      projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head.toString)
+      projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
       actionToPerform <- Future(getActionToPerformNearline(onlineOutputMessage, projectRecordMaybe))
       fileRemoveResult <- performActionNearline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
     } yield fileRemoveResult
@@ -732,9 +776,18 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def handleOnlineMediaNotRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+  def NOT_IMPL_performActionOnline(internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = ???
+
+  private def handleOnlineMediaNotRequired(internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     // Sanity checks
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
+    for {
+      /* ignore all but the first project - we're only getting the main project as of yet */
+      projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
+      actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
+      fileRemoveResult <- NOT_IMPL_performActionOnline(internalArchiveVault, onlineOutputMessage, actionToPerform)
+    } yield fileRemoveResult
+
     Future(Left("testing online"))
   }
 }
@@ -742,6 +795,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 object MediaNotRequiredMessageProcessor {
   object Action extends Enumeration {
-    val CheckDeepArchiveForNearline, CheckInternalArchive, ClearAndDelete, DropMsg, JustNo  = Value
+    val CheckDeepArchiveForNearline, CheckInternalArchive, ClearAndDelete, DropMsg, JustNo, CheckNearline, CheckDeepArchiveForOnline  = Value
   }
 }
