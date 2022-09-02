@@ -7,7 +7,7 @@ import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
 import messages.MediaRemovedMessage
 
@@ -36,11 +36,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   "MediaNotRequiredMessageProcessor.getChecksumForNearlineItem" should {
     "fail if no nearline id" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -50,9 +45,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -94,11 +86,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   "MediaNotRequiredMessageProcessor.deleteFromNearline" should {
     "fail if no nearline id" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -107,9 +94,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -289,8 +273,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
     "fail if no filePath" in {
 
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       pendingDeletionRecordDAO.writeRecord(any) returns Future(234)
 
@@ -329,8 +311,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "store new record for NEARLINE if no record found" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(any, any) returns Future(None)
       pendingDeletionRecordDAO.writeRecord(any) returns Future(234)
@@ -369,8 +349,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "store updated record for NEARLINE if record already present" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       val existingRecord = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsid"), MediaTiers.NEARLINE, 1)
       val expectedUpdatedRecordToSave = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsid"), MediaTiers.NEARLINE, 2)
@@ -413,11 +391,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "22 route nearline deletable Completed project with deliverable media should drop silently" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -427,9 +400,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -475,11 +445,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "23 route nearline deletable Killed project with deliverable media should drop silently " in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -488,8 +453,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
 
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -535,11 +498,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "24 route nearline Deletable & Killed project with media not of type Deliverables should remove media" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -548,9 +506,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
@@ -602,11 +557,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "26 route nearline Deletable & Completed project with media not of type Deliverables should remove media" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -615,9 +565,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableAndKilled = mock[ProjectRecord]
@@ -669,11 +616,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "27 route nearline Deletable & New project should silent drop" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -682,9 +624,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableAndKilled = mock[ProjectRecord]
@@ -727,11 +666,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "28 route nearline p:deep_archive and NOT p:sensitive & p:Killed & m:Exists on Deep Archive should remove media" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -740,9 +674,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
@@ -797,11 +728,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "29 route nearline p:deep_archive and NOT p:sensitive & p:Killed & m:Does not exist on Deep Archive should Store pending & Request copy" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -810,9 +736,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
@@ -867,11 +790,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "30 route nearline p:deep_archive and NOT p:sensitive & not p:Killed and not p:Completed should silent drop" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -880,9 +798,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
@@ -926,11 +841,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
     "31 route nearline p:deep_archive and p:sensitive & p:Killed & m:Exists on Internal Archive should remove media" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
-      implicit val nearlineRecordDAO:NearlineRecordDAO = mock[NearlineRecordDAO]
-      nearlineRecordDAO.writeRecord(any) returns Future(123)
-      nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
-      implicit val failureRecordDAO:FailureRecordDAO = mock[FailureRecordDAO]
-      failureRecordDAO.writeRecord(any) returns Future(234)
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -939,9 +849,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
       implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
       implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val mockCheckForPreExistingFiles = mock[(Vault, AssetSweeperNewFile)=>Future[Option[NearlineRecord]]]
-      mockCheckForPreExistingFiles.apply(any,any) returns Future(None)
-
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
