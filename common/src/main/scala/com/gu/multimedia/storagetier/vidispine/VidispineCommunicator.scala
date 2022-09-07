@@ -1,5 +1,5 @@
 package com.gu.multimedia.storagetier.vidispine
-import com.gu.multimedia.storagetier.messages.VidispineField;
+import com.gu.multimedia.storagetier.messages.VidispineField
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -83,6 +83,16 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
         contentBodyToJson(consumeStream(entity.dataBytes))
     })
 
+  def deleteItem(vsItemId: String) = {
+    val response = callToVidispineRaw(
+      HttpRequest(
+        uri = s"${config.baseUri}/API/item/$vsItemId",
+        method = HttpMethods.DELETE
+      )
+    )
+    response.map(_.map(_.discardBytes()))
+  }
+  
   private def streamingVS(req:HttpRequest, readTimeout:FiniteDuration, thing:String) = callToVidispineRaw(req).map({
     case Some(entity)=>
       entity.dataBytes
