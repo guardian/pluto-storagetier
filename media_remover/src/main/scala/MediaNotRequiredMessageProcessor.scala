@@ -485,11 +485,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case ("NEARLINE", _, _) =>
         Future.failed(new RuntimeException("NEARLINE but no nearlineId"))
 
-      case ("ONLINE", Some(onlineId), _) =>
-        logger.warn(s"Not implemented yet - $onlineId ignored")
-        Future.failed(SilentDropMessage(Some(s"Not implemented yet - $onlineId ignored")))
+      case ("ONLINE", Some(vsItemId), _) =>
+        logger.warn(s"Not implemented yet - $vsItemId ignored")
+        Future.failed(SilentDropMessage(Some(s"Not implemented yet - $vsItemId ignored")))
       case ("ONLINE", _, _) =>
-        Future.failed(new RuntimeException("ONLINE but no onlineId"))
+        Future.failed(new RuntimeException("ONLINE but no itemId"))
 
       case (_, _, _) =>
         Future.failed(new RuntimeException("This should not happen!"))
