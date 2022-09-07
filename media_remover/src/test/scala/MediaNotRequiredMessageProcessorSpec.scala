@@ -386,6 +386,61 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
     }
   }
 
+  "MediaNotRequiredMessageProcessor.getActionToPerformOnline" should {
+    "XYZ route online deletable Completed project with deliverable media should drop silently" in {
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProjectDeletableCompletedAndDeliverable = mock[ProjectRecord]
+      fakeProjectDeletableCompletedAndDeliverable.id returns Some(22)
+      fakeProjectDeletableCompletedAndDeliverable.status returns EntryStatus.Completed
+      fakeProjectDeletableCompletedAndDeliverable.deep_archive returns Some(true)
+      fakeProjectDeletableCompletedAndDeliverable.deletable returns Some(true)
+      fakeProjectDeletableCompletedAndDeliverable.sensitive returns None
+      mockAssetFolderLookup.getProjectMetadata("22") returns Future(Some(fakeProjectDeletableCompletedAndDeliverable))
+      val someProject = Some(fakeProjectDeletableCompletedAndDeliverable)
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["22"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-151922",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"mediaCategory": "Deliverables"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+//      val result = Try {
+//      }
+
+        val result = toTest.getActionToPerformOnline(msgObj, None)
+
+      result._1 mustEqual Action.DropMsg
+//      result must beAFailedTry
+//      result.failed.get must beAnInstanceOf[SilentDropMessage]
+//      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, project 22 is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables"
+
+    }
+  }
 
   "MediaNotRequiredMessageProcessor.handleMessage" should {
 
@@ -439,7 +494,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, project 22 is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables"
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151922: project (id 22) is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables."
     }
 
 
@@ -492,7 +547,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, project 23 is deletable(true), deep_archive(true), sensitive(false), status is Killed, media category is Deliverables"
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151923: project (id 23) is deletable(true), deep_archive(true), sensitive(false), status is Killed, media category is Deliverables."
     }
 
 
@@ -660,7 +715,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, project 27 is deletable(true), deep_archive(true), sensitive(false), status is New, media category is Rushes"
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151927: project (id 27) is deletable(true), deep_archive(true), sensitive(false), status is New, media category is Rushes."
     }
 
 
@@ -835,7 +890,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, project 30 is deletable(false), deep_archive(true), sensitive(false), status is New, media category is Rushes"
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151930: project (id 30) is deletable(false), deep_archive(true), sensitive(false), status is New, media category is Rushes."
     }
 
 

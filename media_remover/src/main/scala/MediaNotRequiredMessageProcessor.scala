@@ -72,7 +72,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   def handleInternalArchiveCompleteForNearline(vault: Vault, internalArchiveVault: Vault, nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-    pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(nearlineRecord.originalFilePath, MediaTiers.NEARLINE).flatMap({
+    pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(nearlineRecord.originalFilePath, MediaTiers.NEARLINE).flatMap({ // FIXME this is not a unique identifer - several nearline files can have the same path e.g.
       case Some(pendingDeletionRecord) =>
         pendingDeletionRecord.nearlineId match {
           case Some(nearlineId) =>
@@ -81,17 +81,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, pendingDeletionRecord.originalFilePath, fileSize)
                 .flatMap({
                   case true =>
-                    deleteMediaFromNearline(vault, pendingDeletionRecord.mediaTier.toString, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId, pendingDeletionRecord.vidispineItemId)
-                      .map({
-                        case Left(err) => Left(err)
-                        case Right(mediaRemovedMsg) =>
-                          removeDeletionPending(pendingDeletionRecord) // TODO can we do this and still use the record's values in the next line?
-                          Right(mediaRemovedMsg.asJson)
-                      })
-
+                    for {
+                      mediaRemovedMsg <- deleteMediaFromNearline(vault, pendingDeletionRecord.mediaTier.toString, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId, pendingDeletionRecord.vidispineItemId)
+                      _ <- removeDeletionPending(pendingDeletionRecord)
+                    } yield mediaRemovedMsg
                   case false =>
                     pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
-                    NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
+                    NOT_IMPL_outputInternalArchiveCopyRequired(pendingDeletionRecord)
                 })
             })
           case None => throw new RuntimeException("NEARLINE pending deletion record w/o nearline id!")
@@ -109,18 +105,15 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Some(vsItemId) =>
               getOnlineSize(pendingDeletionRecord, nearlineRecord.vidispineItemId).flatMap({
                 case Some(onlineSize) =>
-                  onlineExistsInInternalArchive(internalArchiveVault, vsItemId, pendingDeletionRecord.originalFilePath, onlineSize).flatMap({
+                  onlineExistsInVault(internalArchiveVault, vsItemId, pendingDeletionRecord.originalFilePath, onlineSize).flatMap({
                     case true =>
-                      NOT_IMPL_deleteMediaFromOnline(pendingDeletionRecord)
-                        .map({
-                          case Left(err) => Left(err)
-                          case Right(mediaRemovedMsg) =>
-                            removeDeletionPending(pendingDeletionRecord)
-                            Right(mediaRemovedMsg)
-                        })
+                      for {
+                        mediaRemovedMessage <- deleteMediaFromOnline(pendingDeletionRecord)
+                        _ <- pendingDeletionRecordDAO.deleteRecord(pendingDeletionRecord)
+                      } yield mediaRemovedMessage
                     case false =>
                       pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
-                      NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord)
+                      NOT_IMPL_outputInternalArchiveCopyRequired(pendingDeletionRecord)
                   })
                 case None =>
                   logger.info(s"Could not get online size from Vidispine, retrying")
@@ -144,13 +137,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           checksumMaybeFut.flatMap(checksumMaybe => {
             mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey).flatMap({
               case true =>
-                NOT_IMPL_deleteMediaFromOnline(pendingDeletionRecord)
-                  .map({
-                    case Left(err) => Left(err)
-                    case Right(mediaRemovedMsg) =>
-                      removeDeletionPending(pendingDeletionRecord)
-                      Right(mediaRemovedMsg)
-                  })
+                for {
+                  mediaRemovedMsg <- deleteMediaFromOnline(pendingDeletionRecord)
+                  _ <- removeDeletionPending(pendingDeletionRecord)
+                } yield mediaRemovedMsg
               case false =>
                 pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
                 NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord)
@@ -222,7 +212,17 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into a OnlineOutputMessage: $err"))
           case Right(onlineOutputMessageOnline) =>
-            handleOnlineMediaNotRequired(onlineOutputMessageOnline)
+            mxsConfig.internalArchiveVaultId match {
+              case Some(internalArchiveVaultId) =>
+                matrixStoreBuilder.withVaultsFuture(Seq(mxsConfig.nearlineVaultId, internalArchiveVaultId)) { vaults =>
+                  val nearlineVault = vaults.head
+                  val internalArchiveVault = vaults(1)
+                  handleOnlineMediaNotRequired(nearlineVault, internalArchiveVault, onlineOutputMessageOnline)
+                }
+              case None =>
+                logger.error(s"The internal archive vault ID has not been configured, so it's not possible to send an item to internal archive.")
+                Future.failed(new RuntimeException(s"Internal archive vault not configured"))
+            }
         }
 
       case "storagetier.nearline.internalarchive.success" =>
@@ -308,8 +308,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.warn(s"Dropping message $routingKey from project-restorer exchange as I don't know how to handle it.")
         Future.failed(new RuntimeException(s"Routing key $routingKey dropped because I don't know how to handle it"))
     }
-
-  //------------------------------------------------------------------
 
 
   protected def openMxsObject(vault:Vault, oid:String) = Try { vault.getObject(oid) }
@@ -441,12 +439,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     } yield exists
   }
 
-  def onlineExistsInInternalArchive(internalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = {
+  def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
     for {
       maybeChecksum <- NOT_IMPL_getChecksumForOnline(vsItemId)
-      exists <- existsInTargetVaultWithMd5Match(internalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
+      exists <- existsInTargetVaultWithMd5Match(nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
     } yield exists
-  }
 
   def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, objectKey, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
@@ -531,7 +528,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def deleteMediaFromNearline(vault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]): Future[Either[String, MessageProcessorReturnValue]] = {
+  def deleteMediaFromNearline(vault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]): Future[Either[String, MessageProcessorReturnValue]] =
     (mediaTier, filePathMaybe, nearlineIdMaybe) match {
       case ("NEARLINE", Some(filepath), Some(nearlineId)) =>
         dealWithAttFiles(vault, nearlineId, filepath)
@@ -546,25 +543,41 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         }
       case (_, _, _) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier ($mediaTier), or missing nearline id ($nearlineIdMaybe)")
     }
-  }
 
+  def deleteMediaFromOnline(rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] =
+    deleteMediaFromOnline(rec.mediaTier.toString, Some(rec.originalFilePath), rec.nearlineId, rec.vidispineItemId)
 
-  def NOT_IMPL_deleteMediaFromOnline(rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] =
-    (rec.mediaTier, rec.vidispineItemId) match {
-      case (MediaTiers.ONLINE, Some(vsItemId)) => ???
-      case (_, _) => throw new RuntimeException(s"Cannot delete from online, wrong media tier (${rec.mediaTier}), or missing item id (${rec.vidispineItemId})")
+  def deleteMediaFromOnline(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] =
+    deleteMediaFromOnline(onlineOutputMessage.mediaTier, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId, onlineOutputMessage.vidispineItemId)
+
+  def deleteMediaFromOnline(mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]): Future[Either[String, MessageProcessorReturnValue]] =
+    (mediaTier, vidispineItemIdMaybe) match {
+      case ("ONLINE", Some(vsItemId)) =>
+        vidispineCommunicator.deleteItem(vsItemId)
+          .map(_ => {
+            logger.info(s"Online media item id=$vsItemId removed, path=$filePathMaybe removed")
+            Right(MediaRemovedMessage(mediaTier, filePathMaybe.getOrElse("<missing file path>"), vidispineItemIdMaybe, nearlineIdMaybe).asJson)
+          })
+          .recover({
+            case err: Throwable =>
+              logger.warn(s"Failed to remove online media id=$vsItemId, reason: ${err.getMessage}")
+              Left(s"Failed to remove online media id=$vsItemId, reason: ${err.getMessage}")
+          })
+      case (_, _) => throw new RuntimeException(s"Cannot delete from online, wrong media tier ($mediaTier), or missing item id (${vidispineItemIdMaybe.getOrElse("<missing item id>")})")
     }
+
   def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
   def NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = ???
-  def NOT_IMPL_outputInternalArchiveCopyRequried(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
-  def NOT_IMPL_outputInternalArchiveCopyRequried(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = ???
+  def NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
+  def NOT_IMPL_outputNearlineCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
+  def NOT_IMPL_outputInternalArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = ???
 
 
   def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] =
     msg.originalFilePath match {
       case Some(filePath) =>
         Try { MediaTiers.withName(msg.mediaTier) } match {
-          case Success(tier) =>
+          case Success(tier) => // FIXME needs to discriminate based on mediatier and respective media id
             pendingDeletionRecordDAO
               .findBySourceFilenameAndMediaTier(filePath, tier)
               .map({
@@ -579,7 +592,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               })
           case Failure(ex) =>
             logger.warn(s"Unexpected value for MediaTier: ${ex.getMessage}")
-            Future.failed(new RuntimeException(s"Cannot store PendingDeletion, unecpected value for mediaTier: '${msg.mediaTier}"))
+            Future.failed(new RuntimeException(s"Cannot store PendingDeletion, unexpected value for mediaTier: '${msg.mediaTier}"))
         }
       case None =>
         logger.warn(s"No filepath for ${msg.asJson}, no use storing a PendingDeletion; dropping message")
@@ -669,79 +682,25 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
 
-  private def performActionNearline(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = {
-
-    def deleteFromNearlineWrapper(project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-      deleteMediaFromNearline(vault, onlineOutputMessage.mediaTier, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId, onlineOutputMessage.vidispineItemId).map({
-        case Left(err) => Left(err)
-        case Right(mediaRemovedMessage) =>
-          logger.debug(s"--> deleting nearline media ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
-          Right(mediaRemovedMessage.asJson)
-      })
-    }
-
+  private def performActionNearline(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] =
     actionToPerform match {
       case (Action.DropMsg, None) =>
-        val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
-        logger.warn(noProjectFoundMsg)
-        throw SilentDropMessage(Some(noProjectFoundMsg))
+        handleDropMsg(onlineOutputMessage)
 
       case (Action.DropMsg, Some(project)) =>
-        val deletable = project.deletable.getOrElse(false)
-        val deep_archive = project.deep_archive.getOrElse(false)
-        val sensitive = project.sensitive.getOrElse(false)
-        val notRemovingMsg = s"not removing nearline media ${onlineOutputMessage.nearlineId.getOrElse("-1")}, " +
-          s"project ${project.id.getOrElse(-1)} is deletable($deletable), deep_archive($deep_archive), " +
-          s"sensitive($sensitive), status is ${project.status}, " +
-          s"media category is ${onlineOutputMessage.mediaCategory}"
-        logger.debug(s"-> $notRemovingMsg")
-        throw SilentDropMessage(Some(notRemovingMsg))
+        handleDropMsg(onlineOutputMessage, project)
 
       case (Action.CheckDeepArchiveForNearline, Some(project)) =>
-        nearlineMediaExistsInDeepArchive(vault, onlineOutputMessage).flatMap({
-          case true =>
-            deleteFromNearlineWrapper(project)
-              .map({
-                case Left(err) => Left(err)
-                case Right(mediaRemovedMsg) =>
-                  removeDeletionPendingByMessage(onlineOutputMessage)
-                  Right(mediaRemovedMsg)
-              })
-          case false =>
-            storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
-            NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage)
-        })
+        handleCheckDeepArchiveForNearline(nearlineVault, onlineOutputMessage, project)
 
       case (Action.CheckInternalArchive, Some(project)) =>
-        nearlineExistsInInternalArchive(vault, internalArchiveVault, onlineOutputMessage).flatMap({
-          case true =>
-            // nearline media EXISTS in INTERNAL ARCHIVE
-            deleteFromNearlineWrapper(project)
-              .map({
-                case Left(err) => Left(err)
-                case Right(mediaRemovedMsg) =>
-                  removeDeletionPendingByMessage(onlineOutputMessage)
-                  Right(mediaRemovedMsg)
-              })
-          case false =>
-            // nearline media does NOT EXIST in INTERNAL ARCHIVE
-            storeDeletionPending(onlineOutputMessage) // TODO do we need to recover if db write fails, or can we let it bubble up?
-            NOT_IMPL_outputInternalArchiveCopyRequried(onlineOutputMessage)
-        })
+        handleCheckInternalArchiveForNearline(nearlineVault, internalArchiveVault, onlineOutputMessage, project)
 
       case (Action.ClearAndDelete, Some(project)) =>
-        deleteFromNearlineWrapper(project)
-          .map({
-            case Left(err) => Left(err)
-            case Right(mediaRemovedMsg) =>
-              removeDeletionPendingByMessage(onlineOutputMessage)
-              Right(mediaRemovedMsg)
-          })
-
+        handleDeleteNearlineAndClear(nearlineVault, onlineOutputMessage, project)
 
       case (Action.JustNo, Some(project)) =>
-        logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
-        throw new RuntimeException(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
+        handleJustNo(project)
 
       case (unexpectedAction, Some(project)) =>
         logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, unexpected action $unexpectedAction")
@@ -751,16 +710,130 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.warn(s"Cannot remove file: unexpected action $unexpectedAction when no project")
         throw new RuntimeException(s"Cannot remove file: unexpected action $unexpectedAction when no project")
     }
+
+  private def handleDropMsg(onlineOutputMessage: OnlineOutputMessage) = {
+    val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
+    logger.warn(noProjectFoundMsg)
+    throw SilentDropMessage(Some(noProjectFoundMsg))
+  }
+
+  private def handleCheckDeepArchiveForNearline(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+    nearlineMediaExistsInDeepArchive(nearlineVault, onlineOutputMessage).flatMap({
+      case true =>
+        handleDeleteNearlineAndClear(nearlineVault, onlineOutputMessage, project)
+      case false =>
+        storeDeletionPending(onlineOutputMessage)
+        NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage)
+    })
+  }
+
+  private def handleCheckInternalArchiveForNearline(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+    nearlineExistsInInternalArchive(nearlineVault, internalArchiveVault, onlineOutputMessage).flatMap({
+      case true =>
+        // nearline media EXISTS in INTERNAL ARCHIVE
+        handleDeleteNearlineAndClear(nearlineVault, onlineOutputMessage, project)
+      case false =>
+        // nearline media does NOT EXIST in INTERNAL ARCHIVE
+        storeDeletionPending(onlineOutputMessage)
+        NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage)
+    })
+  }
+
+  private def handleDeleteNearlineAndClear(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+    for {
+      mediaRemovedMsg <- deleteFromNearlineWrapper(nearlineVault, onlineOutputMessage, project)
+      _ <- removeDeletionPendingByMessage(onlineOutputMessage)
+    } yield mediaRemovedMsg
+  }
+
+  private def handleJustNo(project: ProjectRecord) = {
+    logger.warn(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
+    throw new RuntimeException(s"Project state for removing files from project ${project.id.getOrElse(-1)} is not valid, deep_archive flag is not true!")
   }
 
 
-  def handleNearlineMediaNotRequired(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+  def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
+    val (fileSize, originalFilePath, vsItemId) =
+      validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
+
+    for {
+      checksumMaybe <- NOT_IMPL_getChecksumForOnline(vsItemId)
+      mediaExists <- mediaExistsInDeepArchive(checksumMaybe, fileSize, originalFilePath)
+    } yield mediaExists
+  }
+
+
+  private def handleCheckVaultForOnline(nearlineVaultOrInternalArchiveVault: Vault,
+                                        onlineOutputMessage: OnlineOutputMessage,
+                                        outputRequiredMsgFn: OnlineOutputMessage => Future[Either[String, MessageProcessorReturnValue]]
+                                       ) = {
+    val (fileSize, filePath, vsItemId) =
+      validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
+    onlineExistsInVault(nearlineVaultOrInternalArchiveVault, vsItemId, filePath, fileSize).flatMap({
+        case true => handleDeleteOnlineAndClear(onlineOutputMessage)
+        case false =>
+          storeDeletionPending(onlineOutputMessage)
+          outputRequiredMsgFn(onlineOutputMessage)
+      })
+  }
+
+  private def handleDeleteOnlineAndClear(onlineOutputMessage: OnlineOutputMessage) = {
+    for {
+      mediaRemovedMessage <- deleteMediaFromOnline(onlineOutputMessage)
+      _ <- removeDeletionPendingByMessage(onlineOutputMessage)
+    } yield mediaRemovedMessage
+  }
+
+  private def handleCheckDeepArchiveForOnline(onlineOutputMessage: OnlineOutputMessage) =
+    onlineMediaExistsInDeepArchive(onlineOutputMessage).flatMap({
+      case true =>
+        handleDeleteOnlineAndClear(onlineOutputMessage)
+      case false =>
+        storeDeletionPending(onlineOutputMessage)
+        NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage)
+    })
+
+
+  private def handleDropMsg(onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+    val deletable = project.deletable.getOrElse(false)
+    val deep_archive = project.deep_archive.getOrElse(false)
+    val sensitive = project.sensitive.getOrElse(false)
+    val nearlineId = onlineOutputMessage.nearlineId.getOrElse("-1")
+    val vsItemId = onlineOutputMessage.vidispineItemId.getOrElse("<missing item id>")
+    val notRemovingMsg = s"Not removing ${onlineOutputMessage.mediaTier} media with " +
+      s"nearlineId=$nearlineId, " +
+      s"onlineId=$vsItemId: " +
+      s"project (id ${project.id.getOrElse(-1)}) is " +
+      s"deletable($deletable), " +
+      s"deep_archive($deep_archive), " +
+      s"sensitive($sensitive), " +
+      s"status is ${project.status}, " +
+      s"media category is ${onlineOutputMessage.mediaCategory}."
+    logger.debug(s"-> $notRemovingMsg")
+    throw SilentDropMessage(Some(notRemovingMsg))
+  }
+
+  def deleteFromNearlineWrapper(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
+    deleteMediaFromNearline(nearlineVault, onlineOutputMessage.mediaTier, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId, onlineOutputMessage.vidispineItemId).map({
+      case Left(err) => Left(err)
+      case Right(mediaRemovedMessage) =>
+        logger.debug(s"--> deleting nearline media ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+        Right(mediaRemovedMessage.asJson)
+    })
+  }
+
+
+
+
+
+
+  def handleNearlineMediaNotRequired(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     for {
       /* ignore all but the first project - we're only getting the main project as of yet */
       projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
       actionToPerform <- Future(getActionToPerformNearline(onlineOutputMessage, projectRecordMaybe))
-      fileRemoveResult <- performActionNearline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
+      fileRemoveResult <- performActionNearline(nearlineVault, internalArchiveVault, onlineOutputMessage, actionToPerform)
     } yield fileRemoveResult
   }
 
@@ -776,21 +849,46 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def NOT_IMPL_performActionOnline(internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = ???
-
-  private def handleOnlineMediaNotRequired(internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+  private def handleOnlineMediaNotRequired(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     // Sanity checks
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
     for {
       /* ignore all but the first project - we're only getting the main project as of yet */
       projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
       actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
-      fileRemoveResult <- NOT_IMPL_performActionOnline(internalArchiveVault, onlineOutputMessage, actionToPerform)
+      fileRemoveResult <- performActionOnline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
     } yield fileRemoveResult
 
     Future(Left("testing online"))
   }
+
+  def performActionOnline(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = {
+    actionToPerform match {
+      case (Action.CheckDeepArchiveForOnline, Some(project)) =>
+        handleCheckDeepArchiveForOnline(onlineOutputMessage)
+
+      case (Action.CheckInternalArchive, Some(project)) =>
+        handleCheckVaultForOnline(internalArchiveVault, onlineOutputMessage, NOT_IMPL_outputInternalArchiveCopyRequired)
+
+      case (Action.CheckNearline, Some(project)) =>
+        handleCheckVaultForOnline(nearlineVault, onlineOutputMessage, NOT_IMPL_outputNearlineCopyRequired)
+
+      case (Action.ClearAndDelete, Some(project)) =>
+        handleDeleteOnlineAndClear(onlineOutputMessage)
+
+      case (Action.DropMsg, None) =>
+        handleDropMsg(onlineOutputMessage)
+
+      case (Action.DropMsg, Some(project)) =>
+        handleDropMsg(onlineOutputMessage, project)
+
+      case (Action.JustNo, Some(project)) =>
+        handleJustNo(project)
+    }
+  }
+
 }
+
 
 
 object MediaNotRequiredMessageProcessor {
