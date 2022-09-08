@@ -108,14 +108,18 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
       TableQuery[PendingDeletionRecordRow].filter(row => row.originalFilePath===filename && row.mediaTier===mediaTier).result
     ).map(_.headOption)
 
-  def findByOnlineId(vsid: String): Future[Option[PendingDeletionRecord]] =
+  def findByOnlineIdForONLINE(vsItemId: String): Future[Option[PendingDeletionRecord]] =
     db.run(
-      TableQuery[PendingDeletionRecordRow].filter(_.vidispineItemId===vsid).result
+      TableQuery[PendingDeletionRecordRow].filter(
+        row => row.vidispineItemId===vsItemId && row.mediaTier===MediaTiers.ONLINE
+      ).result
     ).map(_.headOption)
 
-  def findByNearlineId(oid: String): Future[Option[PendingDeletionRecord]] =
+  def findByNearlineIdForNEARLINE(oid: String): Future[Option[PendingDeletionRecord]] =
     db.run(
-      TableQuery[PendingDeletionRecordRow].filter(_.nearlineId===oid).result
+      TableQuery[PendingDeletionRecordRow].filter(
+        row => row.nearlineId===oid && row.mediaTier===MediaTiers.NEARLINE
+      ).result
     ).map(_.headOption)
 
 }
