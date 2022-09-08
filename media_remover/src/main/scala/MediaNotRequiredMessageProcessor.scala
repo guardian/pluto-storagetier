@@ -866,22 +866,21 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
       fileRemoveResult <- performActionOnline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
     } yield fileRemoveResult
-
-    Future(Left("testing online"))
   }
+
 
   def performActionOnline(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, actionToPerform: (MediaNotRequiredMessageProcessor.Action.Value, Option[ProjectRecord])): Future[Either[String, MessageProcessorReturnValue]] = {
     actionToPerform match {
-      case (Action.CheckDeepArchiveForOnline, Some(project)) =>
+      case (Action.CheckDeepArchiveForOnline, Some(_)) =>
         handleCheckDeepArchiveForOnline(onlineOutputMessage)
 
-      case (Action.CheckInternalArchive, Some(project)) =>
+      case (Action.CheckInternalArchive, Some(_)) =>
         handleCheckVaultForOnline(internalArchiveVault, onlineOutputMessage, NOT_IMPL_outputInternalArchiveCopyRequired)
 
-      case (Action.CheckNearline, Some(project)) =>
+      case (Action.CheckNearline, Some(_)) =>
         handleCheckVaultForOnline(nearlineVault, onlineOutputMessage, NOT_IMPL_outputNearlineCopyRequired)
 
-      case (Action.ClearAndDelete, Some(project)) =>
+      case (Action.ClearAndDelete, Some(_)) =>
         handleDeleteOnlineAndClear(onlineOutputMessage)
 
       case (Action.DropMsg, None) =>
