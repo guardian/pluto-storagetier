@@ -313,7 +313,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
     "store new record for NEARLINE if no record found" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
-      pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(any, any) returns Future(None)
+      pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(any) returns Future(None)
       pendingDeletionRecordDAO.writeRecord(any) returns Future(234)
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -353,7 +353,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       val existingRecord = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsid"), MediaTiers.NEARLINE, 1)
       val expectedUpdatedRecordToSave = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsid"), MediaTiers.NEARLINE, 2)
-      pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(any, any) returns Future(Some(existingRecord))
+      pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(any) returns Future(Some(existingRecord))
       pendingDeletionRecordDAO.writeRecord(expectedUpdatedRecordToSave) returns Future(234)
 
       implicit val vidispineCommunicator = mock[VidispineCommunicator]

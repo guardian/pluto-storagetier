@@ -71,8 +71,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     })
 
 
-  def handleInternalArchiveCompleteForNearline(vault: Vault, internalArchiveVault: Vault, nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-    pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(nearlineRecord.originalFilePath, MediaTiers.NEARLINE).flatMap({ // FIXME this is not a unique identifer - several nearline files can have the same path e.g.
+  def handleInternalArchiveCompleteForNearline(vault: Vault, internalArchiveVault: Vault, nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] =
+    pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(nearlineRecord.objectId).flatMap({
       case Some(pendingDeletionRecord) =>
         pendingDeletionRecord.nearlineId match {
           case Some(nearlineId) =>
@@ -95,11 +95,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case None =>
         throw SilentDropMessage(Some(s"ignoring internal archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${nearlineRecord.originalFilePath}"))
     })
-   }
 
 
-  def handleInternalArchiveCompleteForOnline(internalArchiveVault: Vault, nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-    pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(nearlineRecord.originalFilePath, MediaTiers.NEARLINE).flatMap({
+  def handleInternalArchiveCompleteForOnline(internalArchiveVault: Vault, nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] =
+    pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(nearlineRecord.objectId).flatMap({
       case Some(pendingDeletionRecord) =>
         pendingDeletionRecord.vidispineItemId match {
           case Some(vsItemId) =>
@@ -124,16 +123,16 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case None =>
         throw SilentDropMessage(Some(s"ignoring internal archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${nearlineRecord.originalFilePath}"))
     })
-   }
 
 
-  def handleDeepArchiveCompleteOrReplayedForOnline(archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
-    pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(archivedRecord.originalFilePath, MediaTiers.ONLINE).flatMap({
+  def handleDeepArchiveCompleteOrReplayedForOnline(archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] = {
+    val (_,_,vsItemId) = validateNeededFields(Some(1), Some("path"), archivedRecord.vidispineItemId)
+    pendingDeletionRecordDAO.findByOnlineIdForONLINE(vsItemId).flatMap({
       case Some(pendingDeletionRecord) =>
         getOnlineSize(pendingDeletionRecord, archivedRecord.vidispineItemId).flatMap(sizeMaybe => {
           val (fileSize, objectKey, vsItemId) =
             validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.vidispineItemId)
-          val checksumMaybeFut = NOT_IMPL_getChecksumForOnline(vsItemId)
+          val checksumMaybeFut = STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId)
           checksumMaybeFut.flatMap(checksumMaybe => {
             mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey).flatMap({
               case true =>
@@ -150,9 +149,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case None =>
         throw SilentDropMessage(Some(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}"))
     })
+  }
 
 
-  def handleDeepArchiveCompleteOrReplayedForNearline(vault: Vault, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] =
+  def handleDeepArchiveCompleteOrReplayedForNearline(vault: Vault, archivedRecord: ArchivedRecord): Future[Either[String, MessageProcessorReturnValue]] = {
+    // FIXME It seems we do not have nearlineId in an archiveRecord, and as we've previously noticed, originalFilePath can be the same for more than one nearline media item
     pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(archivedRecord.originalFilePath, MediaTiers.NEARLINE).flatMap({
       case Some(pendingDeletionRecord) =>
         pendingDeletionRecord.nearlineId match {
@@ -185,6 +186,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.debug(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}")
         throw SilentDropMessage(Some(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${archivedRecord.originalFilePath}"))
     })
+  }
 
 
   override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
@@ -408,9 +410,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def NOT_IMPL_getChecksumForOnline(vsItemId: String): Future[Option[String]] = {
-    // TODO? How to get the -- md5 -- checksum for a vidispine item? VS defaults to SHA-1 unless overridden in configuration property 'fileHashAlgorithm'
-    ???
+  def STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId: String): Future[Option[String]] = {
+    // How to get the -- md5 -- checksum for a vidispine item? VS defaults to SHA-1 unless overridden in configuration property 'fileHashAlgorithm'
+    // FIXME Read the value of FileDocument/metadata/field/key/hash-MD5
+    Future(None)
   }
 
 
@@ -430,7 +433,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
     for {
-      maybeChecksum <- NOT_IMPL_getChecksumForOnline(vsItemId)
+      maybeChecksum <- STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId)
       exists <- existsInTargetVaultWithMd5Match(nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
     } yield exists
 
@@ -466,10 +469,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     (msg.mediaTier, msg.vidispineItemId, msg.nearlineId) match {
       case ("NEARLINE", _, Some(nearlineId)) =>
         pendingDeletionRecordDAO
-          .findByNearlineId(nearlineId)
+          .findByNearlineIdForNEARLINE(nearlineId)
           .flatMap({
             case Some(existingRecord)=>
-              logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, oid ${msg.nearlineId}")
+              logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, oid $nearlineId")
               pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
             case None=>
               Future(Left("Should not happen"))
@@ -478,10 +481,18 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         Future.failed(new RuntimeException("NEARLINE but no nearlineId"))
 
       case ("ONLINE", Some(vsItemId), _) =>
-        logger.warn(s"Not implemented yet - $vsItemId ignored")
-        Future.failed(SilentDropMessage(Some(s"Not implemented yet - $vsItemId ignored")))
+        pendingDeletionRecordDAO
+          .findByOnlineIdForONLINE(vsItemId)
+          .flatMap({
+            case Some(existingRecord)=>
+              logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, vsItemId $vsItemId")
+              pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
+            case None=>
+              Future(Left("Should not happen"))
+          })
+
       case ("ONLINE", _, _) =>
-        Future.failed(new RuntimeException("ONLINE but no itemId"))
+        Future.failed(new RuntimeException("ONLINE but no vsItemId"))
 
       case (_, _, _) =>
         Future.failed(new RuntimeException("This should not happen!"))
@@ -572,20 +583,25 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] =
     msg.originalFilePath match {
       case Some(filePath) =>
-        Try { MediaTiers.withName(msg.mediaTier) } match {
-          case Success(tier) => // FIXME needs to discriminate based on mediatier and respective media id
-            pendingDeletionRecordDAO
-              .findBySourceFilenameAndMediaTier(filePath, tier)
-              .map({
-                case Some(existingRecord) => existingRecord.copy(attempt = existingRecord.attempt + 1)
-                case None =>
-                  PendingDeletionRecord(None, originalFilePath = filePath, nearlineId = msg.nearlineId, vidispineItemId = msg.vidispineItemId, mediaTier = tier, attempt = 1)
-              })
-              .flatMap(rec=>{
-                pendingDeletionRecordDAO
-                  .writeRecord(rec)
-                  .map(recId => Right(recId))
-              })
+        Try {
+          MediaTiers.withName(msg.mediaTier)
+        } match {
+          case Success(mediaTier) =>
+            val recordMaybeFut = mediaTier match {
+              case MediaTiers.ONLINE =>
+                pendingDeletionRecordDAO.findByOnlineIdForONLINE(validateNeededFields(Some(0), Some(""), msg.vidispineItemId)._3)
+              case MediaTiers.NEARLINE =>
+                pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(validateNeededFields(Some(0), Some(""), msg.nearlineId)._3)
+            }
+            recordMaybeFut.map({
+              case Some(existingRecord) => existingRecord.copy(attempt = existingRecord.attempt + 1)
+              case None =>
+                PendingDeletionRecord(None, originalFilePath = filePath, nearlineId = msg.nearlineId, vidispineItemId = msg.vidispineItemId, mediaTier = mediaTier, attempt = 1)
+            }).flatMap(rec => {
+              pendingDeletionRecordDAO
+                .writeRecord(rec)
+                .map(recId => Right(recId))
+            })
           case Failure(ex) =>
             logger.warn(s"Unexpected value for MediaTier: ${ex.getMessage}")
             Future.failed(new RuntimeException(s"Cannot store PendingDeletion, unexpected value for mediaTier: '${msg.mediaTier}"))
@@ -766,7 +782,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
 
     for {
-      checksumMaybe <- NOT_IMPL_getChecksumForOnline(vsItemId)
+      checksumMaybe <- STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId)
       mediaExists <- mediaExistsInDeepArchive(checksumMaybe, fileSize, originalFilePath)
     } yield mediaExists
   }
