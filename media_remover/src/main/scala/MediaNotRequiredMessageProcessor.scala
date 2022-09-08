@@ -19,10 +19,10 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
 import messages.MediaRemovedMessage
-import org.slf4j.{LoggerFactory, MDC}
+import org.slf4j.LoggerFactory
 
 import java.nio.file.Paths
-import java.util.{Map, UUID}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -341,22 +341,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.warn(s"Could not verify checksum for file $filePath: ${err.getMessage}")
         Future(false)
     })
-  }
-
-  protected def getContextMap() = {
-    Option(MDC.getCopyOfContextMap)
-  }
-
-  protected def setContextMap(contextMap: Map[String, String]) = {
-    MDC.setContextMap(contextMap)
-  }
-
-  protected def getOMFileMd5(mxsFile: MxsObject) = {
-    MatrixStoreHelper.getOMFileMd5(mxsFile)
-  }
-
-  protected def getSizeFromMxs(mxsFile: MxsObject) = {
-    MetadataHelper.getFileSize(mxsFile)
   }
 
 
