@@ -854,12 +854,17 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   def handleNearlineMediaNotRequired(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
-    for {
-      /* ignore all but the first project - we're only getting the main project as of yet */
-      projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
-      actionToPerform <- Future(getActionToPerformNearline(onlineOutputMessage, projectRecordMaybe))
-      fileRemoveResult <- performActionNearline(nearlineVault, internalArchiveVault, onlineOutputMessage, actionToPerform)
-    } yield fileRemoveResult
+    onlineOutputMessage.mediaTier match {
+      case "NEARLINE" =>
+        for {
+          /* ignore all but the first project - we're only getting the main project as of yet */
+          projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
+          actionToPerform <- Future(getActionToPerformNearline(onlineOutputMessage, projectRecordMaybe))
+          fileRemoveResult <- performActionNearline(nearlineVault, internalArchiveVault, onlineOutputMessage, actionToPerform)
+        } yield fileRemoveResult
+      case notWanted =>
+        throw new RuntimeException(s"handleNearlineMediaNotRequired called with unexpected mediaTier: $notWanted")
+    }
   }
 
 
@@ -874,15 +879,20 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def handleOnlineMediaNotRequired(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+  def handleOnlineMediaNotRequired(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     // Sanity checks
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
-    for {
-      /* ignore all but the first project - we're only getting the main project as of yet */
-      projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
-      actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
-      fileRemoveResult <- performActionOnline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
-    } yield fileRemoveResult
+    onlineOutputMessage.mediaTier match {
+      case "ONLINE" =>
+        for {
+          /* ignore all but the first project - we're only getting the main project as of yet */
+          projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
+          actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
+          fileRemoveResult <- performActionOnline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
+        } yield fileRemoveResult
+      case notWanted =>
+        throw new RuntimeException(s"handleOnlineMediaNotRequired called with unexpected mediaTier: $notWanted")
+    }
   }
 
 
