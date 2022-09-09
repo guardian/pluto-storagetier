@@ -1,11 +1,13 @@
 import MediaNotRequiredMessageProcessor.Action
 import akka.actor.ActorSystem
+import akka.http.javadsl.model.HttpMessage.DiscardedEntity
+import akka.http.scaladsl.model.HttpMessage
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage}
+import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage, VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
@@ -112,7 +114,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
 
-//          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+//          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
       val msgContent =
         """{
           |"mediaTier": "NEARLINE",
@@ -422,7 +424,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151922",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -438,12 +440,1159 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       result._1 mustEqual Action.DropMsg
 //      result must beAFailedTry
 //      result.failed.get must beAnInstanceOf[SilentDropMessage]
-//      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, project 22 is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables"
+//      result.failed.get.getMessage mustEqual "not removing nearline media 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, project 22 is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables"
 
     }
   }
 
-  "MediaNotRequiredMessageProcessor.handleMessage" should {
+  "MediaNotRequiredMessageProcessor.handleOnlineMediaNotRequired" should {
+
+    "101 route online not Held, deletable but not Completed project should drop silently" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.InProduction
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.deletable returns Some(true)
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(101)
+
+      mockAssetFolderLookup.getProjectMetadata("101") returns Future(Some(fakeProject))
+      mockVault.getObject(any) returns mockObject
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["101"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_20101/monika_cvorak_MH_Investigation/Footage Vera Productions/20101-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519101",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "some-media-category"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[SilentDropMessage]
+      result.failed.get.getMessage mustEqual "Not removing ONLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-1519101: project (id 101) is deletable(true), deep_archive(true), sensitive(false), status is In Production, media category is some-media-category."
+    }
+
+    "102 route online p:Held & m:Exists on Nearline should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Held
+      fakeProject.deletable returns Some(true)
+      fakeProject.deep_archive returns None
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(102)
+
+      mockAssetFolderLookup.getProjectMetadata("102") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519102") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["102"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519102",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(true)
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"102-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519102")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+
+
+    "103 route online p:Held & m:DoesNotExist on Nearline -> should Store pendingDeletion & Output Nearline copy required" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Held
+      fakeProject.deletable returns Some(true)
+      fakeProject.deep_archive returns None
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(103)
+
+      mockAssetFolderLookup.getProjectMetadata("103") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519103") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["103"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1034,
+          |"vidispineItemId": "VX-1519103",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+      val nearlineCopyRequiredMessage = VidispineMediaIngested(List(VidispineField("itemId", msgObj.vidispineItemId.get)))
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(false)
+        override def NOT_IMPL_outputNearlineCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = Future(Right(nearlineCopyRequiredMessage.asJson))
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockVidispineCommunicator).deleteItem(any)
+      there was one(mockPendingDeletionRecordDAO).writeRecord(any)
+
+      println(s"103-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get.itemId must beSome("VX-1519103")
+    }
+
+
+    "104 route online p:!Held (p:New) & p:!deletable & p:!deep_archive -> should throw illegal state exception" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.New
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(false)
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(104)
+
+      mockAssetFolderLookup.getProjectMetadata("104") returns Future(Some(fakeProject))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["104"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1044,
+          |"vidispineItemId": "VX-1519104",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was no(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockPendingDeletionRecordDAO).writeRecord(any)
+      there was no(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"104-result: $result")
+      result must beFailedTry
+      result.failed.get.getMessage mustEqual "Project state for removing files from project 104 is not valid, deep_archive flag is not true!"
+    }
+
+    "1041 route online p:!Held (p:Killed) & p:!deletable & p:!deep_archive -> should throw illegal state exception" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Killed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(false)
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(1041)
+
+      mockAssetFolderLookup.getProjectMetadata("1041") returns Future(Some(fakeProject))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["1041"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 10414,
+          |"vidispineItemId": "VX-15191041",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was no(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockPendingDeletionRecordDAO).writeRecord(any)
+      there was no(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"1041-result: $result")
+      result must beFailedTry
+      result.failed.get.getMessage mustEqual "Project state for removing files from project 1041 is not valid, deep_archive flag is not true!"
+    }
+
+    // New/InProduction, not deletable, deep_archive, sensitive/not sensitive
+    "105 route online p:InProduction & p:!deletable & p:deep_archive & p:sensitive -> should silent drop " in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.InProduction
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(true)
+      fakeProject.id returns Some(105)
+
+      mockAssetFolderLookup.getProjectMetadata("105") returns Future(Some(fakeProject))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["105"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1054,
+          |"vidispineItemId": "VX-1519105",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      println(s"105-result: $result")
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[SilentDropMessage]
+      result.failed.get.getMessage mustEqual "Not removing ONLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-1519105: project (id 105) is deletable(false), deep_archive(true), sensitive(true), status is In Production, media category is Rushes."
+    }
+
+
+    "106 route online p:New & p:!deletable & p:deep_archive & p:sensitive -> should silent drop " in { t
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.New
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(true)
+      fakeProject.id returns Some(106)
+
+      mockAssetFolderLookup.getProjectMetadata("106") returns Future(Some(fakeProject))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["106"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1064,
+          |"vidispineItemId": "VX-1519106",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      println(s"106-result: $result")
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[SilentDropMessage]
+      result.failed.get.getMessage mustEqual "Not removing ONLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-1519106: project (id 106) is deletable(false), deep_archive(true), sensitive(true), status is New, media category is Rushes."
+    }
+
+    "107 route online p:InProduction & p:!deletable & p:deep_archive & p:!sensitive -> should silent drop " in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.InProduction
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(false)
+      fakeProject.id returns Some(107)
+
+      mockAssetFolderLookup.getProjectMetadata("107") returns Future(Some(fakeProject))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["107"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1074,
+          |"vidispineItemId": "VX-1519107",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      println(s"107-result: $result")
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[SilentDropMessage]
+      result.failed.get.getMessage mustEqual "Not removing ONLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-1519107: project (id 107) is deletable(false), deep_archive(true), sensitive(false), status is In Production, media category is Rushes."
+    }
+
+    "108 route online p:New & p:!deletable & p:deep_archive & p:!sensitive -> should silent drop " in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.New
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(false)
+      fakeProject.id returns Some(108)
+
+      mockAssetFolderLookup.getProjectMetadata("108") returns Future(Some(fakeProject))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["108"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1084,
+          |"vidispineItemId": "VX-1519108",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      println(s"108-result: $result")
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[SilentDropMessage]
+      result.failed.get.getMessage mustEqual "Not removing ONLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-1519108: project (id 108) is deletable(false), deep_archive(true), sensitive(false), status is New, media category is Rushes."
+    }
+
+    // Completed/Killed, not deletable, deep_archive, sensitive
+    "109 route online p:Completed & p:!deletable & p:deep_archive & p:sensitive & m:Exists in Internal Archive -> Should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Completed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(true)
+      fakeProject.id returns Some(109)
+
+      mockAssetFolderLookup.getProjectMetadata("109") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519109") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["109"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519109",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(true)
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockPendingDeletionRecordDAO).findByNearlineIdForNEARLINE(any)
+
+      there was one(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"109-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519109")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+
+    "110 route online p:Killed & p:!deletable & p:deep_archive & p:sensitive & m:Exists in Internal Archive -> Should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Killed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(true)
+      fakeProject.id returns Some(110)
+
+      mockAssetFolderLookup.getProjectMetadata("110") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519110") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["110"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519110",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(true)
+        // TODO also verify that it was called with the right vault
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockPendingDeletionRecordDAO).findByNearlineIdForNEARLINE(any)
+
+      there was one(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"110-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519110")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+
+    "111 route online p:Completed & p:!deletable & p:deep_archive & p:sensitive & m:!Exists in Internal Archive -> Store pendingDeletion & Output Internal Archive copy required" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Completed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(true)
+      fakeProject.id returns Some(111)
+
+      mockAssetFolderLookup.getProjectMetadata("111") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519111") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["111"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519111",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val internalArchiveCopyRequiredMessage = VidispineMediaIngested(List(VidispineField("itemId", msgObj.vidispineItemId.get)))
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(false)
+        override def NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = Future(Right(internalArchiveCopyRequiredMessage.asJson))
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockPendingDeletionRecordDAO).writeRecord(any)
+
+      println(s"111-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
+      requireDeepArchive.itemId must beSome("VX-1519111")
+
+
+    }
+
+    "112 route online p:Killed & p:!deletable & p:deep_archive & p:sensitive & m:!Exists in Internal Archive -> Store pendingDeletion & Output Internal Archive copy required" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Killed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(true)
+      fakeProject.id returns Some(112)
+
+      mockAssetFolderLookup.getProjectMetadata("112") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519112") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["112"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519112",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val internalArchiveCopyRequiredMessage = VidispineMediaIngested(List(VidispineField("itemId", msgObj.vidispineItemId.get)))
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(false)
+        override def NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = Future(Right(internalArchiveCopyRequiredMessage.asJson))
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockPendingDeletionRecordDAO).writeRecord(any)
+
+      println(s"112-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
+      requireDeepArchive.itemId must beSome("VX-1519112")
+    }
+
+    // Completed/Killed, not deletable, deep_archive, not sensitive
+    "113 route online p:Completed & p:!deletable & p:deep_archive & p:!sensitive & m:Exists in Deep Archive -> Should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+      fakeProject.status returns EntryStatus.Completed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(false)
+      fakeProject.id returns Some(113)
+      mockAssetFolderLookup.getProjectMetadata("113") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519113") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["113"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519113",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future(true)
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockPendingDeletionRecordDAO).findByNearlineIdForNEARLINE(any)
+      there was no(mockPendingDeletionRecordDAO).deleteRecord(any)
+
+      println(s"113-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519113")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+
+    "114 route online p:Killed & p:!deletable & p:deep_archive & p:!sensitive & m:Exists in Deep Archive -> Should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+      fakeProject.status returns EntryStatus.Killed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(false)
+      fakeProject.id returns Some(114)
+      mockAssetFolderLookup.getProjectMetadata("114") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519114") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["114"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519114",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage) = Future(true)
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was no(mockPendingDeletionRecordDAO).findByNearlineIdForNEARLINE(any)
+      there was no(mockPendingDeletionRecordDAO).deleteRecord(any)
+
+      println(s"114-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519114")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+
+
+    "115 route online p:Completed & p:!deletable & p:deep_archive & p:!sensitive & m:!Exists in Deep Archive -> Store pendingDeletion & Output Deep Archive copy required" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Completed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(false)
+      fakeProject.id returns Some(115)
+
+      mockAssetFolderLookup.getProjectMetadata("115") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519115") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["115"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519115",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val deepCopyRequiredMessage = VidispineMediaIngested(List(VidispineField("itemId", msgObj.vidispineItemId.get)))
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage) = Future(false)
+        override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage) = Future(Right(deepCopyRequiredMessage.asJson))
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockPendingDeletionRecordDAO).writeRecord(any)
+
+      println(s"115-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
+      requireDeepArchive.itemId must beSome("VX-1519115")
+    }
+
+    "116 route online p:Killed & p:!deletable & p:deep_archive & p:!sensitive & m:!Exists in Deep Archive -> Store pendingDeletion & Output Deep Archive copy required" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Killed
+      fakeProject.deletable returns Some(false)
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.sensitive returns Some(false)
+      fakeProject.id returns Some(116)
+
+      mockAssetFolderLookup.getProjectMetadata("116") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519116") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["116"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519116",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      //      val fakeMediaRemovedMessage = MediaRemovedMessage(msgObj.mediaTier, msgObj.originalFilePath.get, msgObj.vidispineItemId, msgObj.nearlineId)
+      val deepCopyRequiredMessage = VidispineMediaIngested(List(VidispineField("itemId", msgObj.vidispineItemId.get)))
+
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future(false)
+        override def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Right[Nothing, MessageProcessorReturnValue]] = Future(Right(deepCopyRequiredMessage.asJson))
+      }
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockPendingDeletionRecordDAO).writeRecord(any)
+
+      println(s"116-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
+      requireDeepArchive.itemId must beSome("VX-1519116")
+    }
+
+    // deletable, Completed/Killed, (nothing else matters)
+    "117 route online p:Completed & p:deletable -> Should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Completed
+      fakeProject.deletable returns Some(true)
+      fakeProject.deep_archive returns None
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(117)
+
+      mockAssetFolderLookup.getProjectMetadata("117") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519117") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["117"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519117",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"117-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519117")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+
+    "118 route online p:Killed & p:deletable -> Should remove media" in {
+      implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockVidispineCommunicator:VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat:Materializer = mock[Materializer]
+      implicit val sys:ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder:MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker:S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker:ChecksumChecker = mock[ChecksumChecker]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+
+      fakeProject.status returns EntryStatus.Killed
+      fakeProject.deletable returns Some(true)
+      fakeProject.deep_archive returns None
+      fakeProject.sensitive returns None
+      fakeProject.id returns Some(118)
+
+      mockAssetFolderLookup.getProjectMetadata("118") returns Future(Some(fakeProject))
+
+      mockVidispineCommunicator.deleteItem("VX-1519118") returns Future(Some(HttpMessage.AlreadyDiscardedEntity))
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["118"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-1519118",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Rushes"
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val mockVault = mock[Vault]
+      val mockInternalVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
+      mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
+
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {
+        Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
+      }
+
+      there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
+      there was one(mockVidispineCommunicator).deleteItem(any)
+
+      println(s"118-result: $result")
+      result must beSuccessfulTry
+      result.get must beRight
+      val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
+      mediaRemovedMessage.vidispineItemId must beSome("VX-1519118")
+      mediaRemovedMessage.mediaTier mustEqual MediaTiers.ONLINE.toString
+    }
+  }
+
+  "MediaNotRequiredMessageProcessor.handleNearlineMediaNotRequired" should {
 
     "22 route nearline deletable Completed project with deliverable media should drop silently" in {
       val mockMsgFramework = mock[MessageProcessingFramework]
@@ -481,7 +1630,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151922",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -495,7 +1644,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151922: project (id 22) is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables."
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-151922: project (id 22) is deletable(true), deep_archive(true), sensitive(false), status is Completed, media category is Deliverables."
     }
 
 
@@ -534,7 +1683,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151923",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Deliverables"
           |}""".stripMargin
 
@@ -548,7 +1697,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151923: project (id 23) is deletable(true), deep_archive(true), sensitive(false), status is Killed, media category is Deliverables."
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-151923: project (id 23) is deletable(true), deep_archive(true), sensitive(false), status is Killed, media category is Deliverables."
     }
 
 
@@ -584,7 +1733,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151924",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
@@ -644,7 +1793,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151926",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
@@ -704,7 +1853,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151927",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
@@ -716,7 +1865,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151927: project (id 27) is deletable(true), deep_archive(true), sensitive(false), status is New, media category is Rushes."
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-151927: project (id 27) is deletable(true), deep_archive(true), sensitive(false), status is New, media category is Rushes."
     }
 
 
@@ -747,7 +1896,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151928",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
@@ -809,7 +1958,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151929",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
@@ -871,7 +2020,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151930",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
@@ -891,7 +2040,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
-      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056, onlineId=VX-151930: project (id 30) is deletable(false), deep_archive(true), sensitive(false), status is New, media category is Rushes."
+      result.failed.get.getMessage mustEqual "Not removing NEARLINE media with nearlineId=8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId=VX-151930: project (id 30) is deletable(false), deep_archive(true), sensitive(false), status is New, media category is Rushes."
     }
 
 
@@ -922,7 +2071,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
           |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
           |"fileSize": 1024,
           |"vidispineItemId": "VX-151931",
-          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-1056",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
           |"mediaCategory": "Rushes"
           |}""".stripMargin
 
