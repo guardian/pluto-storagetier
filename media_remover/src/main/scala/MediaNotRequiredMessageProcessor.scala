@@ -619,7 +619,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case Some(project) =>
         project.status match {
           case status if status == EntryStatus.Held =>
-            (Action.CheckNearline, Some(project))
+            (Action.CheckExistsOnNearline, Some(project))
           case _ =>
             project.deletable match {
               case Some(true) =>
@@ -894,7 +894,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case (Action.CheckInternalArchive, Some(_)) =>
         handleCheckVaultForOnline(internalArchiveVault, onlineOutputMessage, NOT_IMPL_outputInternalArchiveCopyRequired)
 
-      case (Action.CheckNearline, Some(_)) =>
+      case (Action.CheckExistsOnNearline, Some(_)) =>
         handleCheckVaultForOnline(nearlineVault, onlineOutputMessage, NOT_IMPL_outputNearlineCopyRequired)
 
       case (Action.ClearAndDelete, Some(_)) =>
@@ -922,6 +922,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 object MediaNotRequiredMessageProcessor {
   object Action extends Enumeration {
-    val CheckDeepArchiveForNearline, CheckInternalArchive, ClearAndDelete, DropMsg, JustNo, CheckNearline, CheckDeepArchiveForOnline  = Value
+    val CheckDeepArchiveForNearline, CheckInternalArchive, ClearAndDelete, DropMsg, JustNo, CheckExistsOnNearline, CheckDeepArchiveForOnline  = Value
   }
 }
