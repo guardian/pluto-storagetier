@@ -475,8 +475,9 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, oid $nearlineId")
               pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
             case None=>
-              Future(Left("Should not happen"))
+              Future(Right(0))
           })
+
       case ("NEARLINE", _, _) =>
         Future.failed(new RuntimeException("NEARLINE but no nearlineId"))
 
@@ -488,7 +489,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, vsItemId $vsItemId")
               pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
             case None=>
-              Future(Left("Should not happen"))
+              Future(Right(0))
           })
 
       case ("ONLINE", _, _) =>
