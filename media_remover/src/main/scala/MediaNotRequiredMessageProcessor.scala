@@ -12,7 +12,7 @@ import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
 import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
+import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VidispineCommunicator}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
@@ -55,18 +55,34 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     })
 
 
+  def getMd5ChecksumForOnline(vsItemId: String): Future[Option[String]] =
+    getOriginalShapeForVidispineItem(vsItemId).map({
+      case Left(err) =>
+        logger.info(s"Couldn't get MD5 checksum for vsItemId $vsItemId: $err")
+        None
+      case Right(originalShape) => originalShape.getLikelyFile.flatMap(_.md5Option)
+    })
+
+
   def getVidispineSize(itemId: String): Future[Either[String, Option[Long]]] =
+    getOriginalShapeForVidispineItem(itemId).map({
+      case Left(value) => Left(value)
+      case Right(originalShape) => Right(originalShape.getLikelyFile.flatMap(_.sizeOption))
+    })
+
+
+  def getOriginalShapeForVidispineItem(itemId: String): Future[Either[String, ShapeDocument]] =
     vidispineCommunicator.listItemShapes(itemId).map({
       case None =>
-        logger.error(s"Can't get size of vidispine item $itemId as it has no shapes on it")
-        Left(s"Can't get size of vidispine item $itemId as it has no shapes on it")
+        logger.error(s"Can't get original shape for vidispine item $itemId as it has no shapes on it")
+        Left(s"Can't get original shape for vidispine item $itemId as it has no shapes on it")
       case Some(shapes) =>
         shapes.find(_.tag.contains("original")) match {
           case None =>
-            logger.error(s"Can't get size of vidispine item $itemId as it has no original shape. Shapes were: ${shapes.flatMap(_.tag).mkString("; ")}")
-            Left(s"Can't get size of vidispine item $itemId as it has no original shape. Shapes were: ${shapes.flatMap(_.tag).mkString("; ")}")
-          case Some(originalShape) =>
-            Right(originalShape.getLikelyFile.flatMap(_.sizeOption))
+            logger.error(s"Can't get original shape for of vidispine item $itemId. Shapes were: ${shapes.flatMap(_.tag).mkString("; ")}")
+            Left(s"Can't get original shape for of vidispine item $itemId. Shapes were: ${shapes.flatMap(_.tag).mkString("; ")}")
+          case Some(originalShape: ShapeDocument) =>
+            Right(originalShape)
         }
     })
 
@@ -132,7 +148,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         getOnlineSize(pendingDeletionRecord, archivedRecord.vidispineItemId).flatMap(sizeMaybe => {
           val (fileSize, objectKey, vsItemId) =
             validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.vidispineItemId)
-          val checksumMaybeFut = STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId)
+          val checksumMaybeFut = getMd5ChecksumForOnline(vsItemId)
           checksumMaybeFut.flatMap(checksumMaybe => {
             mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey).flatMap({
               case true =>
@@ -410,13 +426,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId: String): Future[Option[String]] = {
-    // How to get the -- md5 -- checksum for a vidispine item? VS defaults to SHA-1 unless overridden in configuration property 'fileHashAlgorithm'
-    // FIXME Read the value of FileDocument/metadata/field/key/hash-MD5
-    Future(None)
-  }
-
-
   def nearlineExistsInInternalArchive(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, filePath, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, filePath, fileSize)
@@ -433,7 +442,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
     for {
-      maybeChecksum <- STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId)
+      maybeChecksum <- getMd5ChecksumForOnline(vsItemId)
       exists <- existsInTargetVaultWithMd5Match(nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
     } yield exists
 
@@ -783,7 +792,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
 
     for {
-      checksumMaybe <- STUB_ALWAYS_RETURNS_NONE_getChecksumForOnline(vsItemId)
+      checksumMaybe <- getMd5ChecksumForOnline(vsItemId)
       mediaExists <- mediaExistsInDeepArchive(checksumMaybe, fileSize, originalFilePath)
     } yield mediaExists
   }
