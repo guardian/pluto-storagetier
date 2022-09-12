@@ -223,7 +223,18 @@
           "timestamp": "2021-10-05T13:18:08.374+0000",
           "refreshFlag": 1,
           "storage": "VX-6",
-          "metadata": {}
+          "metadata": {
+            "field": [
+              {
+                "key": "hash-MD5",
+                "value": "8a76d7e55d962e8fc9cc3f11d0d70256"
+              },
+              {
+                "key": "hash-SHA-256",
+                "value": "3e646f21536428ff858135e7b9fa00a5690bce4b8b72d7259c317f525df9990c"
+              }
+            ]
+          }
         }
       ],
       "id": "VX-451099",
