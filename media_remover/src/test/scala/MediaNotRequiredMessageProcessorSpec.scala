@@ -1,6 +1,6 @@
 import MediaNotRequiredMessageProcessor.Action
 import akka.actor.ActorSystem
-import akka.http.javadsl.model.HttpMessage.DiscardedEntity
+import akka.http.scaladsl.model.HttpMessage.DiscardedEntity
 import akka.http.scaladsl.model.HttpMessage
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
