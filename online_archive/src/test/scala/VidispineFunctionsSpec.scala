@@ -89,7 +89,8 @@ class VidispineFunctionsSpec extends Specification with Mockito {
           Some("deadbeef"),
           "2021-01-02T03:04:05.678Z",
           1,
-          "VX-2"
+          "VX-2",
+          None
         )
         VidispineFunctions.uploadKeyForProxy(testArchivedRecord, testProxy) mustEqual "path/to/uploaded/file_prox.mp4"
       }
@@ -112,7 +113,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
           Some("deadbeef"),
           "2021-01-02T03:04:05.678Z",
           1,
-          "VX-2"
+          "VX-2", None
         )
         VidispineFunctions.uploadKeyForProxy(testArchivedRecord, testProxy) mustEqual "path/to/uploaded/file_prox"
       }
@@ -134,7 +135,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some("deadbeef"),
         "",
         1,
-        "VX-3"
+        "VX-3", None
       )
       val shapeDoc = ShapeDocument(
         "VX-456",
@@ -277,7 +278,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some("deadbeef"),
         "",
         1,
-        "VX-3"
+        "VX-3", None
       )
       val shapeDoc = ShapeDocument(
         "VX-456",
@@ -335,7 +336,7 @@ class VidispineFunctionsSpec extends Specification with Mockito {
         Some("deadbeef"),
         "",
         1,
-        "VX-3"
+        "VX-3", None
       )
       val shapeDoc = ShapeDocument(
         "VX-456",

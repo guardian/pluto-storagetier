@@ -69,9 +69,14 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
           Some("9a4192d38e12997716d9b389d73e6170614c7186"),
           "2021-10-05T13:18:08.374+0000",
           1,
-          "VX-6"
+          "VX-6",
+          Some(FileMetadata(Some(Seq(
+            FileMetadataFieldKeyValue("hash-MD5", "8a76d7e55d962e8fc9cc3f11d0d70256"),
+            FileMetadataFieldKeyValue("hash-SHA-256", "3e646f21536428ff858135e7b9fa00a5690bce4b8b72d7259c317f525df9990c"),
+          ))))
         )
       )
+      result.get.getLikelyFile.get.md5Option must beSome("8a76d7e55d962e8fc9cc3f11d0d70256")
     }
 
     "make a request to /API/item/shape for a video with no audio and unmarshal the return value" in {
@@ -109,9 +114,11 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
           Some("9d304c3e23bdbe1f153c746679fd2f1f6846f561"),
           "2018-09-19T14:06:44.435+0000",
           1,
-          "VX-6"
+          "VX-6",
+          Some(FileMetadata(None))
         )
       )
+      result.get.getLikelyFile.get.md5Option must beNone
     }
 
     "make a request to /API/item/shape for an audio only and unmarshal the return value" in {
@@ -149,7 +156,8 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
           Some("08a55101bb7f0afd9ca919817b5fbb59d86bba5e"),
           "2020-01-17T15:50:05.210+0000",
           1,
-          "VX-6"
+          "VX-6",
+          Some(FileMetadata(None))
         )
       )
     }
