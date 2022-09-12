@@ -2,21 +2,24 @@ package com.gu.multimedia.storagetier.vidispine
 
 import org.slf4j.LoggerFactory
 
-import java.time.ZonedDateTime
 
 case class VSShapeFile(
-                      id: String,
-                      path: String,
-                      uri: Option[Seq[String]],
-                      state: String,
-                      size: Long,
-                      hash: Option[String],
-                      timestamp: String,  //sure, this should really be a ZonedDateTime. But since we are not using the
-                      //field and it can cause parsing issues, keeping it as a String for the time being.
-                      refreshFlag: Int,
-                      storage: String,
+                        id: String,
+                        path: String,
+                        uri: Option[Seq[String]],
+                        state: String,
+                        size: Long,
+                        hash: Option[String],
+                        timestamp: String, //sure, this should really be a ZonedDateTime. But since we are not using the
+                        //field and it can cause parsing issues, keeping it as a String for the time being.
+                        refreshFlag: Int,
+                        storage: String,
+                        metadata: Option[FileMetadata],
                       ) extends FileDocumentUtils {
-  def sizeOption = if(size == -1) None else Some(size)
+  def sizeOption = if (size == -1) None else Some(size)
+
+  def md5Option =
+    metadata.flatMap(_.field.flatMap(_.filter(_.key == "hash-MD5").headOption.map(_.value)))
 }
 
 /**
