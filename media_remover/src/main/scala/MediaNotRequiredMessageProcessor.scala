@@ -480,6 +480,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         pendingDeletionRecordDAO
           .findByNearlineIdForNEARLINE(nearlineId)
           .flatMap({
+            // The number returned in the Right is the number of affected rows.
+            // We always call this method when we delete an item, instead of first checking
+            // if there exists a pending deletetion => if none is found, that's not an
+            // error, but obviously no rows are updated, hence Right(0) in that case.
             case Some(existingRecord)=>
               logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, oid $nearlineId")
               pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
