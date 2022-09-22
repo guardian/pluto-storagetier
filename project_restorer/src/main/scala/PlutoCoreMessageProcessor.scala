@@ -74,10 +74,10 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     case (Right(nearlineResults), Right(onlineResults)) =>
       if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
         logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
-        framework.bulkSendMessages(routingKey, nearlineResults)
+        framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
 
         logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
-        framework.bulkSendMessages(routingKey, onlineResults)
+        framework.bulkSendMessages(routingKey + ".online", onlineResults)
 
         logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project $projectId")
         val msg = RestorerSummaryMessage(projectId, ZonedDateTime.now(), projectStatus, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
