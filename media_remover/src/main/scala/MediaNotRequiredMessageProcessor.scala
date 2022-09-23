@@ -587,11 +587,35 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
 
-  def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
-  def NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = ???
-  def NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
-  def NOT_IMPL_outputNearlineCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = ???
-  def NOT_IMPL_outputInternalArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = ???
+  def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+    val message = s"outputDeepArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${onlineOutputMessage.originalFilePath}"
+    logger.warn(message)
+    throw SilentDropMessage(Some(message))
+  }
+
+  def NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = {
+    val message = s"outputDeepArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${pendingDeletionRecord.originalFilePath}"
+    logger.warn(message)
+    throw SilentDropMessage(Some(message))
+  }
+
+  def NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+    val message = s"outputInternalArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${onlineOutputMessage.originalFilePath}"
+    logger.warn(message)
+    throw SilentDropMessage(Some(message))
+  }
+
+  def NOT_IMPL_outputInternalArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = {
+    val message = s"outputInternalArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${pendingDeletionRecord.originalFilePath}"
+    logger.warn(message)
+    throw SilentDropMessage(Some(message))
+  }
+
+  def NOT_IMPL_outputNearlineCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
+    val message = s"outputNearlineCopyRequired not implemented yet, erring on the safe side, not removing ${onlineOutputMessage.originalFilePath}"
+    logger.warn(message)
+    throw SilentDropMessage(Some(message))
+  }
 
 
   def storeDeletionPending(msg: OnlineOutputMessage): Future[Either[String, Int]] =
