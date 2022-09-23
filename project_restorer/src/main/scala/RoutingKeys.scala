@@ -1,3 +1,3 @@
 object RoutingKeys {
-  val MediaNotRequired = "storagetier.media.notrequired"
+  val MediaNotRequired = "storagetier.restorer.media_not_required"
 }
