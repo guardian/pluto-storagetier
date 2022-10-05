@@ -1,6 +1,7 @@
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
@@ -40,13 +41,23 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     nearlineFilesByProject(vault, projectId.toString)
   }
 
+  def isBranding(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
+    case Some(gnmType) =>
+      gnmType match {
+        case "Branding" => true // Case sensitive
+        case _ => false
+      }
+    case _ => false
+  }
+
   def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = {
     val sinkFactory = Sink.seq[OnlineOutputMessage]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
       Array("MXFS_PATH","MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
-    ).map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
+    ).filter(entry => !isBranding(entry))
+      .map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
       .toMat(sinkFactory)(Keep.right)
       .run()
   }

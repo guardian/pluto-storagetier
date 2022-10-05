@@ -55,6 +55,76 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
   val mockObject = mock[MxsObject]
   mockVault.getObject(any) returns mockObject
 
+  "PlutoCoreMessageProcessor.isBranding" should {
+
+    "return false if no GNM_TYPE" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+
+      val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty), None))
+
+      result must beFalse
+    }
+
+    "return false if GNM_TYPE is not exactly 'Branding': case 1 - lowercase" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None))
+
+      result must beFalse
+    }
+
+    "return false if GNM_TYPE is not exactly 'Branding': case 2 - uppercase" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "BRANDING")), None))
+
+      result must beFalse
+    }
+
+    "return false if GNM_TYPE is not exactly 'Branding': case 3 - mixed" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "bRanDiNg")), None))
+
+      result must beFalse
+    }
+
+    "return false if GNM_TYPE is not exactly 'Branding': case 4 - rushes" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None))
+
+      result must beFalse
+    }
+
+    "return true if GNM_TYPE is exactly 'Branding'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None))
+
+      result must beTrue
+    }
+
+    "filter out the branding items" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val entry = ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None)
+      val entries = Seq(
+        ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid2", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None),
+        ObjectMatrixEntry("oid3", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None),
+        ObjectMatrixEntry("oid4§", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "project")), None),
+      )
+
+      val result = entries.filter(entry => !toTest.isBranding(entry))
+
+      result.size mustEqual 3
+      result.head.oid mustEqual "oid2"
+    }
+  }
+
   "PlutoCoreMessageProcessor" should {
 
     implicit val mockActorSystem = mock[ActorSystem]
