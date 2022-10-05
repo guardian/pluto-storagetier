@@ -454,7 +454,17 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def mediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, objectKey: String): Future[Boolean] = {
+  def mediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, originalFilePath: String): Future[Boolean] = {
+
+    val objectKey =
+      asLookup.relativizeFilePath(Paths.get(originalFilePath)) match {
+        case Left(err) =>
+          logger.error(s"Could not relativize file path $originalFilePath: $err. Checking ${originalFilePath.stripPrefix("/")}")
+          originalFilePath.stripPrefix("/")
+        case Right(relativePath) =>
+          relativePath.toString
+      }
+
     s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe).map({
       case true =>
         logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
@@ -485,8 +495,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             // if there exists a pending deletetion => if none is found, that's not an
             // error, but obviously no rows are updated, hence Right(0) in that case.
             case Some(existingRecord)=>
-              logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, oid $nearlineId")
-              pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
+              deleteExistingPendingDeletionRecord(existingRecord)
             case None=>
               Future(Right(0))
           })
@@ -499,8 +508,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           .findByOnlineIdForONLINE(vsItemId)
           .flatMap({
             case Some(existingRecord)=>
-              logger.debug(s"Deleting pendingDeletionRecord ${existingRecord.id.getOrElse(-1)} for ${msg.mediaTier}, vsItemId $vsItemId")
-              pendingDeletionRecordDAO.deleteRecord(existingRecord).map(i => Right(i))
+              deleteExistingPendingDeletionRecord(existingRecord)
             case None=>
               Future(Right(0))
           })
@@ -512,6 +520,16 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         Future.failed(new RuntimeException("This should not happen!"))
     }
 
+
+  private def deleteExistingPendingDeletionRecord(existingRecord: PendingDeletionRecord) =
+    pendingDeletionRecordDAO.deleteRecord(existingRecord).map { i =>
+      logger.debug(s"Deleted ${getInformativePendingDeletionString(existingRecord)}")
+      Right(i)
+    }.recover {
+      case e: Exception =>
+        logger.warn(s"Failed to delete ${getInformativePendingDeletionString(existingRecord)}. Cause: ${e.getMessage}")
+        Left(s"Failed to delete ${getInformativePendingDeletionString(existingRecord)}. Cause: ${e.getMessage}")
+    }
 
   def deleteSingleAttMedia(vault: Vault, objectMatrixEntry: ObjectMatrixEntry, attributeKey: String, nearlineIdForLog: String, filePathForLog: String): Future[Either[String, Boolean]] =
     objectMatrixEntry.stringAttribute(attributeKey) match {
@@ -703,29 +721,41 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             project.status match {
               case status if status == EntryStatus.Completed || status == EntryStatus.Killed =>
                 onlineOutputMessage.mediaCategory.toLowerCase match {
-                  case "deliverables" => (Action.DropMsg, Some(project))
-                  case _ => (Action.ClearAndDelete, Some(project))
+                  case "deliverables" =>
+                    logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdString(onlineOutputMessage, project)}")
+                    (Action.DropMsg, Some(project))
+                  case _ =>
+                    logger.debug(s"Action to perform: '${Action.ClearAndDelete}' for ${getInformativeIdString(onlineOutputMessage, project)}")
+                    (Action.ClearAndDelete, Some(project))
                 }
-              case _ => (Action.DropMsg, Some(project))
+              case _ =>
+                logger.debug(s"Action to perform: '${Action.ClearAndDelete}' for ${getInformativeIdString(onlineOutputMessage, project)}")
+                (Action.DropMsg, Some(project))
             }
           case _ =>
           // not DELETABLE
+            logger.info("Feck!!!!!")
           if (project.deep_archive.getOrElse(false)) {
             if (project.sensitive.getOrElse(false)) {
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
+                logger.debug(s"Action to perform: '${Action.CheckInternalArchive}' for ${getInformativeIdString(onlineOutputMessage, project)}")
                 (Action.CheckInternalArchive, Some(project))
               } else {
+                logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdString(onlineOutputMessage, project)}")
                 (Action.DropMsg, Some(project))
               }
             } else {
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
+                logger.debug(s"Action to perform: '${Action.CheckDeepArchiveForNearline}' for ${getInformativeIdString(onlineOutputMessage, project)}")
                 (Action.CheckDeepArchiveForNearline, Some(project))
               } else { // deep_archive + not sensitive + not killed and not completed (GP-785 row 8)
+                logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdString(onlineOutputMessage, project)}")
                 (Action.DropMsg, Some(project))
               }
             }
           } else {
             // We cannot remove media when the project doesn't have deep_archive set
+            logger.debug(s"Action to perform: '${Action.JustNo}' for ${getInformativeIdString(onlineOutputMessage, project)}")
             (Action.JustNo, Some(project))
           }
         }
@@ -780,8 +810,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   private def handleCheckDeepArchiveForNearline(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
     nearlineMediaExistsInDeepArchive(nearlineVault, onlineOutputMessage).flatMap({
       case true =>
+        logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' exists in Deep Archive, going to delete nearline copy")
         handleDeleteNearlineAndClear(nearlineVault, onlineOutputMessage, project)
       case false =>
+        logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' does not exist in Deep Archive, going to store deletion pending and request Deep Archive copy")
         storeDeletionPending(onlineOutputMessage)
         NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage)
     })
@@ -792,9 +824,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     nearlineExistsInInternalArchive(nearlineVault, internalArchiveVault, onlineOutputMessage).flatMap({
       case true =>
         // nearline media EXISTS in INTERNAL ARCHIVE
+        logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' exists in Internal Archive, going to delete nearline copy")
         handleDeleteNearlineAndClear(nearlineVault, onlineOutputMessage, project)
       case false =>
         // nearline media does NOT EXIST in INTERNAL ARCHIVE
+        logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' does not exist in Internal Archive, going to store deletion pending and request Internal Archive copy")
         storeDeletionPending(onlineOutputMessage)
         NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage)
     })
@@ -860,30 +894,49 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   private def handleDropMsg(onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
-    val deletable = project.deletable.getOrElse(false)
-    val deep_archive = project.deep_archive.getOrElse(false)
-    val sensitive = project.sensitive.getOrElse(false)
-    val nearlineId = onlineOutputMessage.nearlineId.getOrElse("-1")
-    val vsItemId = onlineOutputMessage.vidispineItemId.getOrElse("<missing item id>")
-    val notRemovingMsg = s"Not removing ${onlineOutputMessage.mediaTier} media with " +
-      s"nearlineId=$nearlineId, " +
-      s"onlineId=$vsItemId: " +
-      s"project (id ${project.id.getOrElse(-1)}) is " +
-      s"deletable($deletable), " +
-      s"deep_archive($deep_archive), " +
-      s"sensitive($sensitive), " +
-      s"status is ${project.status}, " +
-      s"media category is ${onlineOutputMessage.mediaCategory}."
-    logger.debug(s"-> $notRemovingMsg")
+    val notRemovingMsg: String = s"Not removing ${getInformativeIdString(onlineOutputMessage, project)}"
+    logger.debug(notRemovingMsg)
     throw SilentDropMessage(Some(notRemovingMsg))
   }
 
 
+  private def getInformativeIdString(onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+    val deletable = project.deletable.getOrElse(false)
+    val deep_archive = project.deep_archive.getOrElse(false)
+    val sensitive = project.sensitive.getOrElse(false)
+    val nearlineId = onlineOutputMessage.nearlineId.getOrElse("<missing nearline ID>")
+    val vsItemId = onlineOutputMessage.vidispineItemId.getOrElse("<missing vsItem ID>")
+    s"${onlineOutputMessage.mediaTier} media with " +
+      s"nearlineId $nearlineId, " +
+      s"onlineId $vsItemId " +
+      s"- project ${project.id.getOrElse(-1)} is " +
+      s"deletable($deletable), " +
+      s"deep_archive($deep_archive), " +
+      s"sensitive($sensitive), " +
+      s"status is ${project.status}, " +
+      s"media category is ${onlineOutputMessage.mediaCategory}"
+  }
+
+  private def getInformativePendingDeletionString(project: PendingDeletionRecord) = {
+    val id = project.id.getOrElse("<missing rec ID>")
+    val nearlineId = project.nearlineId.getOrElse("<missing nearline ID>")
+    val vsItemId = project.vidispineItemId.getOrElse("<missing vsItem ID>")
+
+    s"${project.mediaTier} pendingDeletionRecord with " +
+      s"id $id, " +
+      s"nearlineId $nearlineId, " +
+      s"onlineId $vsItemId " +
+      s"originalFilePath '${project.originalFilePath}', " +
+      s"attempt ${project.attempt}"
+  }
+
   def deleteFromNearlineWrapper(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
     deleteMediaFromNearline(nearlineVault, onlineOutputMessage.mediaTier, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId, onlineOutputMessage.vidispineItemId).map({
-      case Left(err) => Left(err)
+      case Left(err) =>
+        logger.warn(s"Failed to delete ${getInformativeIdString(onlineOutputMessage, project)}. Cause: $err")
+        Left(err)
       case Right(mediaRemovedMessage) =>
-        logger.debug(s"--> deleting nearline media ${onlineOutputMessage.nearlineId} for project ${project.id.getOrElse(-1)}")
+        logger.debug(s"Deleted ${getInformativeIdString(onlineOutputMessage, project)}")
         Right(mediaRemovedMessage.asJson)
     })
   }
