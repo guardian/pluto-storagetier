@@ -55,7 +55,72 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
   val mockObject = mock[MxsObject]
   mockVault.getObject(any) returns mockObject
 
-  "PlutoCoreMessageProcessor.isBranding" should {
+  "PlutoCoreMessageProcessor.isBranding(VSOnlineOutputMessage)" should {
+
+    "return true if mediaCategory is variant of 'Branding': case 1 - lowercase" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "branding")
+      val result = toTest.isBranding(item)
+
+      result must beTrue
+    }
+
+    "return true if mediaCategory is variant of 'Branding': case 2 - uppercase" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "BRANDING")
+      val result = toTest.isBranding(item)
+
+      result must beTrue
+    }
+
+    "return true if mediaCategory is variant of 'Branding': case 3 - mixed" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "bRanDiNg")
+      val result = toTest.isBranding(item)
+
+      result must beTrue
+    }
+
+    "return true if mediaCategory is not variant of Branding': case 4 - rushes" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "rushes")
+      val result = toTest.isBranding(item)
+
+      result must beFalse
+    }
+
+    "return true if mediaCategory is exactly 'Branding'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "Branding")
+      val result = toTest.isBranding(item)
+
+      result must beTrue
+    }
+
+    "filter out the branding/BRANDING/Branding/etc items" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val items = Seq(
+        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/1"), Some(1L), Some("VX-1"), Some("oid1"), "Branding"),
+        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/2"), Some(1L), Some("VX-2"), Some("oid2"), "rushes"),
+        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/3"), Some(1L), Some("VX-3"), Some("oid3"), "branding"),
+        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/4"), Some(1L), Some("VX-4"), Some("oid4"), "Branding"),
+        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/5"), Some(1L), Some("VX-5"), Some("oid5"), "project"),
+      )
+
+      val result = items.filter(item => !toTest.isBranding(item))
+
+      result.size mustEqual 2
+      result.head.itemId must beSome("VX-2")
+    }
+  }
+
+  "PlutoCoreMessageProcessor.isBranding(ObjectMatrixEntry)" should {
 
     "return false if no GNM_TYPE" in {
 
@@ -106,10 +171,9 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       result must beTrue
     }
 
-    "filter out the branding items" in {
+    "filter out the 'Branding' items" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
-      val entry = ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None)
       val entries = Seq(
         ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
         ObjectMatrixEntry("oid2", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None),
