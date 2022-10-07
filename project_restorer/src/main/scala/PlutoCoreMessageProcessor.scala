@@ -1,13 +1,14 @@
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
+import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
+import com.gu.multimedia.storagetier.vidispine.{VSOnlineOutputMessage, VidispineCommunicator}
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -19,21 +20,25 @@ import org.slf4j.LoggerFactory
 import java.time.ZonedDateTime
 import scala.concurrent.{ExecutionContext, Future}
 
-class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materializer,
-                                                             matrixStoreBuilder: MXSConnectionBuilder,
-                                                             vidispineCommunicator: VidispineCommunicator,
-                                                             ec:ExecutionContext) extends MessageProcessor {
+class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Materializer,
+                                                              matrixStoreBuilder: MXSConnectionBuilder,
+                                                              vidispineCommunicator: VidispineCommunicator,
+                                                              ec: ExecutionContext) extends MessageProcessor {
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val statusesMediaNotRequired = List(EntryStatus.Held.toString, EntryStatus.Completed.toString, EntryStatus.Killed.toString)
 
-  def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] = {
+  def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] =
     onlineFilesByProject(vidispineCommunicator, projectId)
-  }
 
-  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
+  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] =
     vidispineCommunicator.getFilesOfProject(projectId)
-      .map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+      .map(_.filterNot(isBranding).map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+
+  // GP-823 Ensure that branding does not get deleted
+  def isBranding(item: VSOnlineOutputMessage): Boolean = item.mediaCategory.toLowerCase match {
+    case "branding" => true // Case insensitive
+    case _ => false
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
@@ -44,11 +49,22 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     val sinkFactory = Sink.seq[OnlineOutputMessage]
     Source.fromGraph(new OMFastContentSearchSource(vault,
       s"GNM_PROJECT_ID:\"$projectId\"",
-      Array("MXFS_PATH","MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
+      Array("MXFS_PATH", "MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
-    ).map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
+    ).filterNot(isBranding)
+      .map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
       .toMat(sinkFactory)(Keep.right)
       .run()
+  }
+
+  // GP-823 Ensure that branding does not get deleted
+  def isBranding(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
+    case Some(gnmType) =>
+      gnmType match {
+        case "Branding" => true // Case sensitive
+        case _ => false
+      }
+    case _ => false
   }
 
   def getNearlineResults(projectId: Int) = {
@@ -63,7 +79,7 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
 
   def handleUpdateMessage(updateMessage: ProjectUpdateMessage, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
     updateMessage.status match {
-      case status if statusesMediaNotRequired.contains(status)  =>
+      case status if statusesMediaNotRequired.contains(status) =>
         Future
           .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
           .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
@@ -74,10 +90,10 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
     case (Right(nearlineResults), Right(onlineResults)) =>
       if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
         logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
-        framework.bulkSendMessages(routingKey, nearlineResults)
+        framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
 
         logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
-        framework.bulkSendMessages(routingKey, onlineResults)
+        framework.bulkSendMessages(routingKey + ".online", onlineResults)
 
         logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project $projectId")
         val msg = RestorerSummaryMessage(projectId, ZonedDateTime.now(), projectStatus, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
@@ -117,12 +133,12 @@ class PlutoCoreMessageProcessor(mxsConfig:MatrixStoreConfig)(implicit mat:Materi
             Future.failed(new RuntimeException(s"Could not unmarshal json message ${msg.noSpaces} into an ProjectUpdate: $err"))
           case Right(updateMessageList) =>
             logger.info(s"here is an update status ${updateMessageList.headOption.map(_.status)}")
-            if(updateMessageList.length>1) logger.error("Received multiple objects in one event, this is not supported. Events may be dropped.")
+            if (updateMessageList.length > 1) logger.error("Received multiple objects in one event, this is not supported. Events may be dropped.")
 
             updateMessageList.headOption match {
-              case None=>
+              case None =>
                 Future.failed(new RuntimeException("The incoming event was empty"))
-              case Some(updateMessage: ProjectUpdateMessage)=>
+              case Some(updateMessage: ProjectUpdateMessage) =>
                 handleUpdateMessage(updateMessage, msgProcessingFramework)
             }
         }
