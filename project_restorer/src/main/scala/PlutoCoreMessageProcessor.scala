@@ -33,7 +33,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
 
   def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] =
     vidispineCommunicator.getFilesOfProject(projectId)
-      .map(_.filter(item => !isBranding(item)).map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+      .map(_.filterNot(isBranding).map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
 
   // GP-823 Ensure that branding does not get deleted
   def isBranding(item: VSOnlineOutputMessage): Boolean = item.mediaCategory.toLowerCase match {
@@ -51,7 +51,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
       s"GNM_PROJECT_ID:\"$projectId\"",
       Array("MXFS_PATH", "MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
-    ).filter(entry => !isBranding(entry))
+    ).filterNot(isBranding)
       .map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
       .toMat(sinkFactory)(Keep.right)
       .run()
