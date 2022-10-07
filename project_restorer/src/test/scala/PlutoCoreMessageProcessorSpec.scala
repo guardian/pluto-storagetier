@@ -113,7 +113,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
         VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/5"), Some(1L), Some("VX-5"), Some("oid5"), "project"),
       )
 
-      val result = items.filter(item => !toTest.isBranding(item))
+      val result = items.filterNot(toTest.isBranding)
 
       result.size mustEqual 2
       result.head.itemId must beSome("VX-2")
@@ -178,13 +178,14 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
         ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
         ObjectMatrixEntry("oid2", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None),
         ObjectMatrixEntry("oid3", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None),
-        ObjectMatrixEntry("oid4§", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid4", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
         ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "project")), None),
+        ObjectMatrixEntry("oid6", Some(MxsMetadata.empty), None),
       )
 
-      val result = entries.filter(entry => !toTest.isBranding(entry))
+      val result = entries.filterNot(toTest.isBranding)
 
-      result.size mustEqual 3
+      result.size mustEqual 4
       result.head.oid mustEqual "oid2"
     }
   }
