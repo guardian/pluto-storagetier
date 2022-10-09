@@ -348,10 +348,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       alreadyExists <- verifyChecksumMatchUsingChecker(filePath, potentialMatchesFiles, maybeLocalChecksum)
       result <- alreadyExists match {
         case Some(existingId) =>
-          logger.info(s"$filePath: Object exists with object id $existingId")
+          logger.info(s"$filePath: Copy exists on ${vault.getId} with object id $existingId")
           Future(true)
         case None =>
-          logger.info(s"$filePath: Out of ${potentialMatches.length} remote matches, none matched the checksum")
+          if (potentialMatches.isEmpty)
+            logger.info(s"$filePath: No remote name matches, nothing to compare checksum for")
+          else
+            logger.info(s"$filePath: No checksum match for any of the ${potentialMatches.length} remote name matches")
           Future(false)
       }
     } yield result).recoverWith({
@@ -394,18 +397,24 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
    */
 //  def findMatchingFilesOnNearline_fromFileCopier(vault: Vault, filePath: Path, fileSize: Long) = {
   def findMatchingFilesOnVault(vault: Vault, filePath: String, fileSize: Long) = {
-    logger.debug(s"Looking for files matching $filePath at size $fileSize")
+    logger.debug(s"Looking for files matching $filePath at size $fileSize on vault ${vault.getId}")
     callFindByFilenameNew(vault, filePath)
-      .map(fileNameMatches=>{
-        val nullSizes = fileNameMatches.map(_.maybeGetSize()).collect({case None=>None}).length
+      .map(fileNameMatches => {
+        val nullSizes = fileNameMatches.map(_.maybeGetSize()).collect({ case None => None }).length
         // TODO Decide if we need to/should do this? Flip it around maybe?
-        if(nullSizes>0) {
+        if (nullSizes > 0) {
           throw new BailOutExceptionMR(s"Could not check for matching files of $filePath because $nullSizes / ${fileNameMatches.length} had no size")
         }
 
         val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
-        logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
-        logger.debug(fileNameMatches.map(obj=>s"${obj.pathOrFilename.getOrElse("-")}: ${obj.maybeGetSize()}").mkString("; "))
+
+        if (fileNameMatches.nonEmpty) {
+          logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
+          val str = fileNameMatches.map(obj => s"oid ${obj.oid}, path '${obj.pathOrFilename.getOrElse("-")}', size ${obj.maybeGetSize().get}").mkString("; ")
+          logger.debug(s"Object(s) matched on fileName: $str")
+        } else {
+          logger.debug(s"$filePath: No files matched name")
+        }
         sizeMatches
       })
   }
@@ -435,6 +444,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def nearlineExistsInInternalArchive(vault: Vault, internalArchiveVault: Vault, nearlineId: String, filePath: String, fileSize: Long): Future[Boolean] = {
     for {
       maybeChecksum <- getChecksumForNearline(vault, nearlineId)
+      //TODO add nearlineId to parameter list for logging purposes(?)
       exists <- existsInTargetVaultWithMd5Match(internalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
     } yield exists
   }
@@ -593,44 +603,44 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case ("ONLINE", Some(vsItemId)) =>
         vidispineCommunicator.deleteItem(vsItemId)
           .map(_ => {
-            logger.info(s"Online media item id=$vsItemId removed, path=$filePathMaybe removed")
+            logger.info(s"Deleted $mediaTier media: itemId $vsItemId, path ${filePathMaybe.getOrElse("<missing file path>")}")
             Right(MediaRemovedMessage(mediaTier, filePathMaybe.getOrElse("<missing file path>"), vidispineItemIdMaybe, nearlineIdMaybe).asJson)
           })
           .recover({
             case err: Throwable =>
-              logger.warn(s"Failed to remove online media id=$vsItemId, reason: ${err.getMessage}")
-              Left(s"Failed to remove online media id=$vsItemId, reason: ${err.getMessage}")
+              logger.warn(s"Failed to remove $mediaTier media: itemId $vsItemId, path ${filePathMaybe.getOrElse("<missing file path>")}, reason: ${err.getMessage}")
+              Left(s"Failed to remove online media itemId $vsItemId, path ${filePathMaybe.getOrElse("<missing file path>")}, reason: ${err.getMessage}")
           })
       case (_, _) => throw new RuntimeException(s"Cannot delete from online, wrong media tier ($mediaTier), or missing item id (${vidispineItemIdMaybe.getOrElse("<missing item id>")})")
     }
 
 
   def NOT_IMPL_outputDeepArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
-    val message = s"outputDeepArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${onlineOutputMessage.originalFilePath}"
+    val message = s"outputDeepArchiveCopyRequired not implemented yet (not removing ${onlineOutputMessage.mediaTier} ${onlineOutputMessage.originalFilePath})"
     logger.warn(message)
     throw SilentDropMessage(Some(message))
   }
 
   def NOT_IMPL_outputDeepArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-    val message = s"outputDeepArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${pendingDeletionRecord.originalFilePath}"
+    val message = s"outputDeepArchiveCopyRequired not implemented yet (not removing ${pendingDeletionRecord.mediaTier} ${pendingDeletionRecord.originalFilePath})"
     logger.warn(message)
     throw SilentDropMessage(Some(message))
   }
 
   def NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
-    val message = s"outputInternalArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${onlineOutputMessage.originalFilePath}"
+    val message = s"outputInternalArchiveCopyRequired not implemented yet (not removing ${onlineOutputMessage.mediaTier} ${onlineOutputMessage.originalFilePath})"
     logger.warn(message)
     throw SilentDropMessage(Some(message))
   }
 
   def NOT_IMPL_outputInternalArchiveCopyRequired(pendingDeletionRecord: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] = {
-    val message = s"outputInternalArchiveCopyRequired not implemented yet, erring on the safe side, not removing ${pendingDeletionRecord.originalFilePath}"
+    val message = s"outputInternalArchiveCopyRequired not implemented yet (not removing ${pendingDeletionRecord.mediaTier} ${pendingDeletionRecord.originalFilePath})"
     logger.warn(message)
     throw SilentDropMessage(Some(message))
   }
 
   def NOT_IMPL_outputNearlineCopyRequired(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
-    val message = s"outputNearlineCopyRequired not implemented yet, erring on the safe side, not removing ${onlineOutputMessage.originalFilePath}"
+    val message = s"outputNearlineCopyRequired not implemented yet (not removing ${onlineOutputMessage.mediaTier} ${onlineOutputMessage.originalFilePath})"
     logger.warn(message)
     throw SilentDropMessage(Some(message))
   }
@@ -670,20 +680,22 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   def getActionToPerformOnline(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): (Action.Value, Option[ProjectRecord]) =
     maybeProject match {
-      case None => (Action.DropMsg, None)
+      case None =>
+        logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdStringNoProject(onlineOutputMessage)}")
+        (Action.DropMsg, None)
       case Some(project) =>
         project.status match {
           case status if status == EntryStatus.Held =>
-            (Action.CheckExistsOnNearline, Some(project))
+            logAndSelectAction(Action.CheckExistsOnNearline, onlineOutputMessage, project)
           case _ =>
             project.deletable match {
               case Some(true) =>
                 project.status match {
                   case status if status == EntryStatus.Completed || status == EntryStatus.Killed =>
                     // deletable + Completed/Killed
-                    (Action.ClearAndDelete, Some(project))
+                    logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
                   case _ =>
-                    (Action.DropMsg, Some(project))
+                    logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
                 }
               case _ =>
                 // not DELETABLE
@@ -691,72 +703,67 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                   if (project.sensitive.getOrElse(false)) {
                     if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
                       // not deletable + deep_archive + sensitive + Completed/Killed
-                      (Action.CheckInternalArchive, Some(project))
+                      logAndSelectAction(Action.CheckInternalArchive, onlineOutputMessage, project)
                     } else {
-                      (Action.DropMsg, Some(project))
+                      logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
                     }
                   } else {
                     if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
                       // not deletable + deep_archive + not sensitive + Completed/Killed
-                      (Action.CheckDeepArchiveForOnline, Some(project))
+                      logAndSelectAction(Action.CheckDeepArchiveForOnline, onlineOutputMessage, project)
                     } else {
-                      (Action.DropMsg, Some(project))
+                      logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
                     }
                   }
                 } else {
                   // not deletable + not deep_archive
-                  (Action.JustNo, Some(project))
+                  logAndSelectAction(Action.JustNo, onlineOutputMessage, project)
                 }
             }
         }
     }
 
 
+  private def logAndSelectAction(action: MediaNotRequiredMessageProcessor.Action.Value, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+    logger.debug(s"Action to perform: '$action' for ${getInformativeIdString(onlineOutputMessage, project)}")
+    (action, Some(project))
+  }
+
   def getActionToPerformNearline(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): (Action.Value, Option[ProjectRecord]) =
     maybeProject match {
-      case None => (Action.DropMsg, None)
+      case None =>
+        logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdStringNoProject(onlineOutputMessage)}")
+        (Action.DropMsg, None)
       case Some(project) =>
         project.deletable match {
           case Some(true) =>
             project.status match {
               case status if status == EntryStatus.Completed || status == EntryStatus.Killed =>
                 onlineOutputMessage.mediaCategory.toLowerCase match {
-                  case "deliverables" =>
-                    logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                    (Action.DropMsg, Some(project))
-                  case _ =>
-                    logger.debug(s"Action to perform: '${Action.ClearAndDelete}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                    (Action.ClearAndDelete, Some(project))
+                  case "deliverables" => logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
+                  case _ => logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
                 }
-              case _ =>
-                logger.debug(s"Action to perform: '${Action.ClearAndDelete}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                (Action.DropMsg, Some(project))
+              case _ => logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
             }
           case _ =>
           // not DELETABLE
-            logger.info("Feck!!!!!")
           if (project.deep_archive.getOrElse(false)) {
             if (project.sensitive.getOrElse(false)) {
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
-                logger.debug(s"Action to perform: '${Action.CheckInternalArchive}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                (Action.CheckInternalArchive, Some(project))
+                logAndSelectAction(Action.CheckInternalArchive, onlineOutputMessage, project)
               } else {
-                logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                (Action.DropMsg, Some(project))
+                logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
               }
             } else {
               if (project.status == EntryStatus.Completed || project.status == EntryStatus.Killed) {
-                logger.debug(s"Action to perform: '${Action.CheckDeepArchiveForNearline}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                (Action.CheckDeepArchiveForNearline, Some(project))
+                logAndSelectAction(Action.CheckDeepArchiveForNearline, onlineOutputMessage, project)
               } else { // deep_archive + not sensitive + not killed and not completed (GP-785 row 8)
-                logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-                (Action.DropMsg, Some(project))
+                logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
               }
             }
           } else {
             // We cannot remove media when the project doesn't have deep_archive set
-            logger.debug(s"Action to perform: '${Action.JustNo}' for ${getInformativeIdString(onlineOutputMessage, project)}")
-            (Action.JustNo, Some(project))
+            logAndSelectAction(Action.JustNo, onlineOutputMessage, project)
           }
         }
     }
@@ -801,7 +808,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
   private def handleDropMsg(onlineOutputMessage: OnlineOutputMessage) = {
-    val noProjectFoundMsg = s"No project could be found that is associated with $onlineOutputMessage, erring on the safe side, not removing"
+    val noProjectFoundMsg = s"Dropping request to remove media: No project could be found that is associated with ${getInformativeIdStringNoProject(onlineOutputMessage)}"
     logger.warn(noProjectFoundMsg)
     throw SilentDropMessage(Some(noProjectFoundMsg))
   }
@@ -824,11 +831,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     nearlineExistsInInternalArchive(nearlineVault, internalArchiveVault, onlineOutputMessage).flatMap({
       case true =>
         // nearline media EXISTS in INTERNAL ARCHIVE
-        logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' exists in Internal Archive, going to delete nearline copy")
+        logger.debug(s"Exists in Internal Archive, going to delete ${getInformativeIdString(onlineOutputMessage, project)} ")
         handleDeleteNearlineAndClear(nearlineVault, onlineOutputMessage, project)
       case false =>
-        // nearline media does NOT EXIST in INTERNAL ARCHIVE
-        logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' does not exist in Internal Archive, going to store deletion pending and request Internal Archive copy")
+        // nearline media DOES NOT EXIST in INTERNAL ARCHIVE
+        logger.debug(s"Does not exist in Internal Archive, going to store deletion pending and request Internal Archive copy for ${getInformativeIdString(onlineOutputMessage, project)}")
         storeDeletionPending(onlineOutputMessage)
         NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage)
     })
@@ -894,28 +901,29 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   private def handleDropMsg(onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
-    val notRemovingMsg: String = s"Not removing ${getInformativeIdString(onlineOutputMessage, project)}"
+    val notRemovingMsg: String = s"Dropping request to remove ${getInformativeIdString(onlineOutputMessage, project)}"
     logger.debug(notRemovingMsg)
     throw SilentDropMessage(Some(notRemovingMsg))
   }
 
 
   private def getInformativeIdString(onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
-    val deletable = project.deletable.getOrElse(false)
-    val deep_archive = project.deep_archive.getOrElse(false)
-    val sensitive = project.sensitive.getOrElse(false)
-    val nearlineId = onlineOutputMessage.nearlineId.getOrElse("<missing nearline ID>")
-    val vsItemId = onlineOutputMessage.vidispineItemId.getOrElse("<missing vsItem ID>")
-    s"${onlineOutputMessage.mediaTier} media with " +
-      s"nearlineId $nearlineId, " +
-      s"onlineId $vsItemId " +
-      s"- project ${project.id.getOrElse(-1)} is " +
-      s"deletable($deletable), " +
-      s"deep_archive($deep_archive), " +
-      s"sensitive($sensitive), " +
-      s"status is ${project.status}, " +
-      s"media category is ${onlineOutputMessage.mediaCategory}"
+    s"${onlineOutputMessage.originalFilePath.getOrElse("<missing originalFilePath>")}: " +
+      s"${onlineOutputMessage.mediaTier} media with " +
+      s"nearlineId ${onlineOutputMessage.nearlineId.getOrElse("<missing nearline ID>")}, " +
+      s"onlineId ${onlineOutputMessage.vidispineItemId.getOrElse("<missing vsItem ID>")}, " +
+      s"mediaCategory ${onlineOutputMessage.mediaCategory} " +
+      s"in project ${project.id.getOrElse(-1)}: " +
+      s"deletable(${project.deletable.getOrElse(false)}), " +
+      s"deep_archive(${project.deep_archive.getOrElse(false)}), " +
+      s"sensitive(${project.sensitive.getOrElse(false)}), " +
+      s"status ${project.status}"
   }
+  private def getInformativeIdStringNoProject(onlineOutputMessage: OnlineOutputMessage) =
+        s"${onlineOutputMessage.mediaTier} media with " +
+          s"nearlineId ${onlineOutputMessage.nearlineId.getOrElse("<missing nearline ID>")}, " +
+          s"onlineId ${onlineOutputMessage.vidispineItemId.getOrElse("<missing vsItem ID>")}, " +
+          s"media category is ${onlineOutputMessage.mediaCategory} - Could not find project record for media"
 
   private def getInformativePendingDeletionString(project: PendingDeletionRecord) = {
     val id = project.id.getOrElse("<missing rec ID>")
