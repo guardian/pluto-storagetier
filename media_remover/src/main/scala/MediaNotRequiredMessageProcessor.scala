@@ -120,7 +120,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           case Some(vsItemId) =>
               getOnlineSize(pendingDeletionRecord, nearlineRecord.vidispineItemId).flatMap({
                 case Some(onlineSize) =>
-                  onlineExistsInVault(internalArchiveVault, vsItemId, pendingDeletionRecord.originalFilePath, onlineSize).flatMap({
+                  val filePathBack = putItBack(pendingDeletionRecord.originalFilePath)
+                  onlineExistsInVault(internalArchiveVault, vsItemId, filePathBack, onlineSize).flatMap({
                     case true =>
                       for {
                         mediaRemovedMessage <- deleteMediaFromOnline(pendingDeletionRecord)
@@ -150,7 +151,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.vidispineItemId)
           val checksumMaybeFut = getMd5ChecksumForOnline(vsItemId)
           checksumMaybeFut.flatMap(checksumMaybe => {
-            mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey).flatMap({
+            mediaExistsInDeepArchive(MediaTiers.ONLINE.toString, checksumMaybe, fileSize, objectKey).flatMap({
               case true =>
                 for {
                   mediaRemovedMsg <- deleteMediaFromOnline(pendingDeletionRecord)
@@ -181,7 +182,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                 (fileSize, objectKey, nearlineId) <-
                   Future(validateNeededFields(Some(nearlineFileSize), Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId))
                 checksumMaybe <- getChecksumForNearline(vault, nearlineId)
-                doesMediaExist <- mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey)
+                doesMediaExist <- mediaExistsInDeepArchive(MediaTiers.NEARLINE.toString, checksumMaybe, fileSize, objectKey)
               } yield doesMediaExist
 
             doesMediaExist.flatMap({
@@ -338,28 +339,29 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
    * warning
    *
    * @param vault    Vault to check
-   * @param fileName file name to check on the Vault
+//   * @param fileName file name to check on the Vault
    * @param filePath the filepath of the item to check
    * */
-  def existsInTargetVaultWithMd5Match(vault: Vault, fileName: String, filePath: String, fileSize: Long, maybeLocalChecksum: Option[String]): Future[Boolean] = {
+  def existsInTargetVaultWithMd5Match(mediaTier: MediaTiers.Value, id: String, vault: Vault, fileName: String, filePath: String, fileSize: Long, maybeLocalChecksum: Option[String]): Future[Boolean] = {
+    val wantedFileInfo = s"$filePath ($id, $fileSize, ${maybeLocalChecksum.getOrElse("<no local checksum>")})"
     (for {
-      potentialMatches <- findMatchingFilesOnVault(vault, filePath, fileSize)
+      potentialMatches <- findMatchingFilesOnVault(mediaTier, vault, filePath, fileSize)
       potentialMatchesFiles <- Future.sequence(potentialMatches.map(entry => Future.fromTry(openMxsObject(vault, entry.oid))))
       alreadyExists <- verifyChecksumMatchUsingChecker(filePath, potentialMatchesFiles, maybeLocalChecksum)
       result <- alreadyExists match {
         case Some(existingId) =>
-          logger.info(s"$filePath: Copy exists on ${vault.getId} with object id $existingId")
+          logger.info(s"$wantedFileInfo: Copy exists on ${vault.getId} with object id $existingId")
           Future(true)
         case None =>
           if (potentialMatches.isEmpty)
-            logger.info(s"$filePath: No remote name matches, nothing to compare checksum for")
+            logger.info(s"$wantedFileInfo: No remote name matches, nothing to compare checksum for")
           else
-            logger.info(s"$filePath: No checksum match for any of the ${potentialMatches.length} remote name matches")
+            logger.info(s"$wantedFileInfo: No checksum match for any of the ${potentialMatches.length} remote name matches")
           Future(false)
       }
     } yield result).recoverWith({
       case err: Throwable =>
-        logger.warn(s"Could not verify checksum for file $filePath: ${err.getMessage}")
+        logger.warn(s"Could not verify checksum for file $wantedFileInfo: ${err.getMessage}")
         Future(false)
     })
   }
@@ -396,8 +398,8 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
    * @return a Future, containing a sequence of ObjectMatrixEntries that match the given file path and size
    */
 //  def findMatchingFilesOnNearline_fromFileCopier(vault: Vault, filePath: Path, fileSize: Long) = {
-  def findMatchingFilesOnVault(vault: Vault, filePath: String, fileSize: Long) = {
-    logger.debug(s"Looking for files matching $filePath at size $fileSize on vault ${vault.getId}")
+  def findMatchingFilesOnVault(mediaTier: MediaTiers.Value, vault: Vault, filePath: String, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = {
+    logger.debug(s"Looking for files matching $mediaTier media with $filePath at size $fileSize on ${vault.getId}")
     callFindByFilenameNew(vault, filePath)
       .map(fileNameMatches => {
         val nullSizes = fileNameMatches.map(_.maybeGetSize()).collect({ case None => None }).length
@@ -409,11 +411,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
 
         if (fileNameMatches.nonEmpty) {
-          logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
           val str = fileNameMatches.map(obj => s"oid ${obj.oid}, path '${obj.pathOrFilename.getOrElse("-")}', size ${obj.maybeGetSize().get}").mkString("; ")
-          logger.debug(s"Object(s) matched on fileName: $str")
+          logger.debug(s"Object(s) matched on name on ${vault.getId}: $str")
+          logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
         } else {
-          logger.debug(s"$filePath: No files matched name")
+          logger.debug(s"$filePath: No files matched name on ${vault.getId}")
         }
         sizeMatches
       })
@@ -425,10 +427,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       mxsFile <- Future.fromTry(openMxsObject(vault, oid))
       maybeMd5 <- MatrixStoreHelper.getOMFileMd5(mxsFile).flatMap({
             case Failure(err) =>
-              logger.error(s"Unable to get checksum from appliance, file should be considered unsafe", err)
+              logger.error(s"Unable to get checksum from appliance ${vault.getId}, file with $oid should be considered unsafe", err)
               Future(None)
             case Success(remoteChecksum) =>
-              logger.info(s"Appliance reported checksum of $remoteChecksum")
+              logger.info(s"Appliance reported checksum of $remoteChecksum for $oid on $vault")
               Future(Some(remoteChecksum))
           })
       } yield maybeMd5
@@ -442,34 +444,48 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   def nearlineExistsInInternalArchive(vault: Vault, internalArchiveVault: Vault, nearlineId: String, filePath: String, fileSize: Long): Future[Boolean] = {
+    val filePathBack = putItBack(filePath)
     for {
       maybeChecksum <- getChecksumForNearline(vault, nearlineId)
       //TODO add nearlineId to parameter list for logging purposes(?)
-      exists <- existsInTargetVaultWithMd5Match(internalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
+      exists <- existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, filePathBack, fileSize, maybeChecksum)
     } yield exists
   }
 
 
+  private def putItBack(filePath: String): String = filePath match {
+    case f if f.startsWith("/") =>
+      filePath
+    case _ => asLookup.putBackBase(Paths.get(filePath)) match {
+      case Left(err) =>
+        logger.warn(s"Could not but back base path for $filePath: $err. Will use as was.")
+        filePath
+      case Right(value) =>
+        logger.debug(s"$filePath was restored to ${value.toString}")
+        value.toString
+    }
+  }
+
   def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
     for {
       maybeChecksum <- getMd5ChecksumForOnline(vsItemId)
-      exists <- existsInTargetVaultWithMd5Match(nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
+      exists <- existsInTargetVaultWithMd5Match(MediaTiers.ONLINE, vsItemId, nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
     } yield exists
 
 
   def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, objectKey, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     val maybeChecksumFut = getChecksumForNearline(vault, nearlineId)
-    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(checksumMaybe, fileSize, objectKey))
+    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(onlineOutputMessage.mediaTier, checksumMaybe, fileSize, objectKey))
   }
 
 
-  def mediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, originalFilePath: String): Future[Boolean] = {
+  def mediaExistsInDeepArchive(mediaTier: String, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String): Future[Boolean] = {
 
     val objectKey =
       asLookup.relativizeFilePath(Paths.get(originalFilePath)) match {
         case Left(err) =>
-          logger.error(s"Could not relativize file path $originalFilePath: $err. Checking ${originalFilePath.stripPrefix("/")}")
+          logger.error(s"Could not relativize $mediaTier file path $originalFilePath: $err. Checking ${originalFilePath.stripPrefix("/")}")
           originalFilePath.stripPrefix("/")
         case Right(relativePath) =>
           relativePath.toString
@@ -477,14 +493,14 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
     s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe).map({
       case true =>
-        logger.info(s"File with objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
+        logger.info(s"$mediaTier file with path $originalFilePath, objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
         true
       case false =>
-        logger.info(s"No file $objectKey with matching size $fileSize found, do not delete")
+        logger.info(s"$mediaTier file with path $originalFilePath: No file $objectKey with matching size $fileSize found, do not delete")
         false
     }).recover({
       case err:Throwable =>
-        logger.warn(s"Could not connect to deep archive to check if media exists, do not delete. Err: ${err.getMessage}")
+        logger.warn(s"Could not connect to deep archive to check if copy of $mediaTier media exists, do not delete. Err: ${err.getMessage}")
         false
     })
   }
@@ -827,7 +843,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def handleCheckInternalArchiveForNearline(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+  private def handleCheckInternalArchiveForNearline(nearlineVault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) =
     nearlineExistsInInternalArchive(nearlineVault, internalArchiveVault, onlineOutputMessage).flatMap({
       case true =>
         // nearline media EXISTS in INTERNAL ARCHIVE
@@ -839,15 +855,13 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         storeDeletionPending(onlineOutputMessage)
         NOT_IMPL_outputInternalArchiveCopyRequired(onlineOutputMessage)
     })
-  }
 
 
-  private def handleDeleteNearlineAndClear(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+  private def handleDeleteNearlineAndClear(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) =
     for {
       mediaRemovedMsg <- deleteFromNearlineWrapper(nearlineVault, onlineOutputMessage, project)
       _ <- removeDeletionPendingByMessage(onlineOutputMessage)
     } yield mediaRemovedMsg
-  }
 
 
   private def handleJustNo(project: ProjectRecord) = {
@@ -862,7 +876,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
     for {
       checksumMaybe <- getMd5ChecksumForOnline(vsItemId)
-      mediaExists <- mediaExistsInDeepArchive(checksumMaybe, fileSize, originalFilePath)
+      mediaExists <- mediaExistsInDeepArchive(onlineOutputMessage.mediaTier, checksumMaybe, fileSize, originalFilePath)
     } yield mediaExists
   }
 
