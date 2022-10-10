@@ -1,6 +1,5 @@
 import MediaNotRequiredMessageProcessor.Action
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpMessage.DiscardedEntity
 import akka.http.scaladsl.model.HttpMessage
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
@@ -347,8 +346,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   }
 
   "MediaNotRequiredMessageProcessor.nearlineExistsInInternalArchive" should {
-    "unrelativize when called with item in path" in {
-      val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))
+    "unrelativize when called with item with relative path" in {
+      val basePath = "/srv/Multimedia2/NextGenDev/Media Production/Assets/"
+      val fakeConfig = PlutoCoreConfig("test", "test", Paths.get(basePath))
 
       implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val vidispineCommunicator = mock[VidispineCommunicator]
@@ -359,55 +359,35 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       implicit val mockChecksumChecker = mock[ChecksumChecker]
       val assetFolderLookup = new AssetFolderLookup(fakeConfig)
 
-      val mockVault = mock[Vault]
-      mockVault.getId returns "mockVault"
-      val mockInternalVault = mock[Vault]
-      mockInternalVault.getId returns "mockInternalVault"
-
-
-
-      val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML","fileSize":8823,"vidispineItemId":null,"nearlineId":"51a0f742-3d89-11ec-a895-8e29f591bdb6-2319","mediaCategory":"metadata"}"""
-
-      val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
-
-//      mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
-
-      val mockExistsInTargetVaultWithMd5Match = mock[(MediaTiers.Value, Vault, String, String, Long, Option[String]) => Future[Boolean]]
-      val toTest = new MediaNotRequiredMessageProcessor(assetFolderLookup) {
-        override def existsInTargetVaultWithMd5Match(mediaTier: MediaTiers.Value, id: String, vault: Vault, fileName: String, filePath: String, fileSize: Long, maybeLocalChecksum: Option[String]): Future[Boolean] =
-          mockExistsInTargetVaultWithMd5Match.apply(mediaTier, vault, fileName, filePath, fileSize, maybeLocalChecksum) returns Future(true)
-      }
-
-      toTest.nearlineExistsInInternalArchive(mockVault, mockInternalVault, msgObj.nearlineId.get, msgObj.originalFilePath.get, msgObj.fileSize.get)
-
-      ok
-//      there was one(mockExistsInTargetVaultWithMd5Match).apply(mockVault, "/srv/Multimedia2/NextGenDev/Media Production/Assets/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", "Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", 8823L, None)
-//      there was one(mockS3ObjectChecker).objectExistsWithSizeAndMaybeChecksum("Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", 1L, None)
-    }
-
-    "strip when called with item not in path" in {
-      val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))
-
-      implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
-      implicit val vidispineCommunicator = mock[VidispineCommunicator]
-      implicit val mat: Materializer = mock[Materializer]
-      implicit val sys: ActorSystem = mock[ActorSystem]
-      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-      implicit val mockChecksumChecker = mock[ChecksumChecker]
-      val assetFolderLookup = new AssetFolderLookup(fakeConfig)
 
       val toTest = new MediaNotRequiredMessageProcessor(assetFolderLookup)
 
-      val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4","fileSize":291354,"vidispineItemId":null,"nearlineId":"741d089d-a920-11ec-a895-8e29f591bdb6-1568","mediaCategory":"proxy"}"""
+      val filePath = "Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML"
+      val result = toTest.putItBack(filePath)
 
-      mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
+      result mustEqual basePath + filePath
+    }
 
-      val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+    "not unrelativize when called with item with absolute path" in {
+      val basePath = "/srv/Multimedia2/NextGenDev/Media Production/Assets/"
+      val fakeConfig = PlutoCoreConfig("test", "test", Paths.get(basePath))
 
-      toTest.mediaExistsInDeepArchive(msgObj.mediaTier, None, 1L, msgObj.originalFilePath.get)
+      implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker = mock[ChecksumChecker]
+      val assetFolderLookup = new AssetFolderLookup(fakeConfig)
 
-      there was one(mockS3ObjectChecker).objectExistsWithSizeAndMaybeChecksum("srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4", 1L, None)
+
+      val toTest = new MediaNotRequiredMessageProcessor(assetFolderLookup) //{}
+
+      val filePath = "/srv/Multimedia2/NextGenDev/Proxies/VX-12074.mp4"
+      val result = toTest.putItBack(filePath)
+
+      result mustEqual filePath
     }
   }
 
@@ -1253,9 +1233,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val filePath = "/path/to/some/file.ext"
       val results = Seq(
-//        ObjectMatrixEntry("556593b10503", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 30L)), None),
         ObjectMatrixEntry("abd81f4f6c0c", Some(MxsMetadata.empty.withValue("MXFS_PATH", msgObj.originalFilePath.get).withValue("__mxs__length", 1024L)), None),
-//        ObjectMatrixEntry("b3bcb2fa2146", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 20L)), None),
       )
 
 
@@ -1263,7 +1241,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         override protected def callFindByFilenameNew(vault: Vault, fileName: String) = Future(results)
         override def getMd5ChecksumForOnline(vsItemId: String): Future[Option[String]] = Future(Some("fake-MD5"))
         override protected def verifyChecksumMatchUsingChecker(filePath: String, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = Future(Some("abd81f4f6c0c"))
-//        override def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] = Future(true)
       }
 
       val result = Try {
