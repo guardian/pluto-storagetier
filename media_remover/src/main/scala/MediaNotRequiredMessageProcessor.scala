@@ -453,15 +453,16 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def putItBack(filePath: String): String = filePath match {
+  def putItBack(filePath: String): String = filePath match {
     case f if f.startsWith("/") =>
+      logger.debug(s"$filePath is absolute, returning without putting base back")
       filePath
     case _ => asLookup.putBackBase(Paths.get(filePath)) match {
       case Left(err) =>
         logger.warn(s"Could not but back base path for $filePath: $err. Will use as was.")
         filePath
       case Right(value) =>
-        logger.debug(s"$filePath was restored to ${value.toString}")
+        logger.debug(s"$filePath had the base put back to form ${value.toString}")
         value.toString
     }
   }
