@@ -190,6 +190,64 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
   }
 
+  "PlutoCoreMessageProcessor.isMetadataOrProxy(ObjectMatrixEntry)" should {
+
+    "return false if no GNM_TYPE" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty), None))
+
+      result must beFalse
+    }
+
+    "return false if GNM_TYPE is exactly 'Proxy'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Proxy")), None))
+
+      result must beFalse
+    }
+
+    "return true if GNM_TYPE is exactly 'proxy'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "proxy")), None))
+
+      result must beTrue
+    }
+
+    "return true if GNM_TYPE is exactly 'metadata'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "metadata")), None))
+
+      result must beTrue
+    }
+
+    "filter out the 'metadata' and 'proxy' items" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val entries = Seq(
+        ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid2", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None),
+        ObjectMatrixEntry("oid3", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None),
+        ObjectMatrixEntry("oid4", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "project")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Proxy")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "proxy")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "metadata")), None),
+        ObjectMatrixEntry("oid6", Some(MxsMetadata.empty), None),
+      )
+
+      val result = entries.filterNot(toTest.isMetadataOrProxy)
+
+      result.size mustEqual 7
+      result.head.oid mustEqual "oid1"
+    }
+  }
+
   "PlutoCoreMessageProcessor" should {
 
     implicit val mockActorSystem = mock[ActorSystem]
