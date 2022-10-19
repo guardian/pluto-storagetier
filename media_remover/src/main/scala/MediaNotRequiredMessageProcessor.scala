@@ -430,7 +430,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
               logger.error(s"Unable to get checksum from appliance ${vault.getId}, file with $oid should be considered unsafe", err)
               Future(None)
             case Success(remoteChecksum) =>
-              logger.info(s"Appliance reported checksum of $remoteChecksum for $oid on $vault")
+              logger.info(s"Appliance reported checksum of $remoteChecksum for $oid on ${vault.getId}")
               Future(Some(remoteChecksum))
           })
       } yield maybeMd5
