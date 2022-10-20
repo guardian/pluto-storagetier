@@ -190,6 +190,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
   }
 
+
   "PlutoCoreMessageProcessor.isMetadataOrProxy(ObjectMatrixEntry)" should {
 
     "return false if no GNM_TYPE" in {
@@ -248,7 +249,8 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
   }
 
-  "PlutoCoreMessageProcessor" should {
+
+"PlutoCoreMessageProcessor" should {
 
     implicit val mockActorSystem = mock[ActorSystem]
     val vault = mock[Vault]
