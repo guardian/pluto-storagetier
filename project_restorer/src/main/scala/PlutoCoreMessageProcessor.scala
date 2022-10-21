@@ -81,19 +81,6 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
     case _ => false
   }
 
-  // GP-826 Ensure that we don't emit Media not required-messages for proxy and metadata files, as media_remover uses
-  // ATT_PROXY_OID and ATT_META_OID on the main file to remove those.
-  // (This will just remove the latest version of the metadata file, but is a known limitation and deemed acceptable for now.)
-  def isMetadataOrProxy(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
-    case Some(gnmType) =>
-      gnmType match {
-        case "metadata" => true // Case sensitive
-        case "proxy" => true // Case sensitive
-        case _ => false
-      }
-    case _ => false
-  }
-
   def getNearlineResults(projectId: Int) = {
     matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
       searchAssociatedNearlineMedia(projectId, vault).map(Right.apply)

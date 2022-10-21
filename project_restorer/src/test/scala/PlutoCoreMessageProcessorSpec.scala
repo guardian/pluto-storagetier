@@ -131,28 +131,28 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       result must beFalse
     }
 
-    "return false if GNM_TYPE is not exactly 'Branding': case 1 - lowercase" in {
+    "return true if GNM_TYPE is not exactly 'Branding': case 1 - lowercase" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
-    "return false if GNM_TYPE is not exactly 'Branding': case 2 - uppercase" in {
+    "return true if GNM_TYPE is not exactly 'Branding': case 2 - uppercase" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "BRANDING")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
-    "return false if GNM_TYPE is not exactly 'Branding': case 3 - mixed" in {
+    "return true if GNM_TYPE is not exactly 'Branding': case 3 - mixed" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "bRanDiNg")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
     "return false if GNM_TYPE is not exactly 'Branding': case 4 - rushes" in {
@@ -185,7 +185,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
       val result = entries.filterNot(toTest.isBranding)
 
-      result.size mustEqual 4
+      result.size mustEqual 3
       result.head.oid mustEqual "oid2"
     }
   }
