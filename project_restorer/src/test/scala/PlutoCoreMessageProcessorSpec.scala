@@ -131,28 +131,28 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       result must beFalse
     }
 
-    "return false if GNM_TYPE is not exactly 'Branding': case 1 - lowercase" in {
+    "return true if GNM_TYPE is not exactly 'Branding': case 1 - lowercase" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
-    "return false if GNM_TYPE is not exactly 'Branding': case 2 - uppercase" in {
+    "return true if GNM_TYPE is not exactly 'Branding': case 2 - uppercase" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "BRANDING")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
-    "return false if GNM_TYPE is not exactly 'Branding': case 3 - mixed" in {
+    "return true if GNM_TYPE is not exactly 'Branding': case 3 - mixed" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "bRanDiNg")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
     "return false if GNM_TYPE is not exactly 'Branding': case 4 - rushes" in {
@@ -185,8 +185,66 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
       val result = entries.filterNot(toTest.isBranding)
 
-      result.size mustEqual 4
+      result.size mustEqual 3
       result.head.oid mustEqual "oid2"
+    }
+  }
+
+  "PlutoCoreMessageProcessor.isMetadataOrProxy(ObjectMatrixEntry)" should {
+
+    "return false if no GNM_TYPE" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty), None))
+
+      result must beFalse
+    }
+
+    "return true if GNM_TYPE is exactly 'Proxy'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Proxy")), None))
+
+      result must beTrue
+    }
+
+    "return true if GNM_TYPE is exactly 'proxy'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "proxy")), None))
+
+      result must beTrue
+    }
+
+    "return true if GNM_TYPE is exactly 'metadata'" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "metadata")), None))
+
+      result must beTrue
+    }
+
+    "filter out the 'metadata' and 'proxy' items" in {
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val entries = Seq(
+        ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid2", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None),
+        ObjectMatrixEntry("oid3", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None),
+        ObjectMatrixEntry("oid4", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "project")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Proxy")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "proxy")), None),
+        ObjectMatrixEntry("oid5", Some(MxsMetadata.empty.withValue("GNM_TYPE", "metadata")), None),
+        ObjectMatrixEntry("oid6", Some(MxsMetadata.empty), None),
+      )
+
+      val result = entries.filterNot(toTest.isMetadataOrProxy)
+
+      result.size mustEqual 6
+      result.head.oid mustEqual "oid1"
     }
   }
 
