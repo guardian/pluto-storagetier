@@ -190,7 +190,6 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
   }
 
-
   "PlutoCoreMessageProcessor.isMetadataOrProxy(ObjectMatrixEntry)" should {
 
     "return false if no GNM_TYPE" in {
@@ -202,13 +201,13 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       result must beFalse
     }
 
-    "return false if GNM_TYPE is exactly 'Proxy'" in {
+    "return true if GNM_TYPE is exactly 'Proxy'" in {
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig)
 
       val result = toTest.isMetadataOrProxy(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Proxy")), None))
 
-      result must beFalse
+      result must beTrue
     }
 
     "return true if GNM_TYPE is exactly 'proxy'" in {
@@ -244,13 +243,12 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
       val result = entries.filterNot(toTest.isMetadataOrProxy)
 
-      result.size mustEqual 7
+      result.size mustEqual 6
       result.head.oid mustEqual "oid1"
     }
   }
 
-
-"PlutoCoreMessageProcessor" should {
+  "PlutoCoreMessageProcessor" should {
 
     implicit val mockActorSystem = mock[ActorSystem]
     val vault = mock[Vault]

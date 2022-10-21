@@ -61,8 +61,21 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
   // GP-823 Ensure that branding does not get deleted
   def isBranding(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
     case Some(gnmType) =>
-      gnmType match {
-        case "Branding" => true // Case sensitive
+      gnmType.toLowerCase match {
+        case "branding" => true // Case sensitive
+        case _ => false
+      }
+    case _ => false
+  }
+
+  // GP-826 Ensure that we don't emit Media not required-messages for proxy and metadata files, as media_remover uses
+  // ATT_PROXY_OID and ATT_META_OID on the main file to remove those.
+  // (This will just remove the latest version of the metadata file, but is a known limitation and deemed acceptable for now.)
+  def isMetadataOrProxy(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
+    case Some(gnmType) =>
+      gnmType.toLowerCase match {
+        case "metadata" => true
+        case "proxy" => true
         case _ => false
       }
     case _ => false
