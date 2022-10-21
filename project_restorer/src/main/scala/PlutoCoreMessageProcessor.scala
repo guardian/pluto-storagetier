@@ -61,8 +61,8 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
   // GP-823 Ensure that branding does not get deleted
   def isBranding(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
     case Some(gnmType) =>
-      gnmType match {
-        case "Branding" => true // Case sensitive
+      gnmType.toLowerCase match {
+        case "branding" => true // Case sensitive
         case _ => false
       }
     case _ => false
@@ -73,9 +73,9 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
   // (This will just remove the latest version of the metadata file, but is a known limitation and deemed acceptable for now.)
   def isMetadataOrProxy(entry: ObjectMatrixEntry): Boolean = entry.stringAttribute("GNM_TYPE") match {
     case Some(gnmType) =>
-      gnmType match {
-        case "metadata" => true // Case sensitive
-        case "proxy" => true // Case sensitive
+      gnmType.toLowerCase match {
+        case "metadata" => true
+        case "proxy" => true
         case _ => false
       }
     case _ => false
