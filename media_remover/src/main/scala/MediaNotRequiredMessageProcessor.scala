@@ -576,16 +576,22 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   def dealWithAttFiles(vault: Vault, nearlineId: String, originalFilePath: String): Future[Either[String, String]] = {
-    val combinedRes = for {
+    val combinedRes = (for {
       objectMatrixEntry <- callObjectMatrixEntryFromOID(vault, nearlineId)
       proxyRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_PROXY_OID", nearlineId, originalFilePath)
       thumbRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_THUMB_OID", nearlineId, originalFilePath)
       metaRes <- deleteSingleAttMedia(vault, objectMatrixEntry, "ATT_META_OID", nearlineId, originalFilePath)
-    } yield (proxyRes, thumbRes, metaRes)
+    } yield (proxyRes, thumbRes, metaRes))
+      .recover({
+        case err: Throwable =>
+          logger.warn(s"Something went wrong while trying to get metadata for $nearlineId: $err")
+          Left(s"Something went wrong while trying to get metadata to delete ATT files for $nearlineId: $err")
+      })
 
     combinedRes.map {
-      case (Right(_), Right(_), Right(_)) => Right("Smooth sailing, ATT files removed")
-      case (_, _, _) => Left("One or more ATT files could not be removed. Please look at logs for more info")
+      case (Right(_), Right(_), Right(_)) => Right(s"The ATT files that were present for $nearlineId have been deleted")
+      case (_, _, _) => Left(s"One or more ATT files for $nearlineId could not be deleted. Please look at logs for more info")
+      case Left(err: String) => Left(err)
     }
   }
 
@@ -593,19 +599,32 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def deleteMediaFromNearline(vault: Vault, mediaTier: String, filePathMaybe: Option[String], nearlineIdMaybe: Option[String], vidispineItemIdMaybe: Option[String]): Future[Either[String, MessageProcessorReturnValue]] =
     (mediaTier, filePathMaybe, nearlineIdMaybe) match {
       case ("NEARLINE", Some(filepath), Some(nearlineId)) =>
-        dealWithAttFiles(vault, nearlineId, filepath)
-        // TODO do we need to wrap this with a Future.fromTry?
-        Try { vault.getObject(nearlineId).delete() } match {
-          case Success(_) =>
-            logger.info(s"Nearline media oid=$nearlineId, path=$filepath removed")
-            Future(Right(MediaRemovedMessage(mediaTier = mediaTier, originalFilePath = filepath, nearlineId = Some(nearlineId), vidispineItemId = vidispineItemIdMaybe).asJson))
-          case Failure(exception) =>
-            logger.warn(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}")
-            Future(Left(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}"))
-        }
+        // Wait for ATT files to be handled before we delete the main object, since we need the metadata of the main object
+        dealWithAttFiles(vault, nearlineId, filepath).flatMap({
+          case Left(err) =>
+            logger.warn(err)
+            deleteMainNearlineMedia(vault, nearlineId, filepath, vidispineItemIdMaybe)
+          case Right(value) =>
+            logger.debug(value)
+            deleteMainNearlineMedia(vault, nearlineId, filepath, vidispineItemIdMaybe)
+        })
       case (_, _, _) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier ($mediaTier), or missing nearline id ($nearlineIdMaybe)")
     }
 
+
+  private def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] = {
+    // TODO do we need to wrap this with a Future.fromTry?
+    Try {
+      vault.getObject(nearlineId).delete()
+    } match {
+      case Success(_) =>
+        logger.info(s"Nearline media oid=$nearlineId, path=$filepath removed")
+        Future(Right(MediaRemovedMessage(mediaTier = MediaTiers.NEARLINE.toString, originalFilePath = filepath, nearlineId = Some(nearlineId), vidispineItemId = vidispineItemIdMaybe).asJson))
+      case Failure(exception) =>
+        logger.warn(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}")
+        Future(Left(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}"))
+    }
+  }
 
   def deleteMediaFromOnline(rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] =
     deleteMediaFromOnline(rec.mediaTier.toString, Some(rec.originalFilePath), rec.nearlineId, rec.vidispineItemId)
