@@ -5,7 +5,7 @@ import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
 import com.gu.multimedia.mxscopy.{MXSConnectionBuilderImpl, MXSConnectionBuilderMock}
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, ProcessorConfiguration}
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
-import com.gu.multimedia.storagetier.plutocore.EntryStatus
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, PlutoCoreConfig, ProductionOffice, ProjectRecord}
 import com.gu.multimedia.storagetier.vidispine.{VSOnlineOutputMessage, VidispineCommunicator, VidispineConfig}
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import com.rabbitmq.client.{Channel, Connection, ConnectionFactory}
@@ -17,6 +17,7 @@ import messages.{InternalOnlineOutputMessage, ProjectUpdateMessage}
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
+import java.nio.file.Paths
 import java.time.ZonedDateTime
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -54,12 +55,15 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
   implicit val mockVidispineCommunicator = mock[VidispineCommunicator]
   val mockObject = mock[MxsObject]
   mockVault.getObject(any) returns mockObject
+  val fakePlutoConfig = PlutoCoreConfig("test","test",Paths.get("/path/to/assetfolders"))
+  val asLookup = new AssetFolderLookup(fakePlutoConfig)
+  val mockAsLookup = mock[AssetFolderLookup]
 
   "PlutoCoreMessageProcessor.isBranding(VSOnlineOutputMessage)" should {
 
     "return true if mediaCategory is variant of 'Branding': case 1 - lowercase" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "branding")
       val result = toTest.isBranding(item)
 
@@ -68,7 +72,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if mediaCategory is variant of 'Branding': case 2 - uppercase" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "BRANDING")
       val result = toTest.isBranding(item)
 
@@ -77,7 +81,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if mediaCategory is variant of 'Branding': case 3 - mixed" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "bRanDiNg")
       val result = toTest.isBranding(item)
 
@@ -86,7 +90,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if mediaCategory is not variant of Branding': case 4 - rushes" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "rushes")
       val result = toTest.isBranding(item)
 
@@ -95,7 +99,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if mediaCategory is exactly 'Branding'" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val item = VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path"), Some(1L), Some("VX-1"), Some("oid1"), "Branding")
       val result = toTest.isBranding(item)
 
@@ -104,7 +108,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "filter out the branding/BRANDING/Branding/etc items" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val items = Seq(
         VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/1"), Some(1L), Some("VX-1"), Some("oid1"), "Branding"),
         VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/2"), Some(1L), Some("VX-2"), Some("oid2"), "rushes"),
@@ -124,7 +128,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return false if no GNM_TYPE" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
 
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty), None))
 
@@ -133,7 +137,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if GNM_TYPE is not exactly 'Branding': case 1 - lowercase" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "branding")), None))
 
       result must beTrue
@@ -141,7 +145,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if GNM_TYPE is not exactly 'Branding': case 2 - uppercase" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "BRANDING")), None))
 
       result must beTrue
@@ -149,7 +153,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if GNM_TYPE is not exactly 'Branding': case 3 - mixed" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "bRanDiNg")), None))
 
       result must beTrue
@@ -157,7 +161,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return false if GNM_TYPE is not exactly 'Branding': case 4 - rushes" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None))
 
       result must beFalse
@@ -165,7 +169,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "return true if GNM_TYPE is exactly 'Branding'" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val result = toTest.isBranding(ObjectMatrixEntry("oid", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None))
 
       result must beTrue
@@ -173,7 +177,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "filter out the 'Branding' items" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val entries = Seq(
         ObjectMatrixEntry("oid1", Some(MxsMetadata.empty.withValue("GNM_TYPE", "Branding")), None),
         ObjectMatrixEntry("oid2", Some(MxsMetadata.empty.withValue("GNM_TYPE", "rushes")), None),
@@ -255,9 +259,24 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     implicit val mockMat = mock[Materializer]
     implicit val mockBuilder = MXSConnectionBuilderMock(vault)
 
+    "ad" in {
+      val fakeConfig = PlutoCoreConfig("test","test",Paths.get("/path/to/assetfolders"))
+      val realAsLookup = new AssetFolderLookup(fakeConfig)
+      val mockAsLookup = mock[AssetFolderLookup]
+//      mockAsLookup.relativizeFilePath(any) answers ((args: Any) => realAsLookup.relativizeFilePath(args.asInstanceOf[Path]))
+      mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(ProjectRecord(None, 1, "test", ZonedDateTime.now(), ZonedDateTime.now(), "test", None, None, None, None, None, EntryStatus.InProduction, ProductionOffice.UK)))
+
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+//      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", basePath), fakeDeliverablesConfig) {
+//        override protected lazy val asLookup = mockASLookup
+//      }
+
+      ok
+    }
 
     "drop message in handleMessage if wrong routing key" in {
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
 
       val emptyJson = Json.fromString("")
 
@@ -272,7 +291,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
     "drop message in handleUpdateMessage if status is In Production" in {
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
 
       val updateMessage = ProjectUpdateMessage(
         status = EntryStatus.InProduction.toString,
@@ -298,7 +317,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
 
     "drop message in handleUpdateMessage if status is New" in {
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig)
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
 
       val updateMessage = ProjectUpdateMessage(
         status = EntryStatus.New.toString,
@@ -328,7 +347,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
@@ -352,7 +371,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
@@ -376,7 +395,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
@@ -401,7 +420,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
       val tooManyOnlineResults = for (i <- 1 to 10001) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(tooManyOnlineResults)
       }
@@ -417,7 +436,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val tooManyNearlineResults = for(i <- 1 to 10001) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
       val onlineResults = for (i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(tooManyNearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
@@ -435,7 +454,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val tooManyNearlineResults = for(i <- 1 to 10001) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
       val tooManyOnlineResults = for (i <- 1 to 10002) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(tooManyNearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(tooManyOnlineResults)
       }
@@ -452,7 +471,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     "retry if vault could not be acquired" in {
       val onlineResults = for (i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig) {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
         override def getNearlineResults(projectId: Int) = Future(Left("No vault for you!"))
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
@@ -465,4 +484,59 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       result.left.get mustEqual "No vault for you!"
     }
   }
+
+  "PlutoCoreMessageProcessor.isDeletableInAllProjects(VSOnlineOutputMessage)" should {
+
+    def projectWithStatus(status: EntryStatus.Value) = {
+      ProjectRecord(
+        id = None,
+        projectTypeId = 1,
+        title = "test",
+        created = ZonedDateTime.now(),
+        updated = ZonedDateTime.now(),
+        user = "test",
+        workingGroupId = None,
+        commissionId = None,
+        deletable = None,
+        deep_archive = None,
+        sensitive = None,
+        status = status,
+        productionOffice = ProductionOffice.UK)
+    }
+
+    "return false if InProduction" in {
+
+      mockAsLookup.getProjectMetadata("123") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
+      mockAsLookup.getProjectMetadata("124") returns Future(Some(projectWithStatus(EntryStatus.Held)))
+      mockAsLookup.getProjectMetadata("125") returns Future(Some(projectWithStatus(EntryStatus.New)))
+      mockAsLookup.getProjectMetadata("126") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
+      mockAsLookup.getProjectMetadata("127") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
+      mockAsLookup.getProjectMetadata("128") returns Future(None)
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+      val item = VSOnlineOutputMessage("ONLINE", Seq(123, 124, 125, 126, 127, 128), Some("a/path/123"), Some(1L), Some("VX-1"), Some("oid1"), "branding")
+      val result = toTest.isDeletableInAllProjectsFut(item)
+
+      result must beFalse
+    }
+
+
+//    "filter out the branding/BRANDING/Branding/etc items" in {
+//
+//      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+//      val items = Seq(
+//        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/1"), Some(1L), Some("VX-1"), Some("oid1"), "Branding"),
+//        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/2"), Some(1L), Some("VX-2"), Some("oid2"), "rushes"),
+//        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/3"), Some(1L), Some("VX-3"), Some("oid3"), "branding"),
+//        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/4"), Some(1L), Some("VX-4"), Some("oid4"), "Branding"),
+//        VSOnlineOutputMessage("ONLINE", Seq(123), Some("a/path/5"), Some(1L), Some("VX-5"), Some("oid5"), "project"),
+//      )
+//
+//      val result = items.filterNot(toTest.isBranding)
+//
+//      result.size mustEqual 2
+//      result.head.itemId must beSome("VX-2")
+//    }
+  }
+
 }

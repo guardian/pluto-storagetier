@@ -1,10 +1,11 @@
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Keep, Sink, Source}
+import cats.implicits.toTraverseOps
 import com.gu.multimedia.mxscopy.MXSConnectionBuilder
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.streamcomponents.OMFastContentSearchSource
 import com.gu.multimedia.storagetier.framework._
-import com.gu.multimedia.storagetier.plutocore.EntryStatus
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
@@ -18,12 +19,15 @@ import messages.{InternalOnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
+import scala.annotation.unused
+import scala.concurrent.impl.Promise
 import scala.concurrent.{ExecutionContext, Future}
 
-class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Materializer,
-                                                              matrixStoreBuilder: MXSConnectionBuilder,
-                                                              vidispineCommunicator: VidispineCommunicator,
-                                                              ec: ExecutionContext) extends MessageProcessor {
+class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFolderLookup)(implicit mat: Materializer,
+                                                                                           matrixStoreBuilder: MXSConnectionBuilder,
+                                                                                           vidispineCommunicator: VidispineCommunicator,
+                                                                                           ec: ExecutionContext) extends MessageProcessor {
+
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val statusesMediaNotRequired = List(EntryStatus.Held.toString, EntryStatus.Completed.toString, EntryStatus.Killed.toString)
@@ -31,14 +35,75 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig)(implicit mat: Mate
   def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] =
     onlineFilesByProject(vidispineCommunicator, projectId)
 
+//<<<<<<< Updated upstream
   def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] =
     vidispineCommunicator.getFilesOfProject(projectId)
-      .map(_.filterNot(isBranding).map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+      .map(_
+        .filterNot(isBranding)
+        .filter(isDeletableInAllProjects)
+        .map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
 
   // GP-823 Ensure that branding does not get deleted
   def isBranding(item: VSOnlineOutputMessage): Boolean = item.mediaCategory.toLowerCase match {
     case "branding" => true // Case insensitive
     case _ => false
+  }
+
+
+  def isDeletableInAllProjects(item: VSOnlineOutputMessage): Boolean = {
+    val eventualBoolean: Future[Boolean] = isDeletableInAllProjectsFut(item)
+    eventualBoolean match {
+      case promise: Promise.DefaultPromise[_] => ???
+      case Future.never => ???
+      case _ => ???
+    }
+  }
+
+  def isDeletableInAllProjectsFut(item: VSOnlineOutputMessage): Future[Boolean] = {
+    val future = item.projectIds.map(
+      projectId => {
+        val eventualMaybeRecord = asLookup.getProjectMetadata(projectId.toString)
+        eventualMaybeRecord.flatMap({
+          case Some(value) =>
+            println(s">>> status for $projectId is ${value.status}")
+//            Future(value.status == EntryStatus.InProduction)
+            Future(Some(value.status))
+          case None =>
+            println(s">>> status for $projectId COULD NOT BE FOUND!")
+            Future(None)
+        })
+    }).sequence
+
+//    val new = statuses.map(_.collect({case Some(EntryStatus.New) => x}))
+    val a = List(EntryStatus.Held, EntryStatus.New, EntryStatus.Killed)
+    a.contains(EntryStatus.Completed) match {
+      case true => println("hej")
+      case _ => println("då")
+    }
+    val wha = future.map(seq => {
+      isActivelyUsed(seq)
+    })
+
+
+    wha.map(x => println(x))
+    wha.map(w => !w)
+
+
+
+
+  }
+
+
+  private def isActivelyUsed(seq: Seq[Option[EntryStatus.Value]]) = {
+    val filtered = seq
+      .collect({ case Some(x) => x })
+      .filter(s => s == EntryStatus.Held)
+      .filter(s => s == EntryStatus.Completed)
+      .filter(s => s == EntryStatus.Killed)
+    if (filtered.nonEmpty)
+      true
+    else
+      false
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {

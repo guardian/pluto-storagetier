@@ -58,6 +58,8 @@ object VSOnlineOutputMessage {
     val likelyFile = itemSimplified.item.shape.head.getLikelyFile
     val filePath = likelyFile.flatMap(_.getAbsolutePath)
     val fileSize = likelyFile.flatMap(_.sizeOption)
+    val containingProjects = projectId +: itemSimplified.valuesForField("gnm_containing_projects", Some("Asset")).map(_.value).map(_.toInt)
+    println(s">>> $containingProjects")
     val nearlineId = itemSimplified
       .valuesForField("gnm_nearline_id", Some("Asset"))
       .headOption
@@ -71,7 +73,8 @@ object VSOnlineOutputMessage {
         Some(
           VSOnlineOutputMessage(
             mediaTier,
-            Seq(projectId),
+//            Seq(projectId),
+            containingProjects,
             filePath,
             fileSize,
             Some(itemId),
