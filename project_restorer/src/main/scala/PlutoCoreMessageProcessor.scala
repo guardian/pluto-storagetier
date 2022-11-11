@@ -10,6 +10,7 @@ import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue}
 import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.vidispine.{VSOnlineOutputMessage, VidispineCommunicator}
+import PlutoCoreMessageProcessor.SendRemoveAction
 import com.om.mxs.client.japi.Vault
 import io.circe.Json
 import io.circe.generic.auto.{exportDecoder, exportEncoder}
@@ -17,6 +18,7 @@ import io.circe.syntax.EncoderOps
 import matrixstore.MatrixStoreConfig
 import messages.{InternalOnlineOutputMessage, ProjectUpdateMessage}
 import org.slf4j.LoggerFactory
+import cats.implicits._
 
 import java.time.ZonedDateTime
 import scala.annotation.unused
@@ -32,16 +34,138 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
 
   private val statusesMediaNotRequired = List(EntryStatus.Held.toString, EntryStatus.Completed.toString, EntryStatus.Killed.toString)
 
-  def searchAssociatedOnlineMedia(projectId: Int, vidispineCommunicator: VidispineCommunicator): Future[Seq[OnlineOutputMessage]] =
+
+
+  def searchAssociatedOnlineMedia(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] =
     onlineFilesByProject(vidispineCommunicator, projectId)
 
-//<<<<<<< Updated upstream
-  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] =
+  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
     vidispineCommunicator.getFilesOfProject(projectId)
-      .map(_
-        .filterNot(isBranding)
-        .filter(isDeletableInAllProjects)
-        .map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+      .map(_.filterNot(isBranding))
+      .map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+  }
+
+
+  private def toBucketsF(a: Future[Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]) = {
+    val nayes: Future[Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]] = a.map(_.collect({ case n if SendRemoveAction.No == n._1 => n }))
+    val ayes = a.map(_.collect({ case a if SendRemoveAction.Yes == a._1 => a }))
+    val onlines = a.map(_.collect({ case o if SendRemoveAction.OnlyOnline == o._1 => o }))
+
+    nayes.map(_.foreach(r => println(s"nayes: ${r._2.projectIds} => ${r._1}")))
+    ayes.map(_.foreach(r => println(s"ayes: ${r._2.projectIds} => ${r._1}")))
+    onlines.map(_.foreach(r => println(s"onlines: ${r._2.projectIds} => ${r._1}")))
+    val buckets = (nayes, ayes, onlines)
+    buckets
+  }
+  private def toBuckets(a: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]) = {
+    val nayes: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)] = a.collect({ case n if SendRemoveAction.No == n._1 => n })
+    val ayes = a.collect({ case a if SendRemoveAction.Yes == a._1 => a })
+    val onlines = a.collect({ case o if SendRemoveAction.OnlyOnline == o._1 => o })
+
+    nayes.foreach(r => println(s"nayes: ${r._2.projectIds} => ${r._1}"))
+    ayes.foreach(r => println(s"ayes: ${r._2.projectIds} => ${r._1}"))
+    onlines.foreach(r => println(s"onlines: ${r._2.projectIds} => ${r._1}"))
+    val buckets = (nayes, ayes, onlines)
+    buckets
+  }
+
+  def searchAssociatedOnlineMedia3(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] = {
+    val a = onlineFilesByProject3(vidispineCommunicator, projectId)
+    val buckets = toBucketsF(a)
+    buckets._1
+    a
+  }
+
+  def onlineFilesByProject3(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] = {
+
+    val itemsFut: Future[Seq[OnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId,100)
+      .map(_.filterNot(isBranding))
+      .map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+
+    itemsFut.map(_.map(i => println(s"§§ $i")))
+
+    val sendRemoveActionItemTuplesFut = itemsFut.map(
+      _.map(
+        item => isDeletableInAllProjectsFut(item)
+      ).sequence
+    ).flatten
+
+    sendRemoveActionItemTuplesFut.map(_.foreach(r => println(s"w4: ${r._2.projectIds} => ${r._1}")))
+
+    sendRemoveActionItemTuplesFut
+  }
+
+  //  def onlineFilesByProject2(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, VSOnlineOutputMessage)]] = {
+//    val items: Future[Seq[VSOnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId).map(_.filterNot(isBranding))
+//    //    items
+//    //        .filter(isDeletableInAllProjects)
+//    //        items.map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+////    items.map(
+////      _.map((item: VSOnlineOutputMessage) => isDeletableInAllProjectsFut(item)))
+//
+//    items.map(
+//      _.map(
+//        item => isDeletableInAllProjectsFut(item)
+//      ).sequence
+//    ).flatten
+//
+//
+//  //    assetFolderRecordLookup(forFile)
+////      .flatMap(
+////        _.map(record => getProjectMetadata(record.project)
+////        ).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] into a Future[Option[Option]]
+////      )
+//
+//  }
+
+  def getisdel(items: Future[Seq[OnlineOutputMessage]] ) = {
+    items.map(
+      _.map(
+        item => isDeletableInAllProjectsFut(item)
+      ).sequence
+    ).flatten
+  }
+
+  def isDeletableInAllProjectsFut(item: OnlineOutputMessage): Future[(SendRemoveAction.Value, OnlineOutputMessage)] = {
+    val otherProjectIds = item.projectIds.filterNot(_ == item.projectIds.head)
+
+    println(s"projectIds: ${item.projectIds}")
+    println(s"otherProjectIds: $otherProjectIds")
+
+    getStatusesForProjects(otherProjectIds).map {
+      case s if stillInUse(s) => (SendRemoveAction.No, item)
+      case t if lowestIsHeld(t) => (SendRemoveAction.OnlyOnline, item)
+      case u if releasedByAll(u) => (SendRemoveAction.Yes, item)
+      case _ => (SendRemoveAction.No, item)
+    }
+  }
+
+  private def getStatusesForProjects(otherProjectIds: Seq[String]) =
+    otherProjectIds.map(
+      projectId => {
+        val maybeRecordFut = asLookup.getProjectMetadata(projectId)
+        maybeRecordFut.flatMap({
+          case Some(value) =>
+            println(s">>> status for $projectId is ${value.status}")
+            Future(Some(value.status))
+          case None =>
+            println(s">>> status for $projectId COULD NOT BE FOUND!")
+            Future(None)
+        })
+      }).sequence
+
+
+  //<<<<<<< Updated upstream
+//  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
+//    val future: Future[Seq[OnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId)
+//      .map(_
+//        .filterNot(isBranding)
+////        .filter(isDeletableInAllProjectsFut)
+//        .map((item: VSOnlineOutputMessage) => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+//      )
+//    future.flatMap(_.is)
+//  }
+
 
   // GP-823 Ensure that branding does not get deleted
   def isBranding(item: VSOnlineOutputMessage): Boolean = item.mediaCategory.toLowerCase match {
@@ -50,60 +174,39 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
   }
 
 
-  def isDeletableInAllProjects(item: VSOnlineOutputMessage): Boolean = {
-    val eventualBoolean: Future[Boolean] = isDeletableInAllProjectsFut(item)
-    eventualBoolean match {
-      case promise: Promise.DefaultPromise[_] => ???
-      case Future.never => ???
-      case _ => ???
-    }
+//  def isDeletableInAllProjects(item: VSOnlineOutputMessage): Boolean = {
+//    val eventualBoolean: Future[Boolean] = isDeletableInAllProjectsFut(item)
+//    eventualBoolean.onComplete(_.get)
+//  }
+
+
+
+  /**
+   * If there is something other than Held, Completed, Killed
+   *
+   * @param seq
+   * @return true if any project is still using it
+   */
+   def stillInUse(seq: Seq[Option[EntryStatus.Value]]): Boolean = {
+     val someStatuses = seq.collect({ case Some(x) => x })
+     val bool = someStatuses.nonEmpty && !someStatuses.forall(s => List(EntryStatus.Held, EntryStatus.Completed, EntryStatus.Killed).contains(s))
+     println(s"stillInUse: someStatuses: $someStatuses => $bool")
+     bool
+   }
+
+  /**
+   * If there's nothing but Held
+   * @param seq
+   * @return
+   */
+  def lowestIsHeld(seq: Seq[Option[EntryStatus.Value]]): Boolean = {
+    val someStatuses = seq.collect({ case Some(x) => x })
+    someStatuses.contains(EntryStatus.Held) && !someStatuses.exists(s => s != EntryStatus.Held)
   }
 
-  def isDeletableInAllProjectsFut(item: VSOnlineOutputMessage): Future[Boolean] = {
-    val future = item.projectIds.map(
-      projectId => {
-        val eventualMaybeRecord = asLookup.getProjectMetadata(projectId.toString)
-        eventualMaybeRecord.flatMap({
-          case Some(value) =>
-            println(s">>> status for $projectId is ${value.status}")
-//            Future(value.status == EntryStatus.InProduction)
-            Future(Some(value.status))
-          case None =>
-            println(s">>> status for $projectId COULD NOT BE FOUND!")
-            Future(None)
-        })
-    }).sequence
-
-//    val new = statuses.map(_.collect({case Some(EntryStatus.New) => x}))
-    val a = List(EntryStatus.Held, EntryStatus.New, EntryStatus.Killed)
-    a.contains(EntryStatus.Completed) match {
-      case true => println("hej")
-      case _ => println("då")
-    }
-    val wha = future.map(seq => {
-      isActivelyUsed(seq)
-    })
-
-
-    wha.map(x => println(x))
-    wha.map(w => !w)
-
-
-
-
-  }
-
-
-  private def isActivelyUsed(seq: Seq[Option[EntryStatus.Value]]) = {
-    val filtered = seq
-      .collect({ case Some(x) => x })
-      .filter(s => s == EntryStatus.Held)
-      .filter(s => s == EntryStatus.Completed)
-      .filter(s => s == EntryStatus.Killed)
-    if (filtered.nonEmpty)
-      true
-    else
-      false
+  def releasedByAll(seq: Seq[Option[EntryStatus.Value]]): Boolean = {
+    val someStatuses = seq.collect({ case Some(x) => x })
+    someStatuses.isEmpty || someStatuses.forall(s => List(EntryStatus.Completed, EntryStatus.Killed).contains(s))
   }
 
   def searchAssociatedNearlineMedia(projectId: Int, vault: Vault): Future[Seq[OnlineOutputMessage]] = {
@@ -146,15 +249,92 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     case _ => false
   }
 
-  def getNearlineResults(projectId: Int) = {
+  def getNearlineResults(projectId: Int): Future[Either[String, Seq[OnlineOutputMessage]]] = {
     matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
       searchAssociatedNearlineMedia(projectId, vault).map(Right.apply)
     }
   }
 
-  def getOnlineResults(projectId: Int) = {
-    searchAssociatedOnlineMedia(projectId, vidispineCommunicator).map(Right.apply)
+  def getOnlineResults(projectId: Int): Future[Right[Nothing, Seq[OnlineOutputMessage]]] = {
+    searchAssociatedOnlineMedia(vidispineCommunicator, projectId).map(Right.apply)
   }
+
+  def getOnlineResults3(projectId: Int): Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = {
+    val future: Future[Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]] = searchAssociatedOnlineMedia3(vidispineCommunicator, projectId)
+    val future1: Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = future.map(Right.apply)
+    future1
+  }
+
+  def filterNoNoNo(nearlineResults: Seq[OnlineOutputMessage], no: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]) = {
+    val verboten = no.map(_._2.nearlineId).collect({case Some(x) => x})
+    nearlineResults.filterNot(n => verboten.contains(n.nearlineId.get))
+  }
+
+  def handleUpdateMessage3(updateMessage: ProjectUpdateMessage, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
+    updateMessage.status match {
+      case status if statusesMediaNotRequired.contains(status) =>
+        //        val onlineResultsFut: Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = getOnlineResults3(updateMessage.id)
+        val onlineResultsFut = searchAssociatedOnlineMedia3(vidispineCommunicator, updateMessage.id)
+
+        onlineResultsFut.map(onlineResults => {
+          println(s"abcd ${onlineResults.head}")
+
+          val buckets = toBuckets(onlineResults)
+          println(s"abcd bukets ${buckets}")
+          val no = buckets._1
+          val yes = buckets._2
+          val onlineOnly = buckets._3
+
+          val nearlineResultsEitherFut: Future[Either[String, Seq[OnlineOutputMessage]]] = matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+            searchAssociatedNearlineMedia(updateMessage.id, vault).map(Right.apply)
+          }
+
+          nearlineResultsEitherFut.map({
+            case Right(nearlineResults) =>
+              println(s"value: ${nearlineResults.map(_.nearlineId.get)}")
+              println(s"no: ${no.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+              println(s"onlyOnline: ${onlineOnly.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+              val filtered1: Seq[OnlineOutputMessage] = filterNoNoNo(nearlineResults, no)
+              println(s"filtered: ${filtered1.map(_.nearlineId.get)}")
+
+              val noIds = no.map(_._2.nearlineId).collect({ case Some(x) => x })
+              val onlyOnlineIds = onlineOnly.map(_._2.nearlineId).collect({ case Some(x) => x })
+              val filtered2: Seq[OnlineOutputMessage] = filtered1.filterNot(n => onlyOnlineIds.contains(n.nearlineId.get))
+//              nearlineResults.filterNot(n => verboten.contains(n.nearlineId.get))
+              val filtered3 = nearlineResults
+                .filterNot(n => onlyOnlineIds.contains(n.nearlineId.get))
+                .filterNot(n => noIds.contains(n.nearlineId.get))
+
+              println(s"noIds: ${noIds}")
+              println(s"onlyOnlineIds: ${onlyOnlineIds}")
+              println(s"filtered3: ${filtered3.map(_.nearlineId.get)}")
+
+            case Left(err) => println(err)
+          })
+        })
+
+        Future.failed(SilentDropMessage(Some(s"Testing handleUpdateMessage3 (${updateMessage.status}).")))
+      //        val o3 = for {
+//          onlineResults <- getOnlineResults3(updateMessage.id)
+////          buckets <- Future(toBuckets(onlineResults.value))
+//          nearlineResults <- getNearlineResults(updateMessage.id)
+//        } yield onlineResults, nea
+
+//        o3.foreach(_ => println("Hej"))
+//        println(s"o3: ${o3.map(_._2)}")
+//
+////        val buckets = onlineResultsFut.map(s => toBuckets(s.value))
+//        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 1! ${b._1}")))
+//        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 2! ${b._1}")))
+//        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 3! ${b._1}")))
+//        buckets.foreach(b => println(s"OMG 2! ${b._2}"))
+//        buckets.foreach(b => println(s"OMG 3! ${b._3}"))
+
+      //        Future
+//          .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
+//          .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
+      case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
+    }
 
   def handleUpdateMessage(updateMessage: ProjectUpdateMessage, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
     updateMessage.status match {
@@ -225,5 +405,11 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
         Future.failed(new RuntimeException("Not meant to receive this"))
     }
+  }
+}
+
+object PlutoCoreMessageProcessor {
+  object SendRemoveAction extends Enumeration {
+    val No, OnlyOnline, Yes = Value
   }
 }
