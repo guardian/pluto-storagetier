@@ -554,56 +554,56 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       result.size mustEqual 4
     }
 
-    "searchAssociatedOnlineMedia3" in {
-
-      val asLookup = new AssetFolderLookup(fakePlutoConfig)
-      val mockAsLookup = mock[AssetFolderLookup]
-
-      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
-
-      val onlineResults = Seq(
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath1"), fileSize = Some(1024), itemId = Some(s"VX-1"), nearlineId = Some(s"mxsOid-11"), mediaCategory = "Rushes", projectIds = Seq(8000, 10)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath2"), fileSize = Some(1024), itemId = Some(s"VX-2"), nearlineId = Some(s"mxsOid-22"), mediaCategory = "Rushes", projectIds = Seq(8000, 20, 8000)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath4"), fileSize = Some(1024), itemId = Some(s"VX-4"), nearlineId = Some(s"mxsOid-44"), mediaCategory = "Rushes", projectIds = Seq(8000, 300, 310, 320)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3"), fileSize = Some(1024), itemId = Some(s"VX-3"), nearlineId = Some(s"mxsOid-33"), mediaCategory = "Rushes", projectIds = Seq(8000, 8000)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3"), fileSize = Some(1024), itemId = Some(s"VX-3"), nearlineId = Some(s"mxsOid-34"), mediaCategory = "Branding", projectIds = Seq(9000)),
-      )
-
-
-      implicit val mockVidispineCommunicator = mock[VidispineCommunicator]
-      mockVidispineCommunicator.getFilesOfProject(any, any) returns Future(onlineResults)
-
-      mockAsLookup.getProjectMetadata("10") returns Future(Some(projectWithStatus(EntryStatus.New)))
-      mockAsLookup.getProjectMetadata("11") returns Future(Some(projectWithStatus(EntryStatus.New)))
-      mockAsLookup.getProjectMetadata("12") returns Future(Some(projectWithStatus(EntryStatus.New)))
-      mockAsLookup.getProjectMetadata("20") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
-      mockAsLookup.getProjectMetadata("21") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
-      mockAsLookup.getProjectMetadata("22") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
-      mockAsLookup.getProjectMetadata("300") returns Future(Some(projectWithStatus(EntryStatus.Held)))
-      mockAsLookup.getProjectMetadata("310") returns Future(Some(projectWithStatus(EntryStatus.Held)))
-      mockAsLookup.getProjectMetadata("320") returns Future(Some(projectWithStatus(EntryStatus.Held)))
-      mockAsLookup.getProjectMetadata("8000") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
-      mockAsLookup.getProjectMetadata("8100") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
-      mockAsLookup.getProjectMetadata("8200") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
-      mockAsLookup.getProjectMetadata("9000") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
-      mockAsLookup.getProjectMetadata("9100") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
-      mockAsLookup.getProjectMetadata("9200") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
-      mockAsLookup.getProjectMetadata("1") returns Future(None)
-      mockAsLookup.getProjectMetadata("2") returns Future(None)
-      mockAsLookup.getProjectMetadata("3") returns Future(None)
-
-
-      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
-
-      mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(ProjectRecord(None, 1, "test", ZonedDateTime.now(), ZonedDateTime.now(), "test", None, None, None, None, None, EntryStatus.InProduction, ProductionOffice.UK)))
-      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Completed.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
-
-      val result = Await.result(toTest.searchAssociatedOnlineMedia3(mockVidispineCommunicator, 1), 2.seconds)
-
-      result.foreach(r => println(s"${r._1}, ${r._2.vidispineItemId}."))
-      println(s"onlineFilesByProject3 $result")
-      result.size mustEqual 2
-    }
+//    "searchAssociatedOnlineMedia3" in {
+//
+//      val asLookup = new AssetFolderLookup(fakePlutoConfig)
+//      val mockAsLookup = mock[AssetFolderLookup]
+//
+//      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+//
+//      val onlineResults = Seq(
+//        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath1"), fileSize = Some(1024), itemId = Some(s"VX-1"), nearlineId = Some(s"mxsOid-11"), mediaCategory = "Rushes", projectIds = Seq(8000, 10)),
+//        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath2"), fileSize = Some(1024), itemId = Some(s"VX-2"), nearlineId = Some(s"mxsOid-22"), mediaCategory = "Rushes", projectIds = Seq(8000, 20, 8000)),
+//        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath4"), fileSize = Some(1024), itemId = Some(s"VX-4"), nearlineId = Some(s"mxsOid-44"), mediaCategory = "Rushes", projectIds = Seq(8000, 300, 310, 320)),
+//        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3"), fileSize = Some(1024), itemId = Some(s"VX-3"), nearlineId = Some(s"mxsOid-33"), mediaCategory = "Rushes", projectIds = Seq(8000, 8000)),
+//        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3"), fileSize = Some(1024), itemId = Some(s"VX-3"), nearlineId = Some(s"mxsOid-34"), mediaCategory = "Branding", projectIds = Seq(9000)),
+//      )
+//
+//
+//      implicit val mockVidispineCommunicator = mock[VidispineCommunicator]
+//      mockVidispineCommunicator.getFilesOfProject(any, any) returns Future(onlineResults)
+//
+//      mockAsLookup.getProjectMetadata("10") returns Future(Some(projectWithStatus(EntryStatus.New)))
+//      mockAsLookup.getProjectMetadata("11") returns Future(Some(projectWithStatus(EntryStatus.New)))
+//      mockAsLookup.getProjectMetadata("12") returns Future(Some(projectWithStatus(EntryStatus.New)))
+//      mockAsLookup.getProjectMetadata("20") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
+//      mockAsLookup.getProjectMetadata("21") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
+//      mockAsLookup.getProjectMetadata("22") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
+//      mockAsLookup.getProjectMetadata("300") returns Future(Some(projectWithStatus(EntryStatus.Held)))
+//      mockAsLookup.getProjectMetadata("310") returns Future(Some(projectWithStatus(EntryStatus.Held)))
+//      mockAsLookup.getProjectMetadata("320") returns Future(Some(projectWithStatus(EntryStatus.Held)))
+//      mockAsLookup.getProjectMetadata("8000") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
+//      mockAsLookup.getProjectMetadata("8100") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
+//      mockAsLookup.getProjectMetadata("8200") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
+//      mockAsLookup.getProjectMetadata("9000") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
+//      mockAsLookup.getProjectMetadata("9100") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
+//      mockAsLookup.getProjectMetadata("9200") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
+//      mockAsLookup.getProjectMetadata("1") returns Future(None)
+//      mockAsLookup.getProjectMetadata("2") returns Future(None)
+//      mockAsLookup.getProjectMetadata("3") returns Future(None)
+//
+//
+//      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+//
+//      mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(ProjectRecord(None, 1, "test", ZonedDateTime.now(), ZonedDateTime.now(), "test", None, None, None, None, None, EntryStatus.InProduction, ProductionOffice.UK)))
+//      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Completed.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
+//
+//      val result = Await.result(toTest.searchAssociatedOnlineMedia3(mockVidispineCommunicator, 1), 2.seconds)
+//
+//      result.foreach(r => println(s"${r._1}, ${r._2.vidispineItemId}."))
+//      println(s"onlineFilesByProject3 $result")
+//      result.size mustEqual 2
+//    }
     "handleUpdateMessage3" in {
 
       val asLookup = new AssetFolderLookup(fakePlutoConfig)
@@ -612,17 +612,20 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 //      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
 
       val nearlineResults = Seq(
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-44", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath4").withValue("GNM_PROJECT_ID", "44").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-10", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath0").withValue("GNM_PROJECT_ID", "10").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-11", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath1").withValue("GNM_PROJECT_ID", "11").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-10", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath10").withValue("GNM_PROJECT_ID", "8100").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-11", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath11").withValue("GNM_PROJECT_ID", "8000").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-440", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath44").withValue("GNM_PROJECT_ID", "8000").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-4500", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath45").withValue("GNM_PROJECT_ID", "9000").withValue("GNM_TYPE", "rushes")), fileAttribues = None)),
       )
 
       val onlineResults = Seq(
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath1"), fileSize = Some(1024), itemId = Some(s"VX-1"), nearlineId = Some(s"mxsOid-11"), mediaCategory = "Rushes", projectIds = Seq(8000, 10)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath2"), fileSize = Some(1024), itemId = Some(s"VX-2"), nearlineId = Some(s"mxsOid-22"), mediaCategory = "Rushes", projectIds = Seq(8000, 20, 8000)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath4"), fileSize = Some(1024), itemId = Some(s"VX-4"), nearlineId = Some(s"mxsOid-44"), mediaCategory = "Rushes", projectIds = Seq(8000, 300, 310, 320)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3"), fileSize = Some(1024), itemId = Some(s"VX-3"), nearlineId = Some(s"mxsOid-33"), mediaCategory = "Rushes", projectIds = Seq(8000, 8000)),
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3"), fileSize = Some(1024), itemId = Some(s"VX-3"), nearlineId = Some(s"mxsOid-34"), mediaCategory = "Branding", projectIds = Seq(9000)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath11"), fileSize = Some(1024), itemId = Some(s"VX-11"), nearlineId = Some(s"mxsOid-11"), mediaCategory = "Rushes", projectIds = Seq(8000, 11)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath22"), fileSize = Some(1024), itemId = Some(s"VX-22"), nearlineId = Some(s"mxsOid-22"), mediaCategory = "Rushes", projectIds = Seq(8000, 20, 8000)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath23"), fileSize = Some(1024), itemId = Some(s"VX-23"), nearlineId = Some(s"mxsOid-23"), mediaCategory = "Rushes", projectIds = Seq(23)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath44"), fileSize = Some(1024), itemId = Some(s"VX-440"), nearlineId = Some(s"mxsOid-440"), mediaCategory = "Rushes", projectIds = Seq(8000, 300, 310, 320)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath33"), fileSize = Some(1024), itemId = Some(s"VX-3300"), nearlineId = Some(s"mxsOid-3300"), mediaCategory = "Rushes", projectIds = Seq(8000, 8000)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath45"), fileSize = Some(1024), itemId = Some(s"VX-4500"), nearlineId = Some(s"mxsOid-4500"), mediaCategory = "Rushes", projectIds = Seq(9000)),
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath46"), fileSize = Some(1024), itemId = Some(s"VX-4501"), nearlineId = Some(s"mxsOid-4501"), mediaCategory = "Branding", projectIds = Seq(9000)),
       )
 
 

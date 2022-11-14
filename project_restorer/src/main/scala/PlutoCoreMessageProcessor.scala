@@ -35,7 +35,6 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
   private val statusesMediaNotRequired = List(EntryStatus.Held.toString, EntryStatus.Completed.toString, EntryStatus.Killed.toString)
 
 
-
   def searchAssociatedOnlineMedia(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] =
     onlineFilesByProject(vidispineCommunicator, projectId)
 
@@ -57,28 +56,21 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     val buckets = (nayes, ayes, onlines)
     buckets
   }
-  private def toBuckets(a: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]) = {
-    val nayes: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)] = a.collect({ case n if SendRemoveAction.No == n._1 => n })
-    val ayes = a.collect({ case a if SendRemoveAction.Yes == a._1 => a })
-    val onlines = a.collect({ case o if SendRemoveAction.OnlyOnline == o._1 => o })
 
-    nayes.foreach(r => println(s"nayes: ${r._2.projectIds} => ${r._1}"))
-    ayes.foreach(r => println(s"ayes: ${r._2.projectIds} => ${r._1}"))
-    onlines.foreach(r => println(s"onlines: ${r._2.projectIds} => ${r._1}"))
-    val buckets = (nayes, ayes, onlines)
-    buckets
-  }
+  private def toNoOnlyOnlineBuckets(projectsWithStatuses: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]) =
+    (
+      projectsWithStatuses.collect({ case t if SendRemoveAction.No == t._1 => t }),
+      projectsWithStatuses.collect({ case t if SendRemoveAction.OnlyOnline == t._1 => t })
+    )
 
-  def searchAssociatedOnlineMedia3(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] = {
-    val a = onlineFilesByProject3(vidispineCommunicator, projectId)
-    val buckets = toBucketsF(a)
-    buckets._1
-    a
-  }
+  //  def searchAssociatedOnlineMedia3(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] = {
+  //    val onlineFilesFut = onlineFilesByProject(vidispineCommunicator, projectId)
+  //    enhanceWithCrosslinkStatusesFut(onlineFilesFut)
+  //  }
 
   def onlineFilesByProject3(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] = {
 
-    val itemsFut: Future[Seq[OnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId,100)
+    val itemsFut: Future[Seq[OnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId, 100)
       .map(_.filterNot(isBranding))
       .map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
 
@@ -86,7 +78,8 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
 
     val sendRemoveActionItemTuplesFut = itemsFut.map(
       _.map(
-        item => isDeletableInAllProjectsFut(item)
+        //        item => isDeletableInAllProjectsFut(item)
+        isDeletableInAllProjectsFut
       ).sequence
     ).flatten
 
@@ -95,42 +88,24 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     sendRemoveActionItemTuplesFut
   }
 
-  //  def onlineFilesByProject2(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[(SendRemoveAction.Value, VSOnlineOutputMessage)]] = {
-//    val items: Future[Seq[VSOnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId).map(_.filterNot(isBranding))
-//    //    items
-//    //        .filter(isDeletableInAllProjects)
-//    //        items.map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
-////    items.map(
-////      _.map((item: VSOnlineOutputMessage) => isDeletableInAllProjectsFut(item)))
-//
-//    items.map(
-//      _.map(
-//        item => isDeletableInAllProjectsFut(item)
-//      ).sequence
-//    ).flatten
-//
-//
-//  //    assetFolderRecordLookup(forFile)
-////      .flatMap(
-////        _.map(record => getProjectMetadata(record.project)
-////        ).sequence.map(_.flatten) //.sequence here is a bit of cats "magic" that turns the Option[Future[Option]] into a Future[Option[Option]]
-////      )
-//
-//  }
-
-  def getisdel(items: Future[Seq[OnlineOutputMessage]] ) = {
-    items.map(
-      _.map(
-        item => isDeletableInAllProjectsFut(item)
-      ).sequence
-    ).flatten
-  }
+  //  def enhanceWithCrosslinkStatusesFut(itemsFut: Future[Seq[OnlineOutputMessage]]): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] = {
+  //
+  //    itemsFut.map(_.map(i => println(s"§§ $i")))
+  //
+  //    val sendRemoveActionItemTuplesFut = itemsFut.map(
+  //      _.map(isDeletableInAllProjectsFut).sequence
+  //    ).flatten
+  //
+  //    sendRemoveActionItemTuplesFut.map(_.foreach(r => println(s"w4: ${r._2.projectIds} => ${r._1}")))
+  //
+  //    sendRemoveActionItemTuplesFut
+  //  }
+  def enhanceOnlineResultsWithCrosslinkStatus(items: Seq[OnlineOutputMessage]): Future[Seq[(SendRemoveAction.Value, OnlineOutputMessage)]] =
+    items.map(isDeletableInAllProjectsFut).sequence
 
   def isDeletableInAllProjectsFut(item: OnlineOutputMessage): Future[(SendRemoveAction.Value, OnlineOutputMessage)] = {
+    // The first project id is the id of the triggering project, so we don't need to check the status of that
     val otherProjectIds = item.projectIds.filterNot(_ == item.projectIds.head)
-
-    println(s"projectIds: ${item.projectIds}")
-    println(s"otherProjectIds: $otherProjectIds")
 
     getStatusesForProjects(otherProjectIds).map {
       case s if stillInUse(s) => (SendRemoveAction.No, item)
@@ -155,30 +130,11 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
       }).sequence
 
 
-  //<<<<<<< Updated upstream
-//  def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
-//    val future: Future[Seq[OnlineOutputMessage]] = vidispineCommunicator.getFilesOfProject(projectId)
-//      .map(_
-//        .filterNot(isBranding)
-////        .filter(isDeletableInAllProjectsFut)
-//        .map((item: VSOnlineOutputMessage) => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
-//      )
-//    future.flatMap(_.is)
-//  }
-
-
   // GP-823 Ensure that branding does not get deleted
   def isBranding(item: VSOnlineOutputMessage): Boolean = item.mediaCategory.toLowerCase match {
     case "branding" => true // Case insensitive
     case _ => false
   }
-
-
-//  def isDeletableInAllProjects(item: VSOnlineOutputMessage): Boolean = {
-//    val eventualBoolean: Future[Boolean] = isDeletableInAllProjectsFut(item)
-//    eventualBoolean.onComplete(_.get)
-//  }
-
 
 
   /**
@@ -187,15 +143,16 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
    * @param seq
    * @return true if any project is still using it
    */
-   def stillInUse(seq: Seq[Option[EntryStatus.Value]]): Boolean = {
-     val someStatuses = seq.collect({ case Some(x) => x })
-     val bool = someStatuses.nonEmpty && !someStatuses.forall(s => List(EntryStatus.Held, EntryStatus.Completed, EntryStatus.Killed).contains(s))
-     println(s"stillInUse: someStatuses: $someStatuses => $bool")
-     bool
-   }
+  def stillInUse(seq: Seq[Option[EntryStatus.Value]]): Boolean = {
+    val someStatuses = seq.collect({ case Some(x) => x })
+    val bool = someStatuses.nonEmpty && !someStatuses.forall(s => List(EntryStatus.Held, EntryStatus.Completed, EntryStatus.Killed).contains(s))
+    println(s"stillInUse: someStatuses: $someStatuses => $bool")
+    bool
+  }
 
   /**
    * If there's nothing but Held
+   *
    * @param seq
    * @return
    */
@@ -259,80 +216,134 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     searchAssociatedOnlineMedia(vidispineCommunicator, projectId).map(Right.apply)
   }
 
-  def getOnlineResults3(projectId: Int): Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = {
-    val future: Future[Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]] = searchAssociatedOnlineMedia3(vidispineCommunicator, projectId)
-    val future1: Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = future.map(Right.apply)
-    future1
-  }
+//  def getEnhancedOnlineResults(projectId: Int): Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = {
+//    val onlineFilesFut = searchAssociatedOnlineMedia(vidispineCommunicator, projectId)
+//    val enhancedFut = enhanceWithCrosslinkStatusesFut(onlineFilesFut)
+//    enhancedFut.map(Right.apply)
+//  }
 
-  def filterNoNoNo(nearlineResults: Seq[OnlineOutputMessage], no: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]) = {
-    val verboten = no.map(_._2.nearlineId).collect({case Some(x) => x})
-    nearlineResults.filterNot(n => verboten.contains(n.nearlineId.get))
-  }
+//  def filterNoNoNo(nearlineResults: Seq[OnlineOutputMessage], no: Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]) = {
+//    val verboten = no.map(_._2.nearlineId).collect({ case Some(x) => x })
+//    nearlineResults.filterNot(n => verboten.contains(n.nearlineId.get))
+//  }
 
   def handleUpdateMessage3(updateMessage: ProjectUpdateMessage, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
     updateMessage.status match {
       case status if statusesMediaNotRequired.contains(status) =>
-        //        val onlineResultsFut: Future[Right[Nothing, Seq[(PlutoCoreMessageProcessor.SendRemoveAction.Value, OnlineOutputMessage)]]] = getOnlineResults3(updateMessage.id)
-        val onlineResultsFut = searchAssociatedOnlineMedia3(vidispineCommunicator, updateMessage.id)
+        getOnlineResults(updateMessage.id).map({
+          case Right(onlineResults) =>
+            getNearlineResults(updateMessage.id).map({
+              case Right(nearlineResults) =>
+                enhanceOnlineResultsWithCrosslinkStatus(onlineResults).map(onlineResultTuples => {
 
-        onlineResultsFut.map(onlineResults => {
-          println(s"abcd ${onlineResults.head}")
+                  val noItemTuples = onlineResultTuples.collect({ case t if SendRemoveAction.No == t._1 => t })
+                  val onlineOnlyItemTuples = onlineResultTuples.collect({ case t if SendRemoveAction.OnlyOnline == t._1 => t })
 
-          val buckets = toBuckets(onlineResults)
-          println(s"abcd bukets ${buckets}")
-          val no = buckets._1
-          val yes = buckets._2
-          val onlineOnly = buckets._3
+                  val nearlineNoIds = noItemTuples.map(_._2.nearlineId).collect({ case Some(x) => x })
+                  val nearlineOnlyOnlineIds = onlineOnlyItemTuples.map(_._2.nearlineId).collect({ case Some(x) => x })
 
-          val nearlineResultsEitherFut: Future[Either[String, Seq[OnlineOutputMessage]]] = matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
-            searchAssociatedNearlineMedia(updateMessage.id, vault).map(Right.apply)
-          }
+                  val onlineNoIds = noItemTuples.map(_._2.vidispineItemId).collect({ case Some(x) => x })
 
-          nearlineResultsEitherFut.map({
-            case Right(nearlineResults) =>
-              println(s"value: ${nearlineResults.map(_.nearlineId.get)}")
-              println(s"no: ${no.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
-              println(s"onlyOnline: ${onlineOnly.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
-              val filtered1: Seq[OnlineOutputMessage] = filterNoNoNo(nearlineResults, no)
-              println(s"filtered: ${filtered1.map(_.nearlineId.get)}")
+                  println(s"value: ${nearlineResults.map(_.nearlineId.get)}")
+                  println(s"no: ${noItemTuples.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+                  println(s"onlyOnline: ${onlineOnlyItemTuples.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+                  //                  println(s"yes: ${yesBucket.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+                  val filteredNearline = nearlineResults
+                    .filterNot(n => nearlineOnlyOnlineIds.contains(n.nearlineId.get))
+                    .filterNot(n => nearlineNoIds.contains(n.nearlineId.get))
+                  val filteredOnline = onlineResultTuples
+                    .filterNot(n => onlineNoIds.contains(n._2.vidispineItemId.get)).map(_._2)
 
-              val noIds = no.map(_._2.nearlineId).collect({ case Some(x) => x })
-              val onlyOnlineIds = onlineOnly.map(_._2.nearlineId).collect({ case Some(x) => x })
-              val filtered2: Seq[OnlineOutputMessage] = filtered1.filterNot(n => onlyOnlineIds.contains(n.nearlineId.get))
-//              nearlineResults.filterNot(n => verboten.contains(n.nearlineId.get))
-              val filtered3 = nearlineResults
-                .filterNot(n => onlyOnlineIds.contains(n.nearlineId.get))
-                .filterNot(n => noIds.contains(n.nearlineId.get))
+                  println(s"online: ${onlineResultTuples.map(_._2.vidispineItemId.get)}")
+                  println(s"filteredOnline: ${filteredOnline.map(_.vidispineItemId.get)}")
+                  println(s"noIds: ${nearlineNoIds}")
+                  println(s"onlyOnlineIds: ${nearlineOnlyOnlineIds}")
+                  println(s"filtered3: ${filteredNearline.map(_.nearlineId.get)}")
 
-              println(s"noIds: ${noIds}")
-              println(s"onlyOnlineIds: ${onlyOnlineIds}")
-              println(s"filtered3: ${filtered3.map(_.nearlineId.get)}")
+                  processResults3(filteredNearline, filteredOnline, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status)
 
-            case Left(err) => println(err)
-          })
+
+                })
+              case Left(nearlineErr) =>
+
+                logger.error(s"Could not connect to Matrix store for nearline results: $nearlineErr")
+                Left(nearlineErr)
+
+            })
+
+          case _ =>
+            logger.error(s"Unexpected error from getOnlineResults")
+            Left(s"Unexpected error from getOnlineResults")
         })
+
+
+        //        val onlineResultTuplesFut = searchAssociatedOnlineMedia3(vidispineCommunicator, updateMessage.id)
+        //
+        //        onlineResultTuplesFut.map(onlineResultTuples => {
+        //          println(s"abcd ${onlineResultTuples.head}")
+        //
+        //          val buckets = toBuckets(onlineResultTuples)
+        //          println(s"abcd bukets ${buckets}")
+        //          val no = buckets._1
+        //          val yes = buckets._2
+        //          val onlineOnly = buckets._3
+        //
+        //          val nearlineResultsEitherFut: Future[Either[String, Seq[OnlineOutputMessage]]] = matrixStoreBuilder.withVaultFuture(mxsConfig.nearlineVaultId) { vault =>
+        //            searchAssociatedNearlineMedia(updateMessage.id, vault).map(Right.apply)
+        //          }
+        //
+        //          val nearlineNoIds = no.map(_._2.nearlineId).collect({ case Some(x) => x })
+        //          val onlineNoIds = no.map(_._2.vidispineItemId).collect({ case Some(x) => x })
+        //          val onlyOnlineIds = onlineOnly.map(_._2.nearlineId).collect({ case Some(x) => x })
+        //
+        //          val filteredOnline = onlineResultTuples
+        //            .filterNot(n => onlineNoIds.contains(n._2.vidispineItemId.get))
+        //            .map(_._2)
+        //
+        //          println(s"online: ${onlineResultTuples.map(_._2.vidispineItemId.get)}")
+        //          println(s"filteredOnline: ${filteredOnline.map(_.vidispineItemId.get)}")
+        //          nearlineResultsEitherFut.map({
+        //            case Right(nearlineResults) =>
+        //              println(s"value: ${nearlineResults.map(_.nearlineId.get)}")
+        //              println(s"no: ${no.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+        //              println(s"onlyOnline: ${onlineOnly.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+        //              println(s"yes: ${yes.map(_._2.nearlineId.getOrElse("<no nearline ID>"))}")
+        ////              val filtered1: Seq[OnlineOutputMessage] = filterNoNoNo(nearlineResults, no)
+        ////              println(s"filtered: ${filtered1.map(_.nearlineId.get)}")
+        //
+        ////              val filtered2: Seq[OnlineOutputMessage] = filtered1.filterNot(n => onlyOnlineIds.contains(n.nearlineId.get))
+        //              val filteredNearline = nearlineResults
+        //                .filterNot(n => onlyOnlineIds.contains(n.nearlineId.get))
+        //                .filterNot(n => nearlineNoIds.contains(n.nearlineId.get))
+        //
+        //              println(s"noIds: ${nearlineNoIds}")
+        //              println(s"onlyOnlineIds: ${onlyOnlineIds}")
+        //              println(s"filtered3: ${filteredNearline.map(_.nearlineId.get)}")
+        //
+        //            case Left(err) => println(err)
+        //          })
+        //        })
 
         Future.failed(SilentDropMessage(Some(s"Testing handleUpdateMessage3 (${updateMessage.status}).")))
       //        val o3 = for {
-//          onlineResults <- getOnlineResults3(updateMessage.id)
-////          buckets <- Future(toBuckets(onlineResults.value))
-//          nearlineResults <- getNearlineResults(updateMessage.id)
-//        } yield onlineResults, nea
+      //          onlineResults <- getOnlineResults3(updateMessage.id)
+      ////          buckets <- Future(toBuckets(onlineResults.value))
+      //          nearlineResults <- getNearlineResults(updateMessage.id)
+      //        } yield onlineResults, nea
 
-//        o3.foreach(_ => println("Hej"))
-//        println(s"o3: ${o3.map(_._2)}")
-//
-////        val buckets = onlineResultsFut.map(s => toBuckets(s.value))
-//        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 1! ${b._1}")))
-//        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 2! ${b._1}")))
-//        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 3! ${b._1}")))
-//        buckets.foreach(b => println(s"OMG 2! ${b._2}"))
-//        buckets.foreach(b => println(s"OMG 3! ${b._3}"))
+      //        o3.foreach(_ => println("Hej"))
+      //        println(s"o3: ${o3.map(_._2)}")
+      //
+      ////        val buckets = onlineResultsFut.map(s => toBuckets(s.value))
+      //        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 1! ${b._1}")))
+      //        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 2! ${b._1}")))
+      //        o3.map(r =>  r._2.foreach(b => println(s"------------------- OMG 3! ${b._1}")))
+      //        buckets.foreach(b => println(s"OMG 2! ${b._2}"))
+      //        buckets.foreach(b => println(s"OMG 3! ${b._3}"))
 
       //        Future
-//          .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
-//          .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
+      //          .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
+      //          .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
       case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
     }
 
@@ -343,6 +354,22 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
           .sequence(Seq(getNearlineResults(updateMessage.id), getOnlineResults(updateMessage.id)))
           .map(allResults => processResults(allResults, RoutingKeys.MediaNotRequired, framework, updateMessage.id, updateMessage.status))
       case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
+    }
+
+  private def processResults3(nearlineResults: Seq[OnlineOutputMessage], onlineResults: Seq[OnlineOutputMessage], routingKey: String, framework: MessageProcessingFramework, projectId: Int, projectStatus: String) =
+    if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
+      logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
+      framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
+
+      logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
+      framework.bulkSendMessages(routingKey + ".online", onlineResults)
+
+      logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project $projectId")
+      val msg = RestorerSummaryMessage(projectId, ZonedDateTime.now(), projectStatus, numberOfAssociatedFilesNearline = nearlineResults.length, numberOfAssociatedFilesOnline = onlineResults.length)
+
+      Right(MessageProcessorConverters.contentToMPRV(msg.asJson))
+    } else {
+      throw new RuntimeException(s"Too many files attached to project $projectId, nearlineResults = ${nearlineResults.length}, onlineResults = ${onlineResults.length}")
     }
 
   private def processResults(allResults: Seq[Either[String, Seq[OnlineOutputMessage]]], routingKey: String, framework: MessageProcessingFramework, projectId: Int, projectStatus: String) = (allResults.head, allResults(1)) match {
