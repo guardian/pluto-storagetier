@@ -333,8 +333,6 @@ class VidispineCommunicatorSpec extends Specification with AfterAll with Mockito
       }
 
       val result = Await.result(toTest.getFilesOfProject(23, 100), 1.second)
-      result.foreach(f => println(s"result fbp: ${f.projectIds}"))
-//      println(s"result fbp: $result")
       result.size mustEqual 44
     }
   }

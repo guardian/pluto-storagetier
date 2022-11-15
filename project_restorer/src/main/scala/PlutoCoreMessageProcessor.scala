@@ -182,13 +182,6 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
       case _ => Future.failed(SilentDropMessage(Some(s"Incoming project update message has a status we don't care about (${updateMessage.status}), dropping it.")))
     }
 
-  private def logPreAndPostCrosslinkFiltering(onlineResults: Seq[OnlineOutputMessage], nearlineResults: Seq[OnlineOutputMessage], filteredNearline: Seq[OnlineOutputMessage], filteredOnline: Seq[OnlineOutputMessage]) = {
-    if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"nearlineResults: ${nearlineResults.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} nearline results")
-    if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredNearlineResults: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} filtered nearline results")
-    if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"onlineResults: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${onlineResults.size} online results")
-    if (filteredOnline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredOnlineResults: ${filteredOnline.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${filteredOnline.size} filtered online results")
-  }
-
   private def processResults(nearlineResults: Seq[OnlineOutputMessage], onlineResults: Seq[OnlineOutputMessage], routingKey: String, framework: MessageProcessingFramework, projectId: Int, projectStatus: String): Either[String, MessageProcessorReturnValue] =
     if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
       logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
@@ -238,6 +231,12 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
         logger.warn(s"Dropping message $routingKey from own exchange as I don't know how to handle it. This should be fixed in the code.")
         Future.failed(new RuntimeException("Not meant to receive this"))
     }
+  }
+  private def logPreAndPostCrosslinkFiltering(onlineResults: Seq[OnlineOutputMessage], nearlineResults: Seq[OnlineOutputMessage], filteredNearline: Seq[OnlineOutputMessage], filteredOnline: Seq[OnlineOutputMessage]) = {
+    if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"nearlineResults: ${nearlineResults.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} nearline results")
+    if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredNearlineResults: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} filtered nearline results")
+    if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"onlineResults: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${onlineResults.size} online results")
+    if (filteredOnline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredOnlineResults: ${filteredOnline.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${filteredOnline.size} filtered online results")
   }
 }
 
