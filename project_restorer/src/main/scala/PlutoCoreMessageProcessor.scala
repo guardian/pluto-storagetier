@@ -39,8 +39,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
 
   def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = {
     vidispineCommunicator.getFilesOfProject(projectId)
-      .map(_.filterNot(isBranding))
-      .map(_.map(item => InternalOnlineOutputMessage.toOnlineOutputMessage(item)))
+      .map(_.filterNot(isBranding).map(InternalOnlineOutputMessage.toOnlineOutputMessage))
   }
 
   def enhanceOnlineResultsWithCrosslinkStatus(items: Seq[OnlineOutputMessage]): Future[Seq[(SendRemoveActionTarget.Value, OnlineOutputMessage)]] =
@@ -98,7 +97,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     )
     ).filterNot(isBranding)
       // .filterNot(isMetadataOrProxy) // TODO Figure out if we should filter these out or not, given that they DO work for files that do not need to be on Deep Archive to be deletable
-      .map(entry => InternalOnlineOutputMessage.toOnlineOutputMessage(entry))
+      .map(InternalOnlineOutputMessage.toOnlineOutputMessage)
       .toMat(sinkFactory)(Keep.right)
       .run()
   }
