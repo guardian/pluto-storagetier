@@ -195,10 +195,10 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
 
   private def processResults(nearlineResults: Seq[OnlineOutputMessage], onlineResults: Seq[OnlineOutputMessage], routingKey: String, framework: MessageProcessingFramework, projectId: Int, projectStatus: String): Either[String, MessageProcessorReturnValue] =
     if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
-      logger.info(s"About to send bulk messages for ${nearlineResults.length} nearline results")
+      logger.info(s"About to send bulk messages for ${nearlineResults.length} filtered nearline results")
       framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
 
-      logger.info(s"About to send bulk messages for ${onlineResults.length} online results")
+      logger.info(s"About to send bulk messages for ${onlineResults.length} filtered online results")
       framework.bulkSendMessages(routingKey + ".online", onlineResults)
 
       logger.info(s"Bulk messages sent; about to send the RestorerSummaryMessage for project $projectId")
@@ -244,10 +244,10 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     }
   }
   private def logPreAndPostCrosslinkFiltering(onlineResults: Seq[OnlineOutputMessage], nearlineResults: Seq[OnlineOutputMessage], filteredNearline: Seq[OnlineOutputMessage], filteredOnline: Seq[OnlineOutputMessage]): Unit = {
-    if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"nearlineResults: ${nearlineResults.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} nearline results")
-    if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredNearlineResults: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} filtered nearline results")
-    if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"onlineResults: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${onlineResults.size} online results")
-    if (filteredOnline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredOnlineResults: ${filteredOnline.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${filteredOnline.size} filtered online results")
+    if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${nearlineResults.size} nearline results: ${nearlineResults.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} nearline results")
+    if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${filteredNearline.size} filtered nearline results: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} filtered nearline results")
+    if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${onlineResults.size} online results: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${onlineResults.size} online results")
+    if (filteredOnline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${filteredOnline.size} filtered online results: ${filteredOnline.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${filteredOnline.size} filtered online results")
   }
 }
 
