@@ -47,7 +47,8 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
 
   def isDeletableInAllProjectsFut(item: OnlineOutputMessage): Future[(SendRemoveActionTarget.Value, OnlineOutputMessage)] = {
     // The first project id is the id of the triggering project, so we don't need to check the status of that
-    val otherProjectIds = item.projectIds.filterNot(_ == item.projectIds.head)
+    val otherProjectIds = getCrosslinkProjectIds(item)
+    logger.debug(s"All project for ${item.vidispineItemId.getOrElse("<missing vidispineItemId>")}: ${item.projectIds}, getting statuses for $otherProjectIds")
 
     getStatusesForProjects(otherProjectIds).map(statusMaybes =>
       statusMaybes.collect({ case Some(value) => value }) match {
@@ -56,6 +57,11 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
         case crosslinkedProjectStatuses if releasedByAll(crosslinkedProjectStatuses) => (SendRemoveActionTarget.Both, item)
         case _ => (SendRemoveActionTarget.Neither, item)
       })
+  }
+
+  private def getCrosslinkProjectIds(item: OnlineOutputMessage) = {
+    // The first project id is the id of the triggering project, so we don't need to check the status of that
+    item.projectIds.filterNot(_ == item.projectIds.head)
   }
 
   private def getStatusesForProjects(otherProjectIds: Seq[String]) =
@@ -141,12 +147,18 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
         getOnlineResults(updateMessage.id).flatMap({
           case Right(onlineResults: Seq[OnlineOutputMessage]) =>
 
-            getNearlineResults(updateMessage.id).flatMap({
+            // We don't want to send any media_not_required.nearline messages if status is Held
+            (EntryStatus.Held.toString match {
+              case updateMessage.status =>
+                logger.debug(s"Status of project ${updateMessage.id} is ${EntryStatus.Held}, we won't consider any nearline files")
+                Future(Right(Seq()))
+              case _ => getNearlineResults(updateMessage.id)
+            }).flatMap({
               case Right(nearlineResults) =>
 
                 enhanceOnlineResultsWithCrosslinkStatus(onlineResults).map(crosslinkstatusItemTuples => {
                   if (crosslinkstatusItemTuples.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) {
-                    logger.debug("Basis for filtering (vsItemId/onlineId->SendRemoveActionTarget): " + crosslinkstatusItemTuples.map(t => s"${t._2.vidispineItemId.getOrElse("<no vs ID>")}/${t._2.nearlineId.getOrElse("<no online ID>")}->${t._1}").mkString(", "))
+                    logger.debug(s"Basis for filtering items for project ${updateMessage.id} (online items as vsItemId/nearlineId/crosslinked ids->SendRemoveActionTarget) " + crosslinkstatusItemTuples.map(t => s"${t._2.vidispineItemId.getOrElse("<no vs ID>")}/${t._2.nearlineId.getOrElse("<no online ID>")}/${getCrosslinkProjectIds(t._2)}->${t._1}").mkString(", "))
                   } else {
                     logger.debug(s"${crosslinkstatusItemTuples.size} crosslink/onlineItem tuples, too many to list all in log")
                   }
@@ -231,7 +243,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
         Future.failed(new RuntimeException("Not meant to receive this"))
     }
   }
-  private def logPreAndPostCrosslinkFiltering(onlineResults: Seq[OnlineOutputMessage], nearlineResults: Seq[OnlineOutputMessage], filteredNearline: Seq[OnlineOutputMessage], filteredOnline: Seq[OnlineOutputMessage]) = {
+  private def logPreAndPostCrosslinkFiltering(onlineResults: Seq[OnlineOutputMessage], nearlineResults: Seq[OnlineOutputMessage], filteredNearline: Seq[OnlineOutputMessage], filteredOnline: Seq[OnlineOutputMessage]): Unit = {
     if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"nearlineResults: ${nearlineResults.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} nearline results")
     if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"filteredNearlineResults: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} filtered nearline results")
     if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"onlineResults: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${onlineResults.size} online results")

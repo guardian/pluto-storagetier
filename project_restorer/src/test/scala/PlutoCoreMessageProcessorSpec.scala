@@ -353,11 +353,9 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
 
     "return message with correct amount of associated files if status is Held" in {
-      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
-        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
 
@@ -372,7 +370,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       summaryMessage.projectId mustEqual 233
       summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
       summaryMessage.projectState mustEqual "Held"
-      summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
+      summaryMessage.numberOfAssociatedFilesNearline mustEqual 0
       summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
     }
 
@@ -470,7 +468,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
   }
 
-  "PlutoCoreMessageProcessor.onlineFilesByProject3" should {
+  "PlutoCoreMessageProcessor, with filtering" should {
 
     implicit val mockActorSystem = mock[ActorSystem]
     val vault = mock[Vault]
@@ -496,7 +494,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
     }
 
 
-    "handleUpdateMessage" in {
+    "handleUpdateMessage, with filtering" in {
 
       val asLookup = new AssetFolderLookup(fakePlutoConfig)
       val mockAsLookup = mock[AssetFolderLookup]
@@ -540,6 +538,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       mockAsLookup.getProjectMetadata("8000") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
       mockAsLookup.getProjectMetadata("8100") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
       mockAsLookup.getProjectMetadata("8200") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
+      mockAsLookup.getProjectMetadata("8233") returns Future(Some(projectWithStatus(EntryStatus.Completed)))
       mockAsLookup.getProjectMetadata("9000") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
       mockAsLookup.getProjectMetadata("9100") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
       mockAsLookup.getProjectMetadata("9200") returns Future(Some(projectWithStatus(EntryStatus.Killed)))
@@ -553,7 +552,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
       mockAsLookup.assetFolderProjectLookup(any) returns Future(Some(ProjectRecord(None, 1, "test", ZonedDateTime.now(), ZonedDateTime.now(), "test", None, None, None, None, None, EntryStatus.InProduction, ProductionOffice.UK)))
 
-      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Held.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
+      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Completed.toString, id = 8233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
 
       val result = Await.result(toTest.handleUpdateMessage(updateMessage, framework), 2.seconds)
 
@@ -562,19 +561,17 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val resData = result.map(_.content).getOrElse("".asJson).as[RestorerSummaryMessage]
       resData must beRight
       val summaryMessage = resData.right.get
-      summaryMessage.projectId mustEqual 233
+      summaryMessage.projectId mustEqual 8233
       summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
-      summaryMessage.projectState mustEqual "Held"
+      summaryMessage.projectState mustEqual "Completed"
       summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
       summaryMessage.numberOfAssociatedFilesOnline mustEqual 6
     }
 
-    "return message with correct amount of associated files if status is Held" in {
-      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+    "return message with correct amount of associated files if status is Held - just online files, ignoring nearline files" in {
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
       val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
-        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
         override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
       }
 
@@ -589,7 +586,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       summaryMessage.projectId mustEqual 233
       summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
       summaryMessage.projectState mustEqual "Held"
-      summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
+      summaryMessage.numberOfAssociatedFilesNearline mustEqual 0
       summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
     }
 
