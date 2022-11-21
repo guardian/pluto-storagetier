@@ -500,24 +500,26 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val mockAsLookup = mock[AssetFolderLookup]
 
       val nearlineResults = Seq(
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-10", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath10").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Keep
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-11", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath11").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Keep
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-440", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath440").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Keep
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-450", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath450").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Remove
-        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-4500", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath4500").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Remove
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-10", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath10").withValue("GNM_PROJECT_ID", "8233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Keep
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-11", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath11").withValue("GNM_PROJECT_ID", "8233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Keep
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-440", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath440").withValue("GNM_PROJECT_ID", "8233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Keep
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-450", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath450").withValue("GNM_PROJECT_ID", "8233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Remove
+        InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid-4500", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"filepath4500").withValue("GNM_PROJECT_ID", "8233").withValue("GNM_TYPE", "rushes")), fileAttribues = None)), // Remove
       )
 
       val onlineResults = Seq(
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath10"), fileSize = Some(1024), itemId = Some(s"VX-10"), nearlineId = Some(s"mxsOid-10"), mediaCategory = "Rushes", projectIds = Seq(233, 20)), // No
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath11"), fileSize = Some(1024), itemId = Some(s"VX-11"), nearlineId = Some(s"mxsOid-11"), mediaCategory = "Rushes", projectIds = Seq(233, 8000, 11)), // No
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath12"), fileSize = Some(1024), itemId = Some(s"VX-12"), nearlineId = Some(s"mxsOid-12"), mediaCategory = "Rushes", projectIds = Seq(233, 12)), // No
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath22"), fileSize = Some(1024), itemId = Some(s"VX-22"), nearlineId = Some(s"mxsOid-22"), mediaCategory = "Rushes", projectIds = Seq(233, 8000, 20, 8000)), // No
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath233"), fileSize = Some(1024), itemId = Some(s"VX-233"), nearlineId = Some(s"mxsOid-233"), mediaCategory = "Rushes", projectIds = Seq(233)), // Yes
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath440"), fileSize = Some(1024), itemId = Some(s"VX-440"), nearlineId = Some(s"mxsOid-440"), mediaCategory = "Rushes", projectIds = Seq(233, 300, 310, 320)), // OnlyOnline
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath450"), fileSize = Some(1024), itemId = Some(s"VX-450"), nearlineId = Some(s"mxsOid-450"), mediaCategory = "Rushes", projectIds = Seq(233, 8000)), // Yes
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3300"), fileSize = Some(1024), itemId = Some(s"VX-3300"), nearlineId = Some(s"mxsOid-3300"), mediaCategory = "Rushes", projectIds = Seq(233, 8000, 8000)), // Yes
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath4500"), fileSize = Some(1024), itemId = Some(s"VX-4500"), nearlineId = Some(s"mxsOid-4500"), mediaCategory = "Rushes", projectIds = Seq(233, 9000)), // Yes
-        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath451"), fileSize = Some(1024), itemId = Some(s"VX-451"), nearlineId = Some(s"mxsOid-451"), mediaCategory = "Rushes", projectIds = Seq(233, 300, 9000)), // OnlyOnline
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath10"), fileSize = Some(1024), itemId = Some(s"VX-10"), nearlineId = Some(s"mxsOid-10"), mediaCategory = "Rushes", projectIds = Seq(8233, 20)), // No
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath11"), fileSize = Some(1024), itemId = Some(s"VX-11"), nearlineId = Some(s"mxsOid-11"), mediaCategory = "Rushes", projectIds = Seq(8233, 8000, 11)), // No
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath12"), fileSize = Some(1024), itemId = Some(s"VX-12"), nearlineId = Some(s"mxsOid-12"), mediaCategory = "Rushes", projectIds = Seq(8233, 12)), // No
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath13"), fileSize = Some(1024), itemId = Some(s"VX-13"), nearlineId = Some(s"mxsOid-13"), mediaCategory = "metadata", projectIds = Seq(8233, 13)), // No
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath22"), fileSize = Some(1024), itemId = Some(s"VX-22"), nearlineId = Some(s"mxsOid-22"), mediaCategory = "Rushes", projectIds = Seq(8233, 8000, 20, 8000)), // No
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath233"), fileSize = Some(1024), itemId = Some(s"VX-233"), nearlineId = Some(s"mxsOid-233"), mediaCategory = "Rushes", projectIds = Seq(8233)), // Yes
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath440"), fileSize = Some(1024), itemId = Some(s"VX-440"), nearlineId = Some(s"mxsOid-440"), mediaCategory = "Rushes", projectIds = Seq(8233, 300, 310, 320)), // OnlyOnline
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath450"), fileSize = Some(1024), itemId = Some(s"VX-450"), nearlineId = Some(s"mxsOid-450"), mediaCategory = "Rushes", projectIds = Seq(8233, 8000)), // Yes
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath3300"), fileSize = Some(1024), itemId = Some(s"VX-3300"), nearlineId = Some(s"mxsOid-3300"), mediaCategory = "Rushes", projectIds = Seq(8233, 8000, 8000)), // Yes
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath4500"), fileSize = Some(1024), itemId = Some(s"VX-4500"), nearlineId = Some(s"mxsOid-4500"), mediaCategory = "Rushes", projectIds = Seq(8233, 9000)), // Yes
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath451"), fileSize = Some(1024), itemId = Some(s"VX-451"), nearlineId = Some(s"mxsOid-451"), mediaCategory = "Rushes", projectIds = Seq(8233, 300, 9000)), // OnlyOnline
+        VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath452"), fileSize = Some(1024), itemId = Some(s"VX-452"), nearlineId = Some(s"mxsOid-452"), mediaCategory = "metadata", projectIds = Seq(8233, 300, 9000)), // OnlyOnline
 
         VSOnlineOutputMessage(mediaTier = "ONLINE", filePath = Some(s"filePath44501"), fileSize = Some(1024), itemId = Some(s"VX-4501"), nearlineId = Some(s"mxsOid-4501"), mediaCategory = "Branding", projectIds = Seq(233, 9000)), // Keep, branding
       )
@@ -528,10 +530,11 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       mockAsLookup.getProjectMetadata("10") returns Future(Some(projectWithStatus(EntryStatus.New)))
       mockAsLookup.getProjectMetadata("11") returns Future(Some(projectWithStatus(EntryStatus.New)))
       mockAsLookup.getProjectMetadata("12") returns Future(Some(projectWithStatus(EntryStatus.New)))
+      mockAsLookup.getProjectMetadata("13") returns Future(Some(projectWithStatus(EntryStatus.New)))
       mockAsLookup.getProjectMetadata("20") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
       mockAsLookup.getProjectMetadata("21") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
       mockAsLookup.getProjectMetadata("22") returns Future(Some(projectWithStatus(EntryStatus.InProduction)))
-      mockAsLookup.getProjectMetadata("233") returns Future(Some(projectWithStatus(EntryStatus.Held)))
+      mockAsLookup.getProjectMetadata("233") returns Future(Some(projectWithStatus(EntryStatus.New)))
       mockAsLookup.getProjectMetadata("300") returns Future(Some(projectWithStatus(EntryStatus.Held)))
       mockAsLookup.getProjectMetadata("310") returns Future(Some(projectWithStatus(EntryStatus.Held)))
       mockAsLookup.getProjectMetadata("320") returns Future(Some(projectWithStatus(EntryStatus.Held)))
@@ -565,7 +568,7 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       summaryMessage.completed must beLessThanOrEqualTo(ZonedDateTime.now())
       summaryMessage.projectState mustEqual "Completed"
       summaryMessage.numberOfAssociatedFilesNearline mustEqual 2
-      summaryMessage.numberOfAssociatedFilesOnline mustEqual 6
+      summaryMessage.numberOfAssociatedFilesOnline mustEqual 7
     }
 
     "return message with correct amount of associated files if status is Held - just online files, ignoring nearline files" in {

@@ -102,7 +102,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
       Array("MXFS_PATH", "MXFS_FILENAME", "GNM_PROJECT_ID", "GNM_TYPE", "__mxs__length")
     )
     ).filterNot(isBranding)
-      // .filterNot(isMetadataOrProxy) // TODO Figure out if we should filter these out or not, given that they DO work for files that do not need to be on Deep Archive to be deletable
+      .filterNot(isMetadataOrProxy) // TODO Figure out if we should filter these out or not, given that they DO work for files that do not need to be on Deep Archive to be deletable
       .map(InternalOnlineOutputMessage.toOnlineOutputMessage)
       .toMat(sinkFactory)(Keep.right)
       .run()
@@ -158,7 +158,15 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
 
                 enhanceOnlineResultsWithCrosslinkStatus(onlineResults).map(crosslinkstatusItemTuples => {
                   if (crosslinkstatusItemTuples.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) {
-                    logger.debug(s"Basis for filtering items for project ${updateMessage.id} (online items as vsItemId/nearlineId/crosslinked ids->SendRemoveActionTarget) " + crosslinkstatusItemTuples.map(t => s"${t._2.vidispineItemId.getOrElse("<no vs ID>")}/${t._2.nearlineId.getOrElse("<no online ID>")}/${getCrosslinkProjectIds(t._2)}->${t._1}").mkString(", "))
+                    logger.debug(s"Basis for filtering items for project ${updateMessage.id} (online items as vsItemId|nearlineId|path|crosslinkedIds->SendRemoveActionTarget) " +
+                      crosslinkstatusItemTuples.map(
+                        t =>
+                          s"${t._2.vidispineItemId.getOrElse("<no vs ID>")}|" +
+                            s"${t._2.nearlineId.getOrElse("<no online ID>")}|" +
+                            s"${t._2.originalFilePath.getOrElse("<no path>")}|" +
+                            s"${getCrosslinkProjectIds(t._2)}->" +
+                            s"${t._1}"
+                      ).mkString(", "))
                   } else {
                     logger.debug(s"${crosslinkstatusItemTuples.size} crosslink/onlineItem tuples, too many to list all in log")
                   }
@@ -244,10 +252,25 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     }
   }
   private def logPreAndPostCrosslinkFiltering(onlineResults: Seq[OnlineOutputMessage], nearlineResults: Seq[OnlineOutputMessage], filteredNearline: Seq[OnlineOutputMessage], filteredOnline: Seq[OnlineOutputMessage]): Unit = {
-    if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${nearlineResults.size} nearline results: ${nearlineResults.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} nearline results")
-    if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${filteredNearline.size} filtered nearline results: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}") else logger.debug(s"${nearlineResults.size} filtered nearline results")
-    if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${onlineResults.size} online results: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${onlineResults.size} online results")
-    if (filteredOnline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY) logger.debug(s"${filteredOnline.size} filtered online results: ${filteredOnline.map(_.vidispineItemId.getOrElse("<missing>"))}") else logger.debug(s"${filteredOnline.size} filtered online results")
+    if (nearlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY)
+      logger.debug(s"${nearlineResults.size} nearline results: " + nearlineResults.map(nearline => s"${nearline.nearlineId.getOrElse("<missing>")}|${nearline.originalFilePath.getOrElse("<no path>")}").mkString(", "))
+    else
+      logger.debug(s"${nearlineResults.size} nearline results")
+
+    if (filteredNearline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY)
+      logger.debug(s"${filteredNearline.size} filtered nearline results: ${filteredNearline.map(_.nearlineId.getOrElse("<missing>"))}")
+    else
+      logger.debug(s"${nearlineResults.size} filtered nearline results")
+
+    if (onlineResults.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY)
+      logger.debug(s"${onlineResults.size} online results: ${onlineResults.map(_.vidispineItemId.getOrElse("<missing>"))}")
+    else
+      logger.debug(s"${onlineResults.size} online results")
+
+    if (filteredOnline.size < MAX_ITEMS_TO_LOG_INDIVIDUALLY)
+      logger.debug(s"${filteredOnline.size} filtered online results: ${filteredOnline.map(_.vidispineItemId.getOrElse("<missing>"))}")
+    else
+      logger.debug(s"${filteredOnline.size} filtered online results")
   }
 }
 
