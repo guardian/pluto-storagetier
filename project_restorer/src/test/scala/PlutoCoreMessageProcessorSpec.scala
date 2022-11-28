@@ -571,6 +571,36 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       summaryMessage.numberOfAssociatedFilesOnline mustEqual 7
     }
 
+    "hande Right, Right, Left" in {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+      val result = toTest.crosslinkFilter(Right(Seq()),Right(Seq()), Left("filter fail"))
+
+      println(s"result: $result")
+      result.head must beRight
+      result(1) must beRight
+      result(2) must beLeft("filter fail")
+    }
+
+    "hande Left, Left, Left" in {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+      val result = toTest.crosslinkFilter(Left("bad online"),Left("bad nearline"), Left("filter fail"))
+
+      result.head must beLeft("bad online")
+    }
+    "hande Left, Left, Right" in {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+      val result = toTest.crosslinkFilter(Left("bad online"),Left("bad nearline"), Right(Seq()))
+
+      result.head must beLeft("bad online")
+      result(1) must beLeft("bad nearline")
+    }
+    "hande Right, Left, Right" in {
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
+      val result = toTest.crosslinkFilter(Right(Seq()),Left("bad nearline"), Right(Seq()))
+
+      result(1) must beLeft("bad nearline")
+    }
+
     "return message with correct amount of associated files if status is Held - just online files, ignoring nearline files" in {
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
 
@@ -593,6 +623,22 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       summaryMessage.numberOfAssociatedFilesOnline mustEqual 3
     }
 
+    "correctly fail if filtering fails" in {
+      val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
+      val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
+
+      val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup) {
+        override def nearlineFilesByProject(vault: Vault, projectId: String): Future[Seq[OnlineOutputMessage]] = Future(nearlineResults)
+        override def onlineFilesByProject(vidispineCommunicator: VidispineCommunicator, projectId: Int): Future[Seq[OnlineOutputMessage]] = Future(onlineResults)
+        override def crosslinkFilter(onlineResultsE: Either[String, Seq[OnlineOutputMessage]], nearlineResultsE: Either[String, Seq[OnlineOutputMessage]], crosslinkStatusItemTuplesE: Either[String, Seq[(PlutoCoreMessageProcessor.SendRemoveActionTarget.Value, OnlineOutputMessage)]]): Seq[Either[String, Seq[Nothing]]] = Seq(Right(Seq()), Left("nearline fail"), Left("filter fail"))
+      }
+
+      val updateMessage = ProjectUpdateMessage(status = EntryStatus.Killed.toString, id = 233, projectTypeId = 2, title = "abcdefg", created = None, updated = None, user = "le user", workingGroupId = 100, commissionId = 200, deletable = true, deep_archive = false, sensitive = false, productionOffice = "LDN")
+
+      val result = Await.result(toTest.handleUpdateMessage(updateMessage, framework), 2.seconds)
+
+      result must beLeft("Could not filter for crosslinked projects: filter fail")
+    }
     "return message with correct amount of associated files if status is Killed" in {
       val nearlineResults = for(i <- 1 to 2) yield InternalOnlineOutputMessage.toOnlineOutputMessage(ObjectMatrixEntry(oid = s"mxsOid$i", attributes = Some(MxsMetadata.empty.withValue("MXFS_PATH", s"mxfspath/$i").withValue("GNM_PROJECT_ID", "233").withValue("GNM_TYPE", "rushes")), fileAttribues = None))
       val onlineResults = for (i <- 1 to 3) yield InternalOnlineOutputMessage.toOnlineOutputMessage(VSOnlineOutputMessage(mediaTier = "ONLINE", projectIds = Seq(233), filePath = Some(s"filePath$i"), fileSize = Some(1024), itemId = Some(s"VX-$i"), nearlineId = Some(s"mxsOid-${i+1}"), mediaCategory = "Branding"))
