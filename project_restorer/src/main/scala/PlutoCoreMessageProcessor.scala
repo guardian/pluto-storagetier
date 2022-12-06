@@ -135,12 +135,12 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     case _ => false
   }
 
-  private def getNearlineResultsIfNotHeld(projectId: Int, projectStatus: String) =
-    EntryStatus.Held.toString match {
-      case `projectStatus` =>
-        logger.debug(s"Status of project ${projectId} is ${EntryStatus.Held}, we won't consider any nearline files")
-        Future(Right(Seq()))
-      case _ => getNearlineResults(projectId)
+  private def getNearlineResultsIfNotHeld(projectId: Int, projectStatus: String): Future[Either[String, Seq[OnlineOutputMessage]]] =
+    if (projectStatus == EntryStatus.Held.toString) {
+      logger.debug(s"Status of project ${projectId} is ${EntryStatus.Held}, we won't consider any nearline files")
+      Future(Right(Seq()))
+    } else {
+      getNearlineResults(projectId)
     }
 
   def getNearlineResults(projectId: Int): Future[Either[String, Seq[OnlineOutputMessage]]] =
