@@ -37,8 +37,6 @@ object Main {
     case Right(config)=>config
   }
 
-  val assetFolderLookup = new AssetFolderLookup(plutoConfig)
-
   //maximum time (in seconds) to keep an idle connection open
   private val connectionIdleTime = sys.env.getOrElse("CONNECTION_MAX_IDLE", "750").toInt
 

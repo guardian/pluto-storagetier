@@ -2,6 +2,8 @@ package com.gu.multimedia.storagetier.vidispine
 
 import org.slf4j.LoggerFactory
 
+import scala.util.Try
+
 case class SearchResultDocument(
     hits: Int,
     entry: List[SearchResultItemSimplified]
@@ -58,6 +60,7 @@ object VSOnlineOutputMessage {
     val likelyFile = itemSimplified.item.shape.head.getLikelyFile
     val filePath = likelyFile.flatMap(_.getAbsolutePath)
     val fileSize = likelyFile.flatMap(_.sizeOption)
+    val projectIdAndContainingProjectIds = projectId +: safeGetContainingProjects(itemSimplified)
     val nearlineId = itemSimplified
       .valuesForField("gnm_nearline_id", Some("Asset"))
       .headOption
@@ -71,7 +74,7 @@ object VSOnlineOutputMessage {
         Some(
           VSOnlineOutputMessage(
             mediaTier,
-            Seq(projectId),
+            projectIdAndContainingProjectIds,
             filePath,
             fileSize,
             Some(itemId),
@@ -83,5 +86,12 @@ object VSOnlineOutputMessage {
         logger.warn(s"VS response missing itemId ($itemId) and/or mediaCategory ($mediaCategory)")
         None
     }
+  }
+
+  private def safeGetContainingProjects(itemSimplified: SearchResultItemSimplified) = {
+    itemSimplified.valuesForField("gnm_containing_projects", Some("Asset"))
+      .map(_.value)
+      .map(v => Try { v.toInt }.toOption)
+      .collect({ case Some(i) => i })
   }
 }

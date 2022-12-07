@@ -2,6 +2,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.{ConnectionFactoryProvider, ConnectionFactoryProviderReal, MessageProcessingFramework, ProcessorConfiguration}
+import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
 import matrixstore.MatrixStoreEnvironmentConfigProvider
@@ -29,6 +30,13 @@ object Main {
   (executionContext))
   private implicit lazy val mat:Materializer = Materializer(actorSystem)
 
+  private lazy val plutoConfig = new PlutoCoreEnvironmentConfigProvider().get() match {
+    case Left(err) =>
+      logger.error(s"Could not initialise due to incorrect pluto-core config: $err")
+      sys.exit(1)
+    case Right(config) => config
+  }
+
   private implicit lazy val matrixStoreConfig = new MatrixStoreEnvironmentConfigProvider().get() match {
     case Left(err)=>
       logger.error(s"Could not initialise due to incorrect matrix-store config: $err")
@@ -54,15 +62,16 @@ object Main {
       clusterId = matrixStoreConfig.clusterId,
       maxIdleSeconds = connectionIdleTime
     )
-
     implicit lazy val vidispineCommunicator = new VidispineCommunicator(vidispineConfig)
+
+    val assetFolderLookup = new AssetFolderLookup(plutoConfig)
 
     val config = Seq(
       ProcessorConfiguration(
         "pluto-core",
         "core.project.#",
         "storagetier.restorer",
-        new PlutoCoreMessageProcessor(matrixStoreConfig)
+        new PlutoCoreMessageProcessor(matrixStoreConfig, assetFolderLookup)
       )
     )
 

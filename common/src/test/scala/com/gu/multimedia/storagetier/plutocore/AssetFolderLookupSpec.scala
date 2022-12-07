@@ -10,6 +10,18 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class AssetFolderLookupSpec extends Specification with Mockito{
   "AssetFolderLookup.relativizeFilePath" should {
+
+    "correctly wrap a call to relativizeFilePath for the test env" in {
+      implicit val mat = mock[Materializer]
+      implicit val system = mock[ActorSystem]
+      val fakeConfig = PlutoCoreConfig("test","test",Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))
+      val toTest = new AssetFolderLookup(fakeConfig) {
+        def callRelativize(path:Path) = relativizeFilePath(path)
+      }
+
+      toTest.callRelativize(Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_Completed_6/Title 02.mp4")) must beRight(Paths.get("Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_Completed_6/Title 02.mp4"))
+    }
+
     "correctly wrap a call to relativizeFilePath" in {
       implicit val mat = mock[Materializer]
       implicit val system = mock[ActorSystem]
