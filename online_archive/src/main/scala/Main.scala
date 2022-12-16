@@ -103,14 +103,14 @@ object Main {
       ),
       ProcessorConfiguration(
         "vidispine-events",
-        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify", "vidispine.item.metadata.modify"),
-        Seq("storagetier.onlinearchive.newfile", "storagetier.onlinearchive.newfile", "storagetier.onlinearchive.vidispineupdate", "storagetier.onlinearchive.vidispineupdate"),
+        Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.shape.modify", "vidispine.item.metadata.modify", "vidispine.itemneedsarchive.nearline", "vidispine.itemneedsarchive.online"),
+        Seq("storagetier.onlinearchive.newfile", "storagetier.onlinearchive.newfile", "storagetier.onlinearchive.vidispineupdate", "storagetier.onlinearchive.vidispineupdate", "storagetier.onlinearchive.newfile.nearline", "storagetier.onlinearchive.newfile.online"),
         new VidispineMessageProcessor(plutoConfig, deliverablesConfig)
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
-        Seq("storagetier.onlinearchive.newfile.success","storagetier.onlinearchive.request.*","storagetier.onlinearchive.replay.success"),
-        Seq("storagetier.onlinearchive.mediaingest","storagetier.onlinearchive.requested","storagetier.onlinearchive.replayed"),
+        Seq("storagetier.onlinearchive.newfile.success","storagetier.onlinearchive.request.*","storagetier.onlinearchive.replay.success","storagetier.onlinearchive.newfile.nearline.success","storagetier.onlinearchive.newfile.online.success"),
+        Seq("storagetier.onlinearchive.mediaingest","storagetier.onlinearchive.requested","storagetier.onlinearchive.replayed","storagetier.onlinearchive.mediaingest.nearline","storagetier.onlinearchive.mediaingest.online"),
         new OwnMessageProcessor()
       )
     )
