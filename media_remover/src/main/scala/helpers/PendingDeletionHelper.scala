@@ -11,10 +11,9 @@ import utils.Ensurer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class PendingDeletionHelper (
-                              implicit
-                              ec: ExecutionContext,
-                              pendingDeletionRecordDAO: PendingDeletionRecordDAO) {
+class PendingDeletionHelper (implicit
+                             ec: ExecutionContext,
+                             pendingDeletionRecordDAO: PendingDeletionRecordDAO) {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -111,6 +110,5 @@ class PendingDeletionHelper (
         logger.warn(s"No filepath for ${msg.asJson}, no use storing a PendingDeletion; dropping message")
         Future.failed(new RuntimeException("Cannot store PendingDeletion record for item without filepath"))
     }
-
 
 }
