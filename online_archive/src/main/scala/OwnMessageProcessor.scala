@@ -237,7 +237,7 @@ class OwnMessageProcessor(implicit val archivedRecordDAO: ArchivedRecordDAO,
    */
   override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] = {
     routingKey match {
-      case "storagetier.onlinearchive.newfile.success"=>
+      case r if r == "storagetier.onlinearchive.newfile.success" || r == "storagetier.onlinearchive.newfile.nearline.success" || r == "storagetier.onlinearchive.newfile.online.success" =>
         msg.as[ArchivedRecord] match {
           case Left(err)=>
             if(isIgnoredRecord(msg)) {
