@@ -271,16 +271,15 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
   // online IA
   def outputInternalArchiveCopyRequiredForOnline(vidispineItemId: String, originalFilePath: String): Future[Either[String, MessageProcessorReturnValue]] =
     nearlineRecordDAO.findByVidispineId(vidispineItemId).map {
-      case Some(rec) => Right(MessageProcessorReturnValue(rec.asJson, Seq(RMQDestination("storagetier-media-remover", "storagetier.online.internalarchive.required.online")))) //FIXME wrong exchange?
+      case Some(rec) => Right(MessageProcessorReturnValue(rec.asJson, Seq(RMQDestination("storagetier-media-remover", "storagetier.nearline.internalarchive.required.online"))))
       case None => throw new RuntimeException(s"Cannot request internalArchiveCopy, no record found for ${vidispineItemId} ${originalFilePath}")
     }
 
   // nearline IA
   def outputInternalArchiveCopyRequiredForNearline(oid: String, originalFilePathMaybe: Option[String]): Future[Either[String, MessageProcessorReturnValue]] =
     nearlineRecordDAO.findBySourceFilename(originalFilePathMaybe.get).map {
-      case Some(rec) => Right(MessageProcessorReturnValue(rec.asJson, Seq(RMQDestination("storagetier-media-remover", "storagetier.nearline.internalarchive.required.nearline")))) //FIXME wrong exchange?
+      case Some(rec) => Right(MessageProcessorReturnValue(rec.asJson, Seq(RMQDestination("storagetier-media-remover", "storagetier.nearline.internalarchive.required.nearline"))))
       case None => throw new RuntimeException(s"Cannot request internalArchiveCopy, no record found for oid ${oid} ${originalFilePathMaybe}")
     }
-
 
 }
