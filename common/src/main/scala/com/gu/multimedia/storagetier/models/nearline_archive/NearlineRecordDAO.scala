@@ -63,11 +63,11 @@ class NearlineRecordDAO(override protected val db:Database)(implicit ec:Executio
       maybeRecord
     })
 
-  def findBySourceFilename(filename:String) = db.run(
+  def findBySourceFilename(filename:String): Future[Option[NearlineRecord]] = db.run(
     TableQuery[NearlineRecordRow].filter(_.originalFilePath===filename).result
   ).map(_.headOption)
 
-  def findByVidispineId(vsid:String) = db.run(
+  def findByVidispineId(vsid:String): Future[Option[NearlineRecord]] = db.run(
     TableQuery[NearlineRecordRow].filter(_.vidispineItemId===vsid).result
   ).map(_.headOption)
 
@@ -79,7 +79,7 @@ class NearlineRecordDAO(override protected val db:Database)(implicit ec:Executio
    * @return a Future with the updated record content, as lifted from the database. If no update was performed then None
    *         is returned. If there is a database error then the Future is failed.
    */
-  def setInternallyArchived(recId:Int, newValue:Boolean) = db.run(
+  def setInternallyArchived(recId:Int, newValue:Boolean): Future[Option[NearlineRecord]] = db.run(
     TableQuery[NearlineRecordRow].filter(_.id===recId).map(_.internallyArchived).update(Some(newValue))
   ).flatMap(rows=>{
     if(rows==1) {
