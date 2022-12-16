@@ -3,9 +3,11 @@ import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreEnvironmentConfigProvider}
 import com.gu.multimedia.storagetier.vidispine.{VidispineCommunicator, VidispineConfig}
 import de.geekonaut.slickmdc.MdcExecutionContext
+import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import matrixstore.MatrixStoreEnvironmentConfigProvider
 import org.slf4j.LoggerFactory
 import sun.misc.{Signal, SignalHandler}
@@ -63,6 +65,7 @@ object Main {
 
   def main(args:Array[String]):Unit = {
     implicit lazy val pendingDeletionRecordDAO = new PendingDeletionRecordDAO(db)
+    implicit lazy val nearlineRecordDAO = new NearlineRecordDAO(db)
     implicit val matrixStore = new MXSConnectionBuilderImpl(
       hosts = matrixStoreConfig.hosts,
       accessKeyId = matrixStoreConfig.accessKeyId,
@@ -82,18 +85,28 @@ object Main {
       case Right(u)=>u
     }
 
+    implicit lazy val pendingDeletionHelper = new PendingDeletionHelper()
+    implicit lazy val onlineHelper = new OnlineHelper()
+    implicit lazy val nearlineHelper = new NearlineHelper(assetFolderLookup)
+
     val config = Seq(
-//      ProcessorConfiguration(
-//        exchangeName = OUTPUT_EXCHANGE_NAME,
-//        routingKey = Seq("storagetier.nearline.internalarchive.required"),
-//        outputRoutingKey = Seq("storagetier.nearline.internalarchive"),
-//        new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
-//      ),
       ProcessorConfiguration(
         exchangeName = "storagetier-project-restorer",
         routingKey = Seq("storagetier.restorer.media_not_required.online", "storagetier.restorer.media_not_required.nearline"),
         outputRoutingKey = Seq("storagetier.mediaremover.removedfile.online", "storagetier.mediaremover.removedfile.nearline"),
         new MediaNotRequiredMessageProcessor(assetFolderLookup) // may also send "storagetier.nearline.internalarchive.required"
+      ),
+      ProcessorConfiguration(
+        exchangeName = "storagetier-online-nearline",
+        routingKey = Seq("storagetier.nearline.internalarchive.nearline", "storagetier.nearline.internalarchive.online", "storagetier.nearline.newfile.success"),
+        outputRoutingKey = Seq("storagetier.mediaremover.removedfile.nearline", "storagetier.mediaremover.removedfile.online", "storagetier.mediaremover.removedfile.online"),
+        new OnlineNearlineMessageProcessor(assetFolderLookup) // may also send "storagetier.nearline.internalarchive.required"
+      ),
+      ProcessorConfiguration(
+        exchangeName = "storagetier-online-archive",
+        routingKey = Seq("storagetier.onlinearchive.mediaingest.nearline", "storagetier.onlinearchive.mediaingest.online"),
+        outputRoutingKey = Seq("storagetier.mediaremover.removedfile.nearline", "storagetier.mediaremover.removedfile.online"),
+        new OnlineArchiveMessageProcessor(assetFolderLookup) // may also send "vidispine.itemneedsarchive.{nearline|online}"
       ),
     )
 
