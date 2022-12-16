@@ -289,6 +289,10 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
       handleSuccessfulMetadataWrite(msg)
     case "storagetier.nearline.internalarchive.required"=>  //notification that a (now existing file) needs internal archive = GP-599
       handleInternalArchiveRequested(msg)
+    case "storagetier.nearline.internalarchive.required.nearline"=>  //notification that a file we want to delete from nearline needs internal archive
+      handleInternalArchiveRequested(msg)
+    case "storagetier.nearline.internalarchive.required.online"=>    //notification that a file we want to delete from online needs internal archive
+      handleInternalArchiveRequested(msg)
     case _=>
       Future(Left(s"Unrecognised routing key: $routingKey"))
   }

@@ -83,8 +83,8 @@ object Main {
       ),
       ProcessorConfiguration(
         OUTPUT_EXCHANGE_NAME,
-        Seq("storagetier.nearline.newfile.success", "storagetier.nearline.metadata.success", "storagetier.nearline.internalarchive.required"),
-        Seq("storagetier.nearline.metadata", "storagetier.nearline.vsupdate", "storagetier.nearline.internalarchive"),
+        Seq("storagetier.nearline.newfile.success", "storagetier.nearline.metadata.success", "storagetier.nearline.internalarchive.required", "storagetier.nearline.internalarchive.required.nearline", "storagetier.nearline.internalarchive.required.online"),
+        Seq("storagetier.nearline.metadata", "storagetier.nearline.vsupdate", "storagetier.nearline.internalarchive", "storagetier.nearline.internalarchive.nearline", "storagetier.nearline.internalarchive.online"),
         new OwnMessageProcessor(matrixStoreConfig, assetFolderLookup, OUTPUT_EXCHANGE_NAME)
       ),
       ProcessorConfiguration(
@@ -92,6 +92,12 @@ object Main {
         Seq("vidispine.job.raw_import.stop", "vidispine.job.essence_version.stop", "vidispine.item.metadata.modify", "vidispine.item.shape.modify", "vidispine.itemneedsbackup"),
         Seq("storagetier.nearline.newfile","storagetier.nearline.newfile", "storagetier.nearline.vidispineupdate", "storagetier.nearline.vidispineupdate", "storagetier.nearline.newfile"),
         new VidispineMessageProcessor()
+      ),
+      ProcessorConfiguration(
+        "storagetier-media-remover",
+        Seq("storagetier.nearline.internalarchive.required.nearline", "storagetier.nearline.internalarchive.required.online"),
+        Seq("storagetier.nearline.internalarchive.required.nearline", "storagetier.nearline.internalarchive.required.online"),
+        new MediaRemoverMessageProcessor()
       )
     )
 
