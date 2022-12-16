@@ -503,12 +503,12 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
     onlineOutputMessage.mediaTier match {
       case "ONLINE" =>
-        (for {
+        for {
           /* ignore all but the first project - we're only getting the main project as of yet */
           projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
           actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
           fileRemoveResult <- performActionOnline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
-        } yield fileRemoveResult).recover(e => throw e)
+        } yield fileRemoveResult
       case notWanted =>
         throw new RuntimeException(s"handleOnlineMediaNotRequired called with unexpected mediaTier: $notWanted")
     }
