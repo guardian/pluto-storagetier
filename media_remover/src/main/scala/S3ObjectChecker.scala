@@ -1,3 +1,4 @@
+import com.gu.multimedia.storagetier.models.common.MediaTiers
 import org.slf4j.LoggerFactory
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient
 import software.amazon.awssdk.regions.Region
@@ -54,6 +55,27 @@ class S3ObjectChecker(client: S3AsyncClient, var bucketName: String)(implicit ec
         throw new RuntimeException(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: ${err.getMessage}")
      })
   }
+
+  def onlineMediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
+    mediaExistsInDeepArchive(MediaTiers.ONLINE.toString, checksumMaybe, fileSize, originalFilePath, objectKey)
+
+ def nearlineMediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
+    mediaExistsInDeepArchive(MediaTiers.NEARLINE.toString, checksumMaybe, fileSize, originalFilePath, objectKey)
+
+  private def mediaExistsInDeepArchive(mediaTier: String, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
+    objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe).map({
+      case true =>
+        logger.info(s"$mediaTier file with path $originalFilePath, objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
+        true
+      case false =>
+        logger.info(s"$mediaTier file with path $originalFilePath: No file $objectKey with matching size $fileSize found, do not delete")
+        false
+    }).recover({
+      case err: Throwable =>
+        logger.warn(s"Could not connect to deep archive to check if copy of $mediaTier media exists, do not delete. Err: ${err.getMessage}")
+        false
+    })
+
 }
 
 object S3ObjectChecker {
