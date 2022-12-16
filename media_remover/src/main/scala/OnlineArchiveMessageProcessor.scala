@@ -174,7 +174,7 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def findPendingDeletionRecord(archivedRecord: ArchivedRecord): Future[Option[PendingDeletionRecord]] = {
+  def findPendingDeletionRecord(archivedRecord: ArchivedRecord): Future[Option[PendingDeletionRecord]] = {
     (for {
       byOriginal <- pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(archivedRecord.originalFilePath, MediaTiers.NEARLINE)
       byUploaded <- pendingDeletionRecordDAO.findBySourceFilenameAndMediaTier(archivedRecord.uploadedPath, MediaTiers.NEARLINE)
