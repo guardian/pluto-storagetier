@@ -30,6 +30,35 @@ import java.util.UUID
 class VidispineMessageProcessorSpec extends Specification with Mockito {
   val fakeDeliverablesConfig = PlutoDeliverablesConfig("Deliverables/",1)
 
+  "VidispineMessageProcessor.vsMediaIngestedWithVersionAndSize" should {
+      implicit val mockVSCommunicator = mock[VidispineCommunicator]
+      implicit val archiveHunterCommunicator = mock[ArchiveHunterCommunicator]
+      implicit val mockVSFunctions = mock[VidispineFunctions]
+      implicit val archivedRecordDAO: ArchivedRecordDAO = mock[ArchivedRecordDAO]
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      implicit val ignoredRecordDAO: IgnoredRecordDAO = mock[IgnoredRecordDAO]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+
+    "vsMediaIngestedWithVersionAndSize essenceVersion" in {
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", Paths.get("/dummy/base/path")), fakeDeliverablesConfig)
+      val result = toTest.vsMediaIngestedWithVersion("VX-1", Some(1))
+
+      result.itemId must beSome("VX-1")
+      result.essenceVersion must beSome(1)
+      result.fileSize must beSome(1024L)
+    }
+
+    "vsMediaIngestedWithVersionAndSize no essenceVersion" in {
+      val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", Paths.get("/dummy/base/path")), fakeDeliverablesConfig)
+      val result = toTest.vsMediaIngestedWithVersion("VX-1", None)
+
+      result.itemId must beSome("VX-1")
+      result.essenceVersion must beNone
+      result.fileSize must beSome(1024L)
+    }
+  }
+
   "VidispineMessageProcessor.getRelativePath" should {
     "use the full path for upload if it can't relativize" in {
       implicit val mockVSCommunicator = mock[VidispineCommunicator]
