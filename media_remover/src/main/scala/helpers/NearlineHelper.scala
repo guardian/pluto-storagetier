@@ -121,7 +121,7 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
    * @throws RuntimeException if the `maybeLocalChecksum` is None
    */
   def verifyChecksumMatchUsingChecker(filePath: String, potentialFiles: Seq[MxsObject], maybeLocalChecksum: Option[String]): Future[Option[String]] = {
-    val verifiedMaybeLocalChecksum: Option[String] = maybeLocalChecksum match {
+    val verifiedMaybeLocalChecksum = maybeLocalChecksum match {
       case None => throw new RuntimeException("Must be called with Some(actualChecksum)")
       case Some(value) => Some(value)
     }
@@ -130,13 +130,12 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
 
   protected def openMxsObject(vault:Vault, oid:String): Try[MxsObject] = Try { vault.getObject(oid) }
   protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = MatrixStoreHelper.findByFilenameNew(vault, fileName)
-
   protected def callObjectMatrixEntryFromOID(vault: Vault, fileName: String): Future[ObjectMatrixEntry] = ObjectMatrixEntry.fromOID(fileName, vault)
 
   def getNearlineFileSize(vault: Vault, oid: String): Future[Long] =
     Future.fromTry(Try {vault.getObject(oid)}.map(MetadataHelper.getFileSize))
 
-  def getChecksumForNearline(vault: Vault, oid: String): Future[Option[String]] = {
+  def getChecksumForNearline(vault: Vault, oid: String): Future[Option[String]] =
     for {
       mxsFile <- Future.fromTry(openMxsObject(vault, oid))
       maybeMd5 <- MatrixStoreHelper.getOMFileMd5(mxsFile).flatMap({
@@ -148,34 +147,6 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
           Future(Some(remoteChecksum))
       })
     } yield maybeMd5
-  }
-
-//  def handleInternalArchiveCompleteForNearline(vault: Vault, internalArchiveVault: Vault, nearlineRecord: NearlineRecord): Future[Either[String, MessageProcessorReturnValue]] =
-//    pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(nearlineRecord.objectId).flatMap({
-//      case Some(pendingDeletionRecord) =>
-//        pendingDeletionRecord.nearlineId match {
-//          case Some(nearlineId) =>
-//            val nearlineFileSize = Future.fromTry(Try {
-//              vault.getObject(nearlineId)
-//            }.map(MetadataHelper.getFileSize)) // We fetch the current size, because we don't know how old the message is
-//            nearlineFileSize.flatMap(fileSize => {
-//              nearlineExistsInInternalArchive(vault, internalArchiveVault, nearlineId, pendingDeletionRecord.originalFilePath, fileSize)
-//                .flatMap({
-//                  case true =>
-//                    for {
-//                      mediaRemovedMsg <- deleteMediaFromNearline(vault, pendingDeletionRecord.mediaTier.toString, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId, pendingDeletionRecord.vidispineItemId)
-//                      _ <- pendingDeletionHelper.removeDeletionPending(pendingDeletionRecord)
-//                    } yield mediaRemovedMsg
-//                  case false =>
-//                    pendingDeletionRecordDAO.updateAttemptCount(pendingDeletionRecord.id.get, pendingDeletionRecord.attempt + 1)
-//                    outputInternalArchiveCopyRequiredForNearline(pendingDeletionRecord)
-//                })
-//            })
-//          case None => throw new RuntimeException("NEARLINE pending deletion record w/o nearline id!")
-//        }
-//      case None =>
-//        throw SilentDropMessage(Some(s"ignoring internal archive confirmation, no pending deletion for this ${MediaTiers.NEARLINE} item with ${nearlineRecord.originalFilePath}"))
-//    })
 
   def nearlineExistsInInternalArchive(vault: Vault, internalArchiveVault: Vault, nearlineId: String, filePath: String, fileSize: Long): Future[Boolean] = {
     val filePathBack = putItBack(filePath)
@@ -216,7 +187,7 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
     }
 
 
-  private def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] = {
+  private def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] =
     // TODO do we need to wrap this with a Future.fromTry?
     Try {
       vault.getObject(nearlineId).delete()
@@ -228,7 +199,6 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
         logger.warn(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}")
         Future(Left(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}"))
     }
-  }
 
   def dealWithAttFiles(vault: Vault, nearlineId: String, originalFilePath: String): Future[Either[String, String]] = {
     val combinedRes = (for {

@@ -89,11 +89,4 @@ class OnlineHelper (
       case (_, _) => throw new RuntimeException(s"Cannot delete from online, wrong media tier ($mediaTier), or missing item id (${vidispineItemIdMaybe.getOrElse("<missing item id>")})")
     }
 
-
-  //  def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
-//    for {
-//      maybeChecksum <- getMd5ChecksumForOnline(vsItemId)
-//      exists <- existsInTargetVaultWithMd5Match(MediaTiers.ONLINE, vsItemId, nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
-//    } yield exists
-
 }
