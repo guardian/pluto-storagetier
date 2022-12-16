@@ -585,7 +585,7 @@ class VidispineMessageProcessor()
         logger.info(s"Item $itemId is registered in the nearline database with MXS ID ${existingRecord.objectId}, updating Vidispine...")
         VidispineHelper.updateVidispineWithMXSId(itemId, existingRecord)
       case None =>
-        val itemShapesFut = vidispineCommunicator.listItemShapes(itemId).map({
+        val originalShapeFut = vidispineCommunicator.listItemShapes(itemId).map({
           case None =>
             logger.error(s"Can't back up vidispine item $itemId as it has no shapes on it")
             throw SilentDropMessage(Some("item has no shapes"))
@@ -615,8 +615,8 @@ class VidispineMessageProcessor()
 
         for {
           metadata <- itemMetadataFut
-          itemShapes <- itemShapesFut
-          maybePath <- itemShapes.getLikelyFile.map(_.id) match {
+          originalShape <- originalShapeFut
+          maybePath <- originalShape.getLikelyFile.map(_.id) match {
             case Some(fileId)=>
               vidispineCommunicator.getFileInformation(fileId).map(_.flatMap(_.getAbsolutePath))
             case None=>
@@ -625,7 +625,7 @@ class VidispineMessageProcessor()
           result <- (metadata, maybePath) match {
             case (Right(meta), Some(absPath))=>
               logger.info(s"$itemId: Checking if there is a matching file in the nearline and uploading if necessary...")
-              uploadIfRequiredAndNotExists(vault, absPath, QueryableVidispineItemResponse(meta, itemShapes))
+              uploadIfRequiredAndNotExists(vault, absPath, QueryableVidispineItemResponse(meta, originalShape))
             case (_, None)=>
               Future(Left(s"Could not determine a file path for $itemId"))
             case (Left(err), _)=>
