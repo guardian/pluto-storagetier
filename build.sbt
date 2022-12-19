@@ -17,7 +17,7 @@ val slickVersion = "3.3.3"
 
 lazy val commonSettings = Seq(
   version := "1.0",
-  scalaVersion := "2.13.6",
+  scalaVersion := "2.13.9",
   javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint"),
   scalacOptions += "-target:jvm-1.8",
   libraryDependencies ++= Seq(
