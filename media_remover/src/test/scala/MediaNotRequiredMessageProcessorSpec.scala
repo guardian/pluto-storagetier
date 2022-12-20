@@ -314,7 +314,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
 
-      toTest.mediaExistsInDeepArchive(msgObj.mediaTier, None, 1L, msgObj.originalFilePath.get)
+      toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, None, 1L, msgObj.originalFilePath.get)
 
       there was one(mockS3ObjectChecker).objectExistsWithSizeAndMaybeChecksum("Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", 1L, None)
     }
@@ -339,7 +339,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
 
-      toTest.mediaExistsInDeepArchive(msgObj.mediaTier, None, 1L, msgObj.originalFilePath.get)
+      toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, None, 1L, msgObj.originalFilePath.get)
 
       there was one(mockS3ObjectChecker).objectExistsWithSizeAndMaybeChecksum("srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4", 1L, None)
     }

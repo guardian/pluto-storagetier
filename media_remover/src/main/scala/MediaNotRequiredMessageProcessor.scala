@@ -151,7 +151,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             validateNeededFields(sizeMaybe, Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.vidispineItemId)
           val checksumMaybeFut = getMd5ChecksumForOnline(vsItemId)
           checksumMaybeFut.flatMap(checksumMaybe => {
-            mediaExistsInDeepArchive(MediaTiers.ONLINE.toString, checksumMaybe, fileSize, objectKey).flatMap({
+            mediaExistsInDeepArchive(MediaTiers.ONLINE, checksumMaybe, fileSize, objectKey).flatMap({
               case true =>
                 for {
                   mediaRemovedMsg <- deleteMediaFromOnline(pendingDeletionRecord)
@@ -182,7 +182,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                 (fileSize, objectKey, nearlineId) <-
                   Future(validateNeededFields(Some(nearlineFileSize), Some(pendingDeletionRecord.originalFilePath), pendingDeletionRecord.nearlineId))
                 checksumMaybe <- getChecksumForNearline(vault, nearlineId)
-                doesMediaExist <- mediaExistsInDeepArchive(MediaTiers.NEARLINE.toString, checksumMaybe, fileSize, objectKey)
+                doesMediaExist <- mediaExistsInDeepArchive(MediaTiers.NEARLINE, checksumMaybe, fileSize, objectKey)
               } yield doesMediaExist
 
             doesMediaExist.flatMap({
@@ -477,11 +477,11 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, objectKey, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
     val maybeChecksumFut = getChecksumForNearline(vault, nearlineId)
-    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(onlineOutputMessage.mediaTier, checksumMaybe, fileSize, objectKey))
+    maybeChecksumFut.flatMap(checksumMaybe => mediaExistsInDeepArchive(MediaTiers.NEARLINE, checksumMaybe, fileSize, objectKey))
   }
 
 
-  def mediaExistsInDeepArchive(mediaTier: String, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String): Future[Boolean] = {
+  def mediaExistsInDeepArchive(mediaTier: MediaTiers.Value, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String): Future[Boolean] = {
 
     val objectKey =
       asLookup.relativizeFilePath(Paths.get(originalFilePath)) match {
@@ -612,8 +612,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     }
 
 
-  private def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] = {
-    // TODO do we need to wrap this with a Future.fromTry?
+  private def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] =
     Try {
       vault.getObject(nearlineId).delete()
     } match {
@@ -624,7 +623,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.warn(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}")
         Future(Left(s"Failed to remove nearline media oid=$nearlineId, path=$filepath, reason: ${exception.getMessage}"))
     }
-  }
 
   def deleteMediaFromOnline(rec: PendingDeletionRecord): Future[Either[String, MessageProcessorReturnValue]] =
     deleteMediaFromOnline(rec.mediaTier.toString, Some(rec.originalFilePath), rec.nearlineId, rec.vidispineItemId)
@@ -896,7 +894,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
     for {
       checksumMaybe <- getMd5ChecksumForOnline(vsItemId)
-      mediaExists <- mediaExistsInDeepArchive(onlineOutputMessage.mediaTier, checksumMaybe, fileSize, originalFilePath)
+      mediaExists <- mediaExistsInDeepArchive(MediaTiers.ONLINE, checksumMaybe, fileSize, originalFilePath)
     } yield mediaExists
   }
 
