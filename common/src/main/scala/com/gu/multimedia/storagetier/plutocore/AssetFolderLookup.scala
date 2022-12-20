@@ -126,7 +126,7 @@ class AssetFolderLookup (config:PlutoCoreConfig)(implicit mat:Materializer, acto
   }
 
   def putBackBase(path:Path):Either[String, Path] = {
-    logger.info(s"config.assetFolderBasePath: ${config.assetFolderBasePath}")
+    logger.debug(s"config.assetFolderBasePath: ${config.assetFolderBasePath}")
     Try { config.assetFolderBasePath.resolve(path) } match {
       case Success(p)=>Right(p)
       case Failure(err)=>Left(err.getMessage)
