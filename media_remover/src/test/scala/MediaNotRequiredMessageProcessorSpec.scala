@@ -22,6 +22,7 @@ import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
+import org.slf4j.LoggerFactory
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
@@ -35,6 +36,7 @@ import scala.util.Try
 
 class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
+  private val logger = LoggerFactory.getLogger(getClass)
 
 
   "MediaNotRequiredMessageProcessor.findMatchingFilesOnVault" should {
@@ -560,7 +562,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[RuntimeException]
-      println(s"sdp-a-result: $result")
+      logger.debug(s"sdp-a-result: $result")
       result.failed.get.getMessage mustEqual "Cannot store PendingDeletion record for item without filepath"
     }
 
@@ -805,7 +807,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"102-result: $result")
+      logger.debug(s"102-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -874,7 +876,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was no(mockVidispineCommunicator).deleteItem(any)
       there was one(mockPendingDeletionRecordDAO).writeRecord(any)
 
-      println(s"103-result: $result")
+      logger.debug(s"103-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get.itemId must beSome("VX-1519103")
@@ -929,7 +931,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was no(mockPendingDeletionRecordDAO).writeRecord(any)
       there was no(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"104-result: $result")
+      logger.debug(s"104-result: $result")
       result must beFailedTry
       result.failed.get.getMessage mustEqual "Project state for removing files from project 104 is not valid, deep_archive flag is not true!"
     }
@@ -982,7 +984,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was no(mockPendingDeletionRecordDAO).writeRecord(any)
       there was no(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"1041-result: $result")
+      logger.debug(s"1041-result: $result")
       result must beFailedTry
       result.failed.get.getMessage mustEqual "Project state for removing files from project 1041 is not valid, deep_archive flag is not true!"
     }
@@ -1032,7 +1034,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"105-result: $result")
+      logger.debug(s"105-result: $result")
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
       result.failed.get.getMessage mustEqual "Dropping request to remove /srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4: ONLINE media with nearlineId 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId VX-1519105, mediaCategory Rushes in project 105: deletable(false), deep_archive(true), sensitive(true), status In Production"
@@ -1083,7 +1085,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"106-result: $result")
+      logger.debug(s"106-result: $result")
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
       result.failed.get.getMessage mustEqual "Dropping request to remove /srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4: ONLINE media with nearlineId 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId VX-1519106, mediaCategory Rushes in project 106: deletable(false), deep_archive(true), sensitive(true), status New"
@@ -1133,7 +1135,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"107-result: $result")
+      logger.debug(s"107-result: $result")
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
       result.failed.get.getMessage mustEqual "Dropping request to remove /srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4: ONLINE media with nearlineId 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId VX-1519107, mediaCategory Rushes in project 107: deletable(false), deep_archive(true), sensitive(false), status In Production"
@@ -1183,7 +1185,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleOnlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"108-result: $result")
+      logger.debug(s"108-result: $result")
       result must beAFailedTry
       result.failed.get must beAnInstanceOf[SilentDropMessage]
       result.failed.get.getMessage mustEqual "Dropping request to remove /srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4: ONLINE media with nearlineId 8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765, onlineId VX-1519108, mediaCategory Rushes in project 108: deletable(false), deep_archive(true), sensitive(false), status New"
@@ -1258,7 +1260,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       there was one(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"109-result: $result")
+      logger.debug(s"109-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -1324,7 +1326,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       there was one(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"110-result: $result")
+      logger.debug(s"110-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -1391,7 +1393,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockPendingDeletionRecordDAO).writeRecord(any)
 
-      println(s"111-result: $result")
+      logger.debug(s"111-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
@@ -1459,7 +1461,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockPendingDeletionRecordDAO).writeRecord(any)
 
-      println(s"112-result: $result")
+      logger.debug(s"112-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
@@ -1521,7 +1523,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was no(mockPendingDeletionRecordDAO).findByNearlineIdForNEARLINE(any)
       there was no(mockPendingDeletionRecordDAO).deleteRecord(any)
 
-      println(s"113-result: $result")
+      logger.debug(s"113-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -1583,7 +1585,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was no(mockPendingDeletionRecordDAO).findByNearlineIdForNEARLINE(any)
       there was no(mockPendingDeletionRecordDAO).deleteRecord(any)
 
-      println(s"114-result: $result")
+      logger.debug(s"114-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -1652,7 +1654,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockPendingDeletionRecordDAO).writeRecord(any)
 
-      println(s"115-result: $result")
+      logger.debug(s"115-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
@@ -1719,7 +1721,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockPendingDeletionRecordDAO).writeRecord(any)
 
-      println(s"116-result: $result")
+      logger.debug(s"116-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val requireDeepArchive = result.get.getOrElse(null).content.as[VidispineMediaIngested].right.get
@@ -1781,7 +1783,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"117-result: $result")
+      logger.debug(s"117-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -1844,7 +1846,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       there was one(mockPendingDeletionRecordDAO).findByOnlineIdForONLINE(any)
       there was one(mockVidispineCommunicator).deleteItem(any)
 
-      println(s"118-result: $result")
+      logger.debug(s"118-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       val mediaRemovedMessage = result.get.getOrElse(null).content.as[MediaRemovedMessage].right.get
@@ -2013,7 +2015,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"24-result: $result")
+      logger.debug(s"24-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2071,7 +2073,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"25-result: $result")
+      logger.debug(s"25-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2134,7 +2136,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"925-result: $result")
+      logger.debug(s"925-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2197,7 +2199,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"926-result: $result")
+      logger.debug(s"926-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2261,7 +2263,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"927-result: $result")
+      logger.debug(s"927-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2327,7 +2329,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"929-result: $result")
+      logger.debug(s"929-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2390,7 +2392,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"930-result: $result")
+      logger.debug(s"930-result: $result")
 
       result must beSuccessfulTry
       result.get must beRight
@@ -2450,7 +2452,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"26-result: $result")
+      logger.debug(s"26-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151926")
@@ -2562,7 +2564,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"28-result: $result")
+      logger.debug(s"28-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151928")
@@ -2735,7 +2737,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
         Await.result(toTest.handleNearlineMediaNotRequired(mockVault, mockInternalVault, msgObj), 2.seconds)
       }
 
-      println(s"31-result: $result")
+      logger.debug(s"31-result: $result")
       result must beSuccessfulTry
       result.get must beRight
       result.get.right.get.content.\\("content").head.as[MediaRemovedMessage].right.get.vidispineItemId must beSome("VX-151931")
