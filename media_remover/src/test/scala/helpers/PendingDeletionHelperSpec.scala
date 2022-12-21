@@ -85,12 +85,15 @@ class PendingDeletionHelperSpec extends Specification with Mockito {
           |}""".stripMargin
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+      val expectedRec = PendingDeletionRecord(None, msgObj.originalFilePath.get, msgObj.nearlineId, msgObj.vidispineItemId, MediaTiers.NEARLINE, 1)
 
       val toTest = new PendingDeletionHelper
 
       val result = Try {
         Await.result(toTest.storeDeletionPending(msgObj), 2.seconds)
       }
+
+      there was one(pendingDeletionRecordDAO).writeRecord(expectedRec)
 
       result must beSuccessfulTry
       result.get must beRight(234)
@@ -117,12 +120,15 @@ class PendingDeletionHelperSpec extends Specification with Mockito {
           |}""".stripMargin
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
+      val expectedRecWithUpdatedCount = PendingDeletionRecord(existingRecord.id, existingRecord.originalFilePath, existingRecord.nearlineId, existingRecord.vidispineItemId, existingRecord.mediaTier, existingRecord.attempt + 1)
 
       val toTest = new PendingDeletionHelper
 
       val result = Try {
         Await.result(toTest.storeDeletionPending(msgObj), 2.seconds)
       }
+
+      there was one(pendingDeletionRecordDAO).writeRecord(expectedRecWithUpdatedCount)
 
       result must beSuccessfulTry
       result.get must beRight(234)
