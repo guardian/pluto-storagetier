@@ -40,22 +40,20 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
       implicit val mat: Materializer = mock[Materializer]
       implicit val sys: ActorSystem = mock[ActorSystem]
 
-    "vsMediaIngestedWithVersionAndSize essenceVersion" in {
+    "vsMediaIngestedWithVersion essenceVersion" in {
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", Paths.get("/dummy/base/path")), fakeDeliverablesConfig)
       val result = toTest.vsMediaIngestedWithVersion("VX-1", Some(1))
 
       result.itemId must beSome("VX-1")
       result.essenceVersion must beSome(1)
-      result.fileSize must beSome(1024L)
     }
 
-    "vsMediaIngestedWithVersionAndSize no essenceVersion" in {
+    "vsMediaIngestedWithVersion no essenceVersion" in {
       val toTest = new VidispineMessageProcessor(PlutoCoreConfig("https://fake-server", "notsecret", Paths.get("/dummy/base/path")), fakeDeliverablesConfig)
       val result = toTest.vsMediaIngestedWithVersion("VX-1", None)
 
       result.itemId must beSome("VX-1")
       result.essenceVersion must beNone
-      result.fileSize must beSome(1024L)
     }
   }
 
