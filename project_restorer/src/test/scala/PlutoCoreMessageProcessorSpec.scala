@@ -559,7 +559,6 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
 
       val result = Await.result(toTest.handleUpdateMessage(updateMessage, framework), 2.seconds)
 
-      println(s"handleUpdateMessage $result")
       result must beRight
       val resData = result.map(_.content).getOrElse("".asJson).as[RestorerSummaryMessage]
       resData must beRight
@@ -575,7 +574,6 @@ class PlutoCoreMessageProcessorSpec(implicit ec: ExecutionContext) extends Speci
       val toTest = new PlutoCoreMessageProcessor(mxsConfig, mockAsLookup)
       val result = toTest.crosslinkFilter(Right(Seq()),Right(Seq()), Left("filter fail"))
 
-      println(s"result: $result")
       result.head must beRight
       result(1) must beRight
       result(2) must beLeft("filter fail")

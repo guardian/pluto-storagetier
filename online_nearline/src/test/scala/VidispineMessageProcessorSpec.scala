@@ -362,7 +362,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
 
       val mockShape = mock[ShapeDocument]
       mockShape.tag returns Seq("original")
-      mockShape.getLikelyFile returns Some(VSShapeFile("VX-8888","/path/to/some/file",None,"CLOSED",1234L,None,"2012-01-02T03:04:05Z",1, "VX-4"))
+      mockShape.getLikelyFile returns Some(VSShapeFile("VX-8888","/path/to/some/file",None,"CLOSED",1234L,None,"2012-01-02T03:04:05Z",1, "VX-4", None))
       mockVSCommunicator.listItemShapes(any) returns Future(Some(Seq(mockShape)))
 
       val mockCheckForPreExisting = mock[(Vault, Path, QueryableItem, Boolean)=>Future[Option[NearlineRecord]]]
@@ -1294,7 +1294,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("deadbeef"),
         "2021-01-02T03:04:05.678Z",
         1,
-        "VX-2"
+        "VX-2", None
       )
 
       val mediaIngested = VidispineMediaIngested(List(
@@ -1361,7 +1361,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("deadbeef"),
         "2021-01-02T03:04:05.678Z",
         1,
-        "VX-2"
+        "VX-2", None
       )
 
       val mediaIngested = VidispineMediaIngested(List(
@@ -1481,7 +1481,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("deadbeef"),
         "2021-01-02T03:04:05.678Z",
         1,
-        "VX-2"
+        "VX-2", None
       )
       val mockShapeDoc = mock[ShapeDocument]
       mockShapeDoc.getLikelyFile returns Some(mockShapeFile)
@@ -1532,7 +1532,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
         Some("deadbeef"),
         "2021-01-02T03:04:05.678Z",
         1,
-        "VX-2"
+        "VX-2", None
       )
       val mockShapeDoc = mock[ShapeDocument]
       mockShapeDoc.getLikelyFile returns Some(mockShapeFile)
@@ -1566,7 +1566,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           None,
           Some(SimplifiedComponent(
             "VX-1212",
-            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage, None))
           )),
           None,
           None,
@@ -1689,7 +1689,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           None,
           Some(SimplifiedComponent(
             "VX-1212",
-            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage, None))
           )),
           None,
           None,
@@ -1756,7 +1756,7 @@ class VidispineMessageProcessorSpec extends Specification with Mockito {
           None,
           Some(SimplifiedComponent(
             "VX-1212",
-            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage))
+            Seq(VSShapeFile(mockedFile.id, mockedFile.path, mockedFile.uri, mockedFile.state, mockedFile.size, mockedFile.hash, mockedFile.timestamp, mockedFile.refreshFlag, mockedFile.storage, None))
           )),
           None,
           None,

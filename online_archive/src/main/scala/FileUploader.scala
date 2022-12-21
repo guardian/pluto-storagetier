@@ -25,12 +25,11 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
   /**
    * Attempt to copy the given file to S3 under a distinct name.
-   * If a file with the same name AND the same file size exists, then returns a Success with the found file name
+   * If a file with the same name AND the same file size exists, then returns a Success with the found file name.
+   * If a file with the same name but a DIFFERENT file size exists, the file is then uploaded and a Success returned
+   * with a tuple containing the file name and file size.
    * If no file with the name exists, will upload it and return a Success with the file name as uploaded.
-   * If a file with the same name but a DIFFERENT file size exists, will suffix the name "-1", "-2" etc. until a 'free'
-   * filename is found. The file is then uploaded and a Success returned with a Tuple containing the the uploaded file name and file
-   * size.
-   * If there is an error, then Failure is returned
+   * If there is an error, then Failure is returned.
    * @param file a java.io.File instance representing the file to upload
    * @param maybeUploadPath Optional destination path to upload it to. If not set, then the absolute path of `file` is used.
    * @return a Try, containing a Tuple where the first value is a String containing the uploaded file name and the second value is a
