@@ -34,7 +34,6 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
   matrixStoreBuilder: MXSConnectionBuilderImpl,
   mxsConfig: MatrixStoreConfig,
   vidispineCommunicator: VidispineCommunicator,
-//  s3ObjectChecker: S3ObjectChecker,
   checksumChecker: ChecksumChecker,
   pendingDeletionHelper: PendingDeletionHelper
   )  {
@@ -52,7 +51,7 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
    *                               //   * @param fileName file name to check on the Vault
    * @param filePath the filepath of the item to check
    * */
-  def existsInTargetVaultWithMd5Match(mediaTier: MediaTiers.Value, id: String, vault: Vault, fileName: String, filePath: String, fileSize: Long, maybeLocalChecksum: Option[String]): Future[Boolean] = {
+  def existsInTargetVaultWithMd5Match(mediaTier: MediaTiers.Value, id: String, vault: Vault, filePath: String, fileSize: Long, maybeLocalChecksum: Option[String]): Future[Boolean] = {
     val wantedFileInfo = s"$filePath ($id, $fileSize, ${maybeLocalChecksum.getOrElse("<no local checksum>")})"
     (for {
       potentialMatches <- findMatchingFilesOnVault(mediaTier, vault, filePath, fileSize)
@@ -153,7 +152,7 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
     for {
       maybeChecksum <- getChecksumForNearline(vault, nearlineId)
       //TODO add nearlineId to parameter list for logging purposes(?)
-      exists <- existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, filePathBack, fileSize, maybeChecksum)
+      exists <- existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, fileSize, maybeChecksum)
     } yield exists
   }
 

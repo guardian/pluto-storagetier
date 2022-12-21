@@ -2,7 +2,7 @@ import MediaNotRequiredMessageProcessor.Action
 import utils.Ensurer.validateNeededFields
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.helpers.{MatrixStoreHelper, MetadataHelper}
+import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
@@ -10,25 +10,21 @@ import com.gu.multimedia.storagetier.framework._
 import com.gu.multimedia.storagetier.messages.{OnlineOutputMessage, VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
-import com.gu.multimedia.storagetier.vidispine.{ShapeDocument, VidispineCommunicator}
+import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.{MxsObject, Vault}
-import exceptions.BailOutExceptionMR
 import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import messages.MediaRemovedMessage
 import org.slf4j.LoggerFactory
 
 import java.nio.file.Paths
 import java.util.UUID
-import scala.concurrent.impl.Promise
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   implicit
@@ -98,39 +94,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   protected def callObjectMatrixEntryFromOID(vault:Vault, fileName:String): Future[ObjectMatrixEntry] = ObjectMatrixEntry.fromOID(fileName, vault)
   protected def openMxsObject(vault:Vault, oid:String): Try[MxsObject] = Try { vault.getObject(oid) }
 
-  /**
-   * Searches the given vault for files matching the given specification.
-   * Both the name and fileSize must match in order to be considered valid.
-   * @param vault vault to search
-   * @param filePath Path representing the file path to look for.
-   * @param fileSize Long representing the size of the file to match
-   * @return a Future, containing a sequence of ObjectMatrixEntries that match the given file path and size
-   */
-//  def findMatchingFilesOnNearline_fromFileCopier(vault: Vault, filePath: Path, fileSize: Long) = {
-  def findMatchingFilesOnVault(mediaTier: MediaTiers.Value, vault: Vault, filePath: String, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = {
-    logger.debug(s"Looking for files matching $mediaTier media with $filePath at size $fileSize on ${vault.getId}")
-    callFindByFilenameNew(vault, filePath)
-      .map(fileNameMatches => {
-        val nullSizes = fileNameMatches.map(_.maybeGetSize()).collect({ case None => None }).length
-        // TODO Decide if we need to/should do this? Flip it around maybe?
-        if (nullSizes > 0) {
-          throw new BailOutExceptionMR(s"Could not check for matching files of $filePath because $nullSizes / ${fileNameMatches.length} had no size")
-        }
-
-        val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
-
-        if (fileNameMatches.nonEmpty) {
-          val str = fileNameMatches.map(obj => s"oid ${obj.oid}, path '${obj.pathOrFilename.getOrElse("-")}', size ${obj.maybeGetSize().get}").mkString("; ")
-          logger.debug(s"Object(s) matched on name on ${vault.getId}: $str")
-          logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
-        } else {
-          logger.debug(s"$filePath: No files matched name on ${vault.getId}")
-        }
-        sizeMatches
-      })
-  }
-
-
 
   def nearlineExistsInInternalArchive(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = {
     val (fileSize, filePath, nearlineId) = validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId)
@@ -141,7 +104,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
     for {
       maybeChecksum <- onlineHelper.getMd5ChecksumForOnline(vsItemId)
-      exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.ONLINE, vsItemId, nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, maybeChecksum)
+      exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.ONLINE, vsItemId, nearlineVaultOrInternalArchiveVault, filePath, fileSize, maybeChecksum)
     } yield exists
 
 
@@ -458,18 +421,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
           s"onlineId ${onlineOutputMessage.vidispineItemId.getOrElse("<missing vsItem ID>")}, " +
           s"media category is ${onlineOutputMessage.mediaCategory} - Could not find project record for media"
 
-  private def getInformativePendingDeletionString(project: PendingDeletionRecord) = {
-    val id = project.id.getOrElse("<missing rec ID>")
-    val nearlineId = project.nearlineId.getOrElse("<missing nearline ID>")
-    val vsItemId = project.vidispineItemId.getOrElse("<missing vsItem ID>")
-
-    s"${project.mediaTier} pendingDeletionRecord with " +
-      s"id $id, " +
-      s"nearlineId $nearlineId, " +
-      s"onlineId $vsItemId " +
-      s"originalFilePath '${project.originalFilePath}', " +
-      s"attempt ${project.attempt}"
-  }
 
   def deleteFromNearlineWrapper(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
     nearlineHelper.deleteMediaFromNearline(nearlineVault, onlineOutputMessage.mediaTier, onlineOutputMessage.originalFilePath, onlineOutputMessage.nearlineId, onlineOutputMessage.vidispineItemId).map({

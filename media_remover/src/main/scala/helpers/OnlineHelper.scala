@@ -14,19 +14,12 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class OnlineHelper (
-                     implicit
-//                     pendingDeletionRecordDAO: PendingDeletionRecordDAO,
-//                     nearlineRecordDAO: NearlineRecordDAO,
-                     ec: ExecutionContext,
-                     mat: Materializer,
-                     system: ActorSystem,
-//                     matrixStoreBuilder: MXSConnectionBuilderImpl,
-//                     mxsConfig: MatrixStoreConfig,
-                     vidispineCommunicator: VidispineCommunicator,
-//                     s3ObjectChecker: S3ObjectChecker,
-//                     checksumChecker: ChecksumChecker
-                   )  {
+class OnlineHelper(implicit
+                   ec: ExecutionContext,
+                   mat: Materializer,
+                   system: ActorSystem,
+                   vidispineCommunicator: VidispineCommunicator,
+                  ) {
 
   private val logger = LoggerFactory.getLogger(getClass)
 

@@ -4,12 +4,12 @@ import akka.http.scaladsl.model.HttpMessage
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
-import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.{MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.messages.{OnlineOutputMessage, VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
+import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
 import messages.MediaRemovedMessage
 
@@ -32,48 +32,10 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
+//noinspection ScalaDeprecation
 class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   implicit val mxsConfig: MatrixStoreConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
   private val logger = LoggerFactory.getLogger(getClass)
-
-
-  "MediaNotRequiredMessageProcessor.findMatchingFilesOnVault" should {
-    "log in findMatchingFilesOnVault nicely" in {
-
-      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
-      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
-      implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
-      implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
-      implicit val mat: Materializer = mock[Materializer]
-      implicit val sys: ActorSystem = mock[ActorSystem]
-      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
-      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
-      implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
-      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
-      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
-      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
-      val mockAssetFolderLookup = mock[AssetFolderLookup]
-
-      val vault = mock[Vault]
-      vault.getId returns "mockVault"
-
-      val filePath = "/path/to/some/file.ext"
-      val results = Seq(
-        ObjectMatrixEntry("556593b10503", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 30L)), None),
-        ObjectMatrixEntry("abd81f4f6c0c", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 10L)), None),
-        ObjectMatrixEntry("b3bcb2fa2146", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 20L)), None),
-      )
-
-      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
-        override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(results)
-      }
-
-      val result = Await.result(toTest.findMatchingFilesOnVault(MediaTiers.NEARLINE, vault, filePath, 10L), 2.seconds)
-
-      result.size mustEqual 1
-      result.head.oid mustEqual "abd81f4f6c0c"
-    }
-  }
 
 
   "MediaNotRequiredMessageProcessor.mediaExistsInDeepArchive" should {
@@ -379,7 +341,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
       mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
 
-      val fakeMediaRemovedMessage = mediaRemovedMsgAsJson(msgObj)
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
 
       mockPendingDeletionHelper.removeDeletionPendingByMessage(any) returns Future(Right(1))
@@ -803,7 +764,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       )
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -875,7 +836,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockVault.getObject(any) returns mockObject
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -967,7 +928,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
       mockNearlineHelper.outputInternalArchiveCopyRequiredForOnline(any, any) returns Future(Right(internalArchiveCopyRequiredMessageForOnline.asJson))
       mockNearlineHelper.nearlineExistsInInternalArchive(any, any, any, any, any) returns Future(true)
 
@@ -1054,7 +1015,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockVault.getObject(any) returns mockObject
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
       mockNearlineHelper.outputInternalArchiveCopyRequiredForOnline(any, any) returns Future(Right(internalArchiveCopyRequiredMessageForOnline.asJson))
       mockNearlineHelper.nearlineExistsInInternalArchive(any, any, any, any, any) returns Future(true)
 
@@ -1075,8 +1036,8 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       logger.debug(s"112-result: $result")
       result must beSuccessfulTry
       result.get must beRight
-      val mprvRec = result.get.getOrElse(null).content.as[NearlineRecord].right.get
-      mprvRec.vidispineItemId must beSome("VX-1519112")
+      val nearlineRec = result.get.getOrElse(null).content.as[NearlineRecord].right.get
+      nearlineRec.vidispineItemId must beSome("VX-1519112")
     }
 
     // Completed/Killed, not deletable, deep_archive, not sensitive
@@ -1129,7 +1090,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1202,7 +1163,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(msgObj.vidispineItemId.get) returns Future(None)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1281,7 +1242,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1289,7 +1250,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionHelper.removeDeletionPendingByMessage(any) returns Future(Right(1))
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1356,8 +1317,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val deepCopyRequiredMessage = VidispineMediaIngested(List(VidispineField("itemId", msgObj.vidispineItemId.get)))
-
       val mockVault = mock[Vault]
       val mockInternalVault = mock[Vault]
       val mockObject = mock[MxsObject]
@@ -1367,7 +1326,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1447,7 +1406,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1455,7 +1414,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionHelper.removeDeletionPendingByMessage(any) returns Future(Right(1))
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1528,7 +1487,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockPendingDeletionRecordDAO.writeRecord(any) returns Future(4321)
 
       mockNearlineHelper.verifyChecksumMatchUsingChecker(any, any, any) returns Future(Some("abd81f4f6c0c"))
-      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any, any) returns Future(true)
+      mockNearlineHelper.existsInTargetVaultWithMd5Match(any, any, any, any, any, any) returns Future(true)
 
       mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
       mockOnlineHelper.deleteMediaFromOnline(any: OnlineOutputMessage) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
@@ -1557,7 +1516,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   "MediaNotRequiredMessageProcessor.handleNearlineMediaNotRequired" should {
 
     "22 route nearline deletable Completed project with deliverable media should drop silently" in {
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -1616,7 +1574,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
 
     "23 route nearline deletable Killed project with deliverable media should drop silently " in {
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -1673,7 +1630,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
     }
 
     "24 route nearline Deletable & Completed project with media not of type Deliverables should remove media" in {
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -1735,7 +1691,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
     }
 
     "25 route nearline Deletable & Completed project with media not of type Deliverables should remove media" in {
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -1801,7 +1756,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       // Deletable Archive Sensitive
       // No        Yes     No
 
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -1876,7 +1830,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       fakeProject.deep_archive returns Some(false)
       fakeProject.sensitive returns Some(false)
 
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val mockPendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -1916,7 +1869,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val fakeMediaRemovedMessage = mediaRemovedMsgAsJson(msgObj)
       mockNearlineHelper.deleteMediaFromNearline(any, any, any, any, any) returns Future(Right(mediaRemovedMsgAsJson(msgObj)))
       mockPendingDeletionHelper.removeDeletionPendingByMessage(any) returns Future(Right(1))
 
@@ -2013,7 +1965,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       fakeProject.deep_archive returns Some(false)
       fakeProject.sensitive returns Some(true)
 
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -2140,7 +2091,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
 
     "26 route nearline Deletable & Killed project with media not of type Deliverables should remove media" in {
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -2202,7 +2152,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
 
     "27 route nearline Deletable & New project should silent drop" in {
-      val mockMsgFramework = mock[MessageProcessingFramework]
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
@@ -2296,8 +2245,6 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msg = io.circe.parser.parse(msgContent)
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
-
-      val fakeMediaRemovedMessage = mediaRemovedMsgAsJson(msgObj)
 
       val mockVault = mock[Vault]
       val mockInternalVault = mock[Vault]

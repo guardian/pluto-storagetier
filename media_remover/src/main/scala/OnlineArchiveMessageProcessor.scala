@@ -1,25 +1,18 @@
-import MediaNotRequiredMessageProcessor.Action
-import akka.actor.ActorSystem
-import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.helpers.{MatrixStoreHelper, MetadataHelper}
-import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
-import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework._
-import com.gu.multimedia.storagetier.messages.{OnlineOutputMessage, VidispineField, VidispineMediaIngested}
+import com.gu.multimedia.storagetier.messages.{VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
-import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, EntryStatus, ProjectRecord}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
-import com.om.mxs.client.japi.{MxsObject, Vault}
+import com.gu.multimedia.storagetier.plutocore.AssetFolderLookup
+import com.om.mxs.client.japi.Vault
 import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import messages.MediaRemovedMessage
 import org.slf4j.LoggerFactory
 import utils.Ensurer
 

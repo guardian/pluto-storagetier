@@ -4,42 +4,34 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpMessage
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
-import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
 import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
-import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
+import com.gu.multimedia.storagetier.framework.MessageProcessingFramework
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage, VidispineField, VidispineMediaIngested}
+import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.models.common.MediaTiers
-import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
+import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
+import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecordDAO}
 import com.gu.multimedia.storagetier.plutocore.EntryStatus
-import messages.MediaRemovedMessage
 
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.Failure
 import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
 import com.om.mxs.client.japi.{MxsObject, Vault}
-import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import org.specs2.mock.Mockito
-import org.specs2.mutable.Specification
 
-import java.io.IOException
-import java.nio.file.{Path, Paths}
-import java.util.UUID
+import java.nio.file.Paths
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 class NearlineHelperSpec extends Specification with Mockito{
-  implicit val mxsConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
+  implicit val mxsConfig: MatrixStoreConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
 
     "NearlineHelper.dealWithAttFiles" should {
       "handle failed fromOID" in {
@@ -47,16 +39,15 @@ class NearlineHelperSpec extends Specification with Mockito{
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
         implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
         implicit val mat: Materializer = mock[Materializer]
         implicit val sys: ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[OnlineHelper]
-        implicit val mockNearlineHelper = mock[NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
 
         val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -66,7 +57,7 @@ class NearlineHelperSpec extends Specification with Mockito{
         val filePath = "/path/to/some/file.ext"
 
         val toTest = new NearlineHelper(mockAssetFolderLookup) {
-          override protected def callObjectMatrixEntryFromOID(vault: Vault, fileName: String) = Future.fromTry(Failure(new RuntimeException("no oid for you")))
+          override protected def callObjectMatrixEntryFromOID(vault: Vault, fileName: String): Future[ObjectMatrixEntry] = Future.fromTry(Failure(new RuntimeException("no oid for you")))
         }
 
         val result = Await.result(toTest.dealWithAttFiles(vault, "556593b10503", filePath), 2.seconds)
@@ -78,7 +69,6 @@ class NearlineHelperSpec extends Specification with Mockito{
     "MediaNotRequiredMessageProcessor.existsInTargetVaultWithMd5Match" should {
       "log found object nicely" in {
 
-        val mockMsgFramework = mock[MessageProcessingFramework]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
         nearlineRecordDAO.writeRecord(any) returns Future(123)
         nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
@@ -86,16 +76,15 @@ class NearlineHelperSpec extends Specification with Mockito{
         failureRecordDAO.writeRecord(any) returns Future(234)
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
 
         implicit val mat: Materializer = mock[Materializer]
         implicit val sys: ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
-        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
+        implicit val mockOnlineHelper: OnlineHelper = mock[helpers.OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[helpers.NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[helpers.PendingDeletionHelper]
 
         val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -114,10 +103,10 @@ class NearlineHelperSpec extends Specification with Mockito{
         )
 
         val toTest = new NearlineHelper(mockAssetFolderLookup) {
-            override protected def callFindByFilenameNew(vault:Vault, fileName:String) = Future(results)
+            override protected def callFindByFilenameNew(vault:Vault, fileName:String): Future[Seq[ObjectMatrixEntry]] = Future(results)
         }
 
-        val result = Await.result(toTest. existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, vault, filePath, filePath, 12L, Some("ff961dc5e8da688fa78540651160b223")), 2.seconds)
+        val result = Await.result(toTest.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, vault, filePath, 12L, Some("ff961dc5e8da688fa78540651160b223")), 2.seconds)
 
         result must beTrue
       }
@@ -128,17 +117,16 @@ class NearlineHelperSpec extends Specification with Mockito{
         implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
 
         implicit val mat: Materializer = mock[Materializer]
         implicit val sys: ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[helpers.OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[helpers.NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[helpers.PendingDeletionHelper]
 
         val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -156,17 +144,16 @@ class NearlineHelperSpec extends Specification with Mockito{
         )
 
         val toTest = new NearlineHelper(mockAssetFolderLookup) {
-            override protected def callFindByFilenameNew(vault:Vault, fileName:String) = Future(results)
+            override protected def callFindByFilenameNew(vault:Vault, fileName:String): Future[Seq[ObjectMatrixEntry]] = Future(results)
         }
 
-        val result = Await.result(toTest.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, vault, filePath, filePath, 12L, Some("ff961dc5e8da688fa78540651160b223")), 2.seconds)
+        val result = Await.result(toTest.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, vault, filePath, 12L, Some("ff961dc5e8da688fa78540651160b223")), 2.seconds)
 
         result must beFalse
       }
 
       "log no matching files nicely" in {
 
-        val mockMsgFramework = mock[MessageProcessingFramework]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
         nearlineRecordDAO.writeRecord(any) returns Future(123)
         nearlineRecordDAO.findBySourceFilename(any) returns Future(None)
@@ -174,17 +161,16 @@ class NearlineHelperSpec extends Specification with Mockito{
         failureRecordDAO.writeRecord(any) returns Future(234)
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
 
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
 
         implicit val mat: Materializer = mock[Materializer]
         implicit val sys: ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[helpers.OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[helpers.NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[helpers.PendingDeletionHelper]
 
         val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -199,10 +185,10 @@ class NearlineHelperSpec extends Specification with Mockito{
         val results = Seq()
 
         val toTest = new NearlineHelper(mockAssetFolderLookup) {
-            override protected def callFindByFilenameNew(vault:Vault, fileName:String) = Future(results)
+            override protected def callFindByFilenameNew(vault:Vault, fileName:String): Future[Seq[ObjectMatrixEntry]] = Future(results)
         }
 
-        val result = Await.result(toTest.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, vault, filePath, filePath, 12L, Some("ff961dc5e8da688fa78540651160b223")), 2.seconds)
+        val result = Await.result(toTest.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, vault, filePath, 12L, Some("ff961dc5e8da688fa78540651160b223")), 2.seconds)
 
         result must beFalse
       }
@@ -210,21 +196,19 @@ class NearlineHelperSpec extends Specification with Mockito{
 
     "NearlineHelper.getChecksumForNearline" should {
       "fail if no nearline id" in {
-        val mockMsgFramework = mock[MessageProcessingFramework]
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
 
         implicit val mat:Materializer = mock[Materializer]
         implicit val sys:ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[helpers.OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[helpers.NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[helpers.PendingDeletionHelper]
 
         val mockAssetFolderLookup = mock[AssetFolderLookup]
 
@@ -265,20 +249,18 @@ class NearlineHelperSpec extends Specification with Mockito{
 
     "NearlineHelper.deleteMediaFromNearline" should {
       "fail if no nearline id" in {
-        val mockMsgFramework = mock[MessageProcessingFramework]
         implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
 
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
         implicit val mat:Materializer = mock[Materializer]
         implicit val sys:ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[OnlineHelper]
-        implicit val mockNearlineHelper = mock[NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
 
 
         val mockAssetFolderLookup = mock[AssetFolderLookup]
@@ -327,16 +309,15 @@ class NearlineHelperSpec extends Specification with Mockito{
 
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
         implicit val mat: Materializer = mock[Materializer]
         implicit val sys: ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[helpers.OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[helpers.NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[helpers.PendingDeletionHelper]
 
         val assetFolderLookup = new AssetFolderLookup(fakeConfig)
 
@@ -355,16 +336,15 @@ class NearlineHelperSpec extends Specification with Mockito{
 
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
-        implicit val vidispineCommunicator = mock[VidispineCommunicator]
+        implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
         implicit val mat: Materializer = mock[Materializer]
         implicit val sys: ActorSystem = mock[ActorSystem]
-        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-        implicit val mockChecksumChecker = mock[ChecksumChecker]
+        implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+        implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
 
-        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
+        implicit val mockOnlineHelper: OnlineHelper = mock[helpers.OnlineHelper]
+        implicit val mockNearlineHelper: NearlineHelper = mock[helpers.NearlineHelper]
+        implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[helpers.PendingDeletionHelper]
 
         val assetFolderLookup = new AssetFolderLookup(fakeConfig)
 
@@ -377,4 +357,42 @@ class NearlineHelperSpec extends Specification with Mockito{
         result mustEqual filePath
       }
     }
+
+  "NearlineHelper.findMatchingFilesOnVault" should {
+    "log in findMatchingFilesOnVault nicely" in {
+
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val failureRecordDAO: FailureRecordDAO = mock[FailureRecordDAO]
+      implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val vault = mock[Vault]
+      vault.getId returns "mockVault"
+
+      val filePath = "/path/to/some/file.ext"
+      val results = Seq(
+        ObjectMatrixEntry("556593b10503", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 30L)), None),
+        ObjectMatrixEntry("abd81f4f6c0c", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 10L)), None),
+        ObjectMatrixEntry("b3bcb2fa2146", Some(MxsMetadata.empty.withValue("MXFS_PATH", filePath).withValue("__mxs__length", 20L)), None),
+      )
+
+      val toTest = new NearlineHelper(mockAssetFolderLookup) {
+        override protected def callFindByFilenameNew(vault: Vault, fileName: String): Future[Seq[ObjectMatrixEntry]] = Future(results)
+      }
+
+      val result = Await.result(toTest.findMatchingFilesOnVault(MediaTiers.NEARLINE, vault, filePath, 10L), 2.seconds)
+
+      result.size mustEqual 1
+      result.head.oid mustEqual "abd81f4f6c0c"
+    }
+  }
+
 }

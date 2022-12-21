@@ -17,9 +17,6 @@ class PendingDeletionHelper (implicit
 
   private val logger = LoggerFactory.getLogger(getClass)
 
-  def removeDeletionPending(existingRecord: PendingDeletionRecord): Future[Int] =
-    pendingDeletionRecordDAO.deleteRecord(existingRecord)
-
 
   def removeDeletionPendingByMessage(msg: OnlineOutputMessage): Future[Either[String, Int]] =
     (msg.mediaTier, msg.vidispineItemId, msg.nearlineId) match {
@@ -29,7 +26,7 @@ class PendingDeletionHelper (implicit
           .flatMap({
             // The number returned in the Right is the number of affected rows.
             // We always call this method when we delete an item, instead of first checking
-            // if there exists a pending deletetion => if none is found, that's not an
+            // if there exists a pending deletion => if none is found, that's not an
             // error, but obviously no rows are updated, hence Right(0) in that case.
             case Some(existingRecord) =>
               deleteExistingPendingDeletionRecord(existingRecord)

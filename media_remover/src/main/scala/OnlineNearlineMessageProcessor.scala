@@ -1,44 +1,31 @@
-import utils.Ensurer.validateNeededFields
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.helpers.{MatrixStoreHelper, MetadataHelper}
-import com.gu.multimedia.mxscopy.models.ObjectMatrixEntry
-import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
+import com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
 import com.gu.multimedia.storagetier.framework._
-import com.gu.multimedia.storagetier.messages.{OnlineOutputMessage, VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.MediaTiers
-import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.models.online_archive.ArchivedRecord
-import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, ProjectRecord}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
-import com.om.mxs.client.japi.{MxsObject, Vault}
+import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordDAO
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecord
+import com.gu.multimedia.storagetier.plutocore.AssetFolderLookup
+import com.om.mxs.client.japi.Vault
 import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
 import matrixstore.MatrixStoreConfig
-import messages.MediaRemovedMessage
 import org.slf4j.LoggerFactory
 
-import java.nio.file.Paths
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 
 class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
   implicit
   pendingDeletionRecordDAO: PendingDeletionRecordDAO,
-//  nearlineRecordDAO: NearlineRecordDAO,
   ec: ExecutionContext,
   mat: Materializer,
   system: ActorSystem,
   matrixStoreBuilder: MXSConnectionBuilderImpl,
   mxsConfig: MatrixStoreConfig,
-//  vidispineCommunicator: VidispineCommunicator,
-//  s3ObjectChecker: S3ObjectChecker,
-//  checksumChecker: ChecksumChecker,
   onlineHelper: OnlineHelper,
   nearlineHelper: NearlineHelper,
   pendingDeletionHelper: PendingDeletionHelper
@@ -133,7 +120,7 @@ class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
     for {
       maybeChecksum <- nearlineHelper.getChecksumForNearline(vault, nearlineId)
       //TODO add nearlineId to parameter list for logging purposes(?)
-      exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, filePathBack, fileSize, maybeChecksum)
+      exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, fileSize, maybeChecksum)
     } yield exists
   }
 
@@ -198,7 +185,7 @@ class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
   def onlineExistsInVault(nearlineVaultOrInternalArchiveVault: Vault, vsItemId: String, filePath: String, fileSize: Long): Future[Boolean] =
     for {
       onlineChecksumMaybe <- onlineHelper.getMd5ChecksumForOnline(vsItemId)
-      exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.ONLINE, vsItemId, nearlineVaultOrInternalArchiveVault, filePath, filePath, fileSize, onlineChecksumMaybe)
+      exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.ONLINE, vsItemId, nearlineVaultOrInternalArchiveVault, filePath, fileSize, onlineChecksumMaybe)
     } yield exists
 
 }
