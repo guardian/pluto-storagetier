@@ -86,9 +86,9 @@ class PendingDeletionHelper (implicit
           case Success(mediaTier) =>
             val recordMaybeFut = mediaTier match {
               case MediaTiers.ONLINE =>
-                pendingDeletionRecordDAO.findByOnlineIdForONLINE(Ensurer.validateNeededFields(Some(0), Some(""), msg.vidispineItemId)._3)
+                pendingDeletionRecordDAO.findByOnlineIdForONLINE(Ensurer.validateMediaId(msg.vidispineItemId))
               case MediaTiers.NEARLINE =>
-                pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(Ensurer.validateNeededFields(Some(0), Some(""), msg.nearlineId)._3)
+                pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(Ensurer.validateMediaId(msg.nearlineId))
             }
             recordMaybeFut.map({
               case Some(existingRecord) => existingRecord.copy(attempt = existingRecord.attempt + 1)
