@@ -11,7 +11,7 @@ import com.gu.multimedia.storagetier.models.media_remover.PendingDeletionRecordD
 import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import com.gu.multimedia.storagetier.plutocore.AssetFolderLookup
 import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
-import exceptions.BailOutExceptionMR
+import exceptions.BailOutException
 import com.om.mxs.client.japi.{MxsObject, Vault}
 import io.circe.Json
 import io.circe.generic.auto._
@@ -85,29 +85,33 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
    * @param fileSize Long representing the size of the file to match
    * @return a Future, containing a sequence of ObjectMatrixEntries that match the given file path and size
    */
-  //  def findMatchingFilesOnNearline_fromFileCopier(vault: Vault, filePath: Path, fileSize: Long) = {
   def findMatchingFilesOnVault(mediaTier: MediaTiers.Value, vault: Vault, filePath: String, fileSize: Long): Future[Seq[ObjectMatrixEntry]] = {
     logger.debug(s"Looking for files matching $mediaTier media with $filePath at size $fileSize on ${vault.getId}")
     callFindByFilenameNew(vault, filePath)
       .map(fileNameMatches => {
-        val nullSizes = fileNameMatches.map(_.maybeGetSize()).collect({ case None => None }).length
-        // TODO Decide if we need to/should do this? Flip it around maybe?
-        if (nullSizes > 0) {
-          throw new BailOutExceptionMR(s"Could not check for matching files of $filePath because $nullSizes / ${fileNameMatches.length} had no size")
-        }
-
         val sizeMatches = fileNameMatches.filter(_.maybeGetSize().contains(fileSize))
 
         if (fileNameMatches.nonEmpty) {
-          val str = fileNameMatches.map(obj => s"oid ${obj.oid}, path '${obj.pathOrFilename.getOrElse("-")}', size ${obj.maybeGetSize().get}").mkString("; ")
+          val str = fileNameMatches.map(obj => s"oid ${obj.oid}, path '${obj.pathOrFilename.getOrElse("-")}', size ${obj.maybeGetSize().getOrElse(-1)}").mkString("; ")
           logger.debug(s"Object(s) matched on name on ${vault.getId}: $str")
           logger.debug(s"$filePath: ${fileNameMatches.length} files matched name and ${sizeMatches.length} matched size")
         } else {
           logger.debug(s"$filePath: No files matched name on ${vault.getId}")
         }
+
+        if (sizeMatches.isEmpty) bailoutIfNullSizePresent(filePath, fileNameMatches)
+
         sizeMatches
       })
   }
+
+  private def bailoutIfNullSizePresent(filePath: String, fileNameMatches: Seq[ObjectMatrixEntry]): Unit = {
+    val nullSizeCount = fileNameMatches.map(_.maybeGetSize()).collect({ case None => None }).length
+    if (nullSizeCount > 0) {
+      throw new BailOutException(s"Could not check for matching files of $filePath because $nullSizeCount / ${fileNameMatches.length} had no size")
+    }
+  }
+
 
   /**
    * Checks to see if any of the MXS files in the `potentialFiles` list are a checksum match for `filePath`.
@@ -134,16 +138,21 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
   def getNearlineFileSize(vault: Vault, oid: String): Future[Long] =
     Future.fromTry(Try {vault.getObject(oid)}.map(MetadataHelper.getFileSize))
 
+  protected def getOMFileMd5(mxsFile: MxsObject): Future[Try[String]] = {
+    MatrixStoreHelper.getOMFileMd5(mxsFile)
+  }
+
   def getChecksumForNearline(vault: Vault, oid: String): Future[Option[String]] =
     for {
       mxsFile <- Future.fromTry(openMxsObject(vault, oid))
-      maybeMd5 <- MatrixStoreHelper.getOMFileMd5(mxsFile).flatMap({
-        case Failure(err) =>
-          logger.error(s"Unable to get checksum from appliance ${vault.getId}, file with $oid should be considered unsafe", err)
-          Future(None)
+      maybeMd5 <- getOMFileMd5(mxsFile).flatMap({
         case Success(remoteChecksum) =>
           logger.info(s"Appliance reported checksum of $remoteChecksum for $oid on ${vault.getId}")
           Future(Some(remoteChecksum))
+      }).recoverWith({
+        case err: Throwable =>
+          logger.error(s"Unable to get checksum from appliance ${vault.getId}, file with $oid should be considered unsafe. Reason: ${err.getMessage}", err)
+          Future(None)
       })
     } yield maybeMd5
 
@@ -151,7 +160,6 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
     val filePathBack = putItBack(filePath)
     for {
       maybeChecksum <- getChecksumForNearline(vault, nearlineId)
-      //TODO add nearlineId to parameter list for logging purposes(?)
       exists <- existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, fileSize, maybeChecksum)
     } yield exists
   }
@@ -182,12 +190,11 @@ class NearlineHelper(asLookup: AssetFolderLookup) (
             logger.debug(value)
             MessageProcessorConverters.futureEitherToMPRV(deleteMainNearlineMedia(vault, nearlineId, filepath, vidispineItemIdMaybe))
         })
-      case (_, _, _) => throw new RuntimeException(s"Cannot delete from nearline, wrong media tier ($mediaTier), or missing nearline id ($nearlineIdMaybe)")
+      case (_, _, _) => Future.failed(new RuntimeException(s"Cannot delete from nearline, wrong media tier ($mediaTier), or missing nearline id ($nearlineIdMaybe)"))
     }
 
 
-  private def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] =
-    // TODO do we need to wrap this with a Future.fromTry?
+  def deleteMainNearlineMedia(vault: Vault, nearlineId: String, filepath: String, vidispineItemIdMaybe: Option[String]): Future[Either[String, Json]] =
     Try {
       vault.getObject(nearlineId).delete()
     } match {

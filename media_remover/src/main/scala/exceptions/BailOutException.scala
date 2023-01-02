@@ -5,4 +5,4 @@ package exceptions
  *
  * @param msg error message
  */
-class BailOutExceptionMR(msg:String) extends Exception(msg)
+class BailOutException(msg:String) extends Exception(msg)
