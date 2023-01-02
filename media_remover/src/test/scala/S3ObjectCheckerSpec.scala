@@ -1,4 +1,7 @@
+import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.plutocore.PlutoCoreConfig
+import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
+import org.mockito.ArgumentMatchersSugar.eqTo
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import software.amazon.awssdk.services.s3.S3AsyncClient
@@ -6,7 +9,7 @@ import software.amazon.awssdk.services.s3.model._
 
 import java.nio.file.Paths
 import java.util.concurrent.CompletableFuture
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters._
@@ -26,8 +29,107 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
     }
   }
 
+  
+  "S3ObjectChecker.onlineMediaExistsInDeepArchive" should {
+    "call mediaExistsInDeepArchive with ONLINE" in {
+      val mockedS3Async = mock[S3AsyncClient]
+      val mockMediaExistsInDeepArchive = mock[(MediaTiers.Value, Option[String], Long, String, String) => Future[Boolean]]
+      mockMediaExistsInDeepArchive.apply(any[MediaTiers.Value], any[Option[String]], anyLong, anyString, anyString) returns Future(true)
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket") {
+        override def mediaExistsInDeepArchive(mediaTier: MediaTiers.Value, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
+          mockMediaExistsInDeepArchive(mediaTier, checksumMaybe, fileSize, originalFilePath, objectKey)
+      }
+
+      val result = Await.result(toTest.onlineMediaExistsInDeepArchive(Some("aChecksum"), 8888, "some/file/path", "anObjectKey"), 1.second)
+
+      there was one(mockMediaExistsInDeepArchive).apply(MediaTiers.ONLINE, Some("aChecksum"), 8888, "some/file/path", "anObjectKey")
+
+      result must beTrue
+    }
+  }
+
+
+  "S3ObjectChecker.nearlineMediaExistsInDeepArchive" should {
+    "call mediaExistsInDeepArchive with NEARLINE" in {
+      val mockedS3Async = mock[S3AsyncClient]
+      val mockMediaExistsInDeepArchive = mock[(MediaTiers.Value, Option[String], Long, String, String) => Future[Boolean]]
+      mockMediaExistsInDeepArchive.apply(any[MediaTiers.Value], any[Option[String]], anyLong, anyString, anyString) returns Future(true)
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket") {
+        override def mediaExistsInDeepArchive(mediaTier: MediaTiers.Value, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
+          mockMediaExistsInDeepArchive(mediaTier, checksumMaybe, fileSize, originalFilePath, objectKey)
+      }
+
+      val result = Await.result(toTest.nearlineMediaExistsInDeepArchive(Some("aChecksum"), 8888, "some/file/path", "anObjectKey"), 1.second)
+
+      there was one(mockMediaExistsInDeepArchive).apply(MediaTiers.NEARLINE, Some("aChecksum"), 8888, "some/file/path", "anObjectKey")
+
+      result must beTrue
+    }
+  }
+
+
   "S3ObjectChecker.objectExistsWithSizeAndMaybeChecksum" should {
-    "return true if there is a pre-existing file with the same size" in {
+    "return true if there is a pre-existing file with the same size, and eTag is not an MD5, so checksum matching is skipped" in {
+      val mockedS3Async = mock[S3AsyncClient]
+
+      val fakeVersions = Seq(
+        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).eTag("someNonMD5Checksum").build(),
+        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).eTag("otherNonMD5Checksum").build(),
+      ).asJavaCollection
+      val fakeVersionsResponse = CompletableFuture.completedFuture(ListObjectVersionsResponse.builder().versions(fakeVersions).build())
+      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket")
+
+      val result = Await.result(toTest.objectExistsWithSizeAndMaybeChecksum("filePath", 50, Some("someChecksum")), 1.second)
+
+      result must beTrue
+    }
+
+    "return false if there is a pre-existing file with the same size, and eTag is MD5, but checksums do not match" in {
+      val mockedS3Async = mock[S3AsyncClient]
+
+      val someChecksum = "07ce8816e0217b02568ef03612fc6207"
+      val otherChecksum = "5de25b4a60941798f4349a1e0f8c4e56"
+      val yetAnotherChecksum = "8b841ddccc2a819cf1726e171947a54e"
+
+      val fakeVersions = Seq(
+        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).eTag(someChecksum).build(),
+        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).eTag(otherChecksum).build(),
+      ).asJavaCollection
+      val fakeVersionsResponse = CompletableFuture.completedFuture(ListObjectVersionsResponse.builder().versions(fakeVersions).build())
+      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket")
+
+      val result = Await.result(toTest.objectExistsWithSizeAndMaybeChecksum("filePath", 50, Some(yetAnotherChecksum)), 1.second)
+
+      result must beFalse
+    }
+
+    "return true if there is a pre-existing file with the same size, and eTag is MD5, and checksums do match" in {
+      val mockedS3Async = mock[S3AsyncClient]
+
+      val someChecksum = "07ce8816e0217b02568ef03612fc6207"
+      val otherChecksum = "5de25b4a60941798f4349a1e0f8c4e56"
+
+      val fakeVersions = Seq(
+        ObjectVersion.builder().key("filePath").versionId("abcdefg").size(50).eTag(someChecksum).build(),
+        ObjectVersion.builder().key("filePath").versionId("xyzzqt").size(10).eTag(otherChecksum).build(),
+      ).asJavaCollection
+      val fakeVersionsResponse = CompletableFuture.completedFuture(ListObjectVersionsResponse.builder().versions(fakeVersions).build())
+      mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket")
+
+      val result = Await.result(toTest.objectExistsWithSizeAndMaybeChecksum("filePath", 50, Some(someChecksum)), 1.second)
+
+      result must beTrue
+    }
+
+    "return true if there is a pre-existing file with the same size and there is no local checksum" in {
       val mockedS3Async = mock[S3AsyncClient]
 
       val fakeVersions = Seq(
@@ -36,9 +138,10 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
       ).asJavaCollection
       val fakeVersionsResponse = CompletableFuture.completedFuture(ListObjectVersionsResponse.builder().versions(fakeVersions).build())
       mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
-      val s3ObjectChecker = new S3ObjectChecker(mockedS3Async, "bucket")
 
-      val result = Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath",50, None), 1.second)
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket")
+
+      val result = Await.result(toTest.objectExistsWithSizeAndMaybeChecksum("filePath", 50, None), 1.second)
 
       result must beTrue
     }
@@ -54,7 +157,7 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
       mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns fakeVersionsResponse
       val s3ObjectChecker = new S3ObjectChecker(mockedS3Async, "bucket")
 
-      val result = Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None), 1.second)
+      val result = Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath", 8888, None), 1.second)
 
       result must beFalse
     }
@@ -68,7 +171,7 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
       mockedS3Async.listObjectVersions(org.mockito.ArgumentMatchers.any[ListObjectVersionsRequest]) returns cfCompletedExceptionally
       val s3ObjectChecker = new S3ObjectChecker(mockedS3Async, "bucket")
 
-      val result = Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None), 1.second)
+      val result = Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath", 8888, None), 1.second)
 
       result must beFalse
     }
@@ -83,75 +186,56 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
 
       val s3ObjectChecker = new S3ObjectChecker(mockedS3Async, "bucket")
 
-      val result = Try { Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath",8888, None), 1.second) }
+      val result = Try {
+        Await.result(s3ObjectChecker.objectExistsWithSizeAndMaybeChecksum("filePath", 8888, None), 1.second)
+      }
 
       result must beAFailedTry
       result.failed.get.getMessage mustEqual "Could not check pre-existing versions for s3://bucket/filePath: bork"
     }
   }
 
-//    "S3ObjectChecker.mediaExistsInDeepArchive" should {
-//      "relativize when called with item in path" in {
-//        val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))
-//
-////        implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
-////        implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
-////        implicit val vidispineCommunicator = mock[VidispineCommunicator]
-////        implicit val mat: Materializer = mock[Materializer]
-////        implicit val sys: ActorSystem = mock[ActorSystem]
-////        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-////        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-////        implicit val mockChecksumChecker = mock[ChecksumChecker]
-//
-//        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-//        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-//        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
-//
-//        val assetFolderLookup = new AssetFolderLookup(fakeConfig)
-//
-//        val toTest = new MediaNotRequiredMessageProcessor(assetFolderLookup)
-//
-//        val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/srv/Multimedia2/NextGenDev/Media Production/Assets/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML","fileSize":8823,"vidispineItemId":null,"nearlineId":"51a0f742-3d89-11ec-a895-8e29f591bdb6-2319","mediaCategory":"metadata"}"""
-//
-//        val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
-//
-//        mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
-//
-//        toTest.mediaExistsInDeepArchive(msgObj.mediaTier, None, 1L, msgObj.originalFilePath.get)
-//
-//        there was one(mockS3ObjectChecker).objectExistsWithSizeAndMaybeChecksum("Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", 1L, None)
-//      }
-//
-//      "strip when called with item not in path" in {
-//        val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))
-//
-//        implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
-//        implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
-//        implicit val vidispineCommunicator = mock[VidispineCommunicator]
-//        implicit val mat: Materializer = mock[Materializer]
-//        implicit val sys: ActorSystem = mock[ActorSystem]
-//        implicit val mockBuilder = mock[MXSConnectionBuilderImpl]
-//        implicit val mockS3ObjectChecker = mock[S3ObjectChecker]
-//        implicit val mockChecksumChecker = mock[ChecksumChecker]
-//
-//        implicit val mockOnlineHelper = mock[helpers.OnlineHelper]
-//        implicit val mockNearlineHelper = mock[helpers.NearlineHelper]
-//        implicit val mockPendingDeletionHelper = mock[helpers.PendingDeletionHelper]
-//
-//        val assetFolderLookup = new AssetFolderLookup(fakeConfig)
-//
-//        val toTest = new MediaNotRequiredMessageProcessor(assetFolderLookup)
-//
-//        val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4","fileSize":291354,"vidispineItemId":null,"nearlineId":"741d089d-a920-11ec-a895-8e29f591bdb6-1568","mediaCategory":"proxy"}"""
-//
-//        mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
-//
-//        val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
-//
-//        toTest.mediaExistsInDeepArchive(msgObj.mediaTier, None, 1L, msgObj.originalFilePath.get)
-//
-//        there was one(mockS3ObjectChecker).objectExistsWithSizeAndMaybeChecksum("srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4", 1L, None)
-//      }
-//    }
+
+  "S3ObjectChecker.mediaExistsInDeepArchive" should {
+    "return future true if exists" in {
+      val mockedS3Async = mock[S3AsyncClient]
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket") {
+        override def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeLocalMd5: Option[String]): Future[Boolean] = Future(true)
+      }
+
+      val result = Await.result(toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, Some("aChecksum"), 8888, "some/file/path", "anObjectKey"), 1.second)
+
+      result must beTrue
+    }
+
+    "return future false if not exists" in {
+      val mockedS3Async = mock[S3AsyncClient]
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket") {
+        override def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeLocalMd5: Option[String]): Future[Boolean] = Future(false)
+      }
+
+      val result = Await.result(toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, Some("aChecksum"), 8888, "some/file/path", "anObjectKey"), 1.second)
+
+      result must beFalse
+    }
+
+    "return future false if objectExistsWithSizeAndMaybeChecksum throws exception" in {
+      val mockedS3Async = mock[S3AsyncClient]
+      val bucketName = "aBucket"
+      val objectKey = "anObjectKey"
+
+      val toTest = new S3ObjectChecker(mockedS3Async, bucketName) {
+
+        override def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeLocalMd5: Option[String]): Future[Boolean] =
+          Future.failed(new RuntimeException(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: some message"))
+      }
+
+      val result = Await.result(toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, Some("aChecksum"), 8888, "some/file/path", objectKey), 1.second)
+
+      result must beFalse
+    }
+  }
 
 }

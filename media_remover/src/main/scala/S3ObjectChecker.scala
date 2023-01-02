@@ -57,12 +57,12 @@ class S3ObjectChecker(client: S3AsyncClient, var bucketName: String)(implicit ec
   }
 
   def onlineMediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
-    mediaExistsInDeepArchive(MediaTiers.ONLINE.toString, checksumMaybe, fileSize, originalFilePath, objectKey)
+    mediaExistsInDeepArchive(MediaTiers.ONLINE, checksumMaybe, fileSize, originalFilePath, objectKey)
 
  def nearlineMediaExistsInDeepArchive(checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
-    mediaExistsInDeepArchive(MediaTiers.NEARLINE.toString, checksumMaybe, fileSize, originalFilePath, objectKey)
+    mediaExistsInDeepArchive(MediaTiers.NEARLINE, checksumMaybe, fileSize, originalFilePath, objectKey)
 
-  private def mediaExistsInDeepArchive(mediaTier: String, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
+  def mediaExistsInDeepArchive(mediaTier: MediaTiers.Value, checksumMaybe: Option[String], fileSize: Long, originalFilePath: String, objectKey: String): Future[Boolean] =
     objectExistsWithSizeAndMaybeChecksum(objectKey, fileSize, checksumMaybe).map({
       case true =>
         logger.info(s"$mediaTier file with path $originalFilePath, objectKey $objectKey and size $fileSize exists, safe to delete from higher level")
