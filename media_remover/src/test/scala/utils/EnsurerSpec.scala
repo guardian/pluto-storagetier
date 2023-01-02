@@ -6,7 +6,6 @@ import org.specs2.mutable.Specification
 import scala.util.Try
 
 class EnsurerSpec extends Specification with Mockito {
-//  "MediaNotRequiredMessageProcessor.storeDeletionPending" should {
   "Utils.validateNeededFields" should {
     "fail when size is None" in {
 
