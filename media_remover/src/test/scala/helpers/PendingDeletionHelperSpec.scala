@@ -1,43 +1,20 @@
 package helpers
 
-import org.specs2.mock.Mockito
-import org.specs2.mutable.Specification
-
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpMessage
-import akka.stream.Materializer
-import com.gu.multimedia.mxscopy.{ChecksumChecker, MXSConnectionBuilderImpl}
-import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
-import com.gu.multimedia.mxscopy.models.{MxsMetadata, ObjectMatrixEntry}
-import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessorReturnValue, RMQDestination, SilentDropMessage}
-import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.messages.{AssetSweeperNewFile, OnlineOutputMessage, VidispineField, VidispineMediaIngested}
+import com.gu.multimedia.storagetier.messages.OnlineOutputMessage
 import com.gu.multimedia.storagetier.models.common.MediaTiers
 import com.gu.multimedia.storagetier.models.media_remover.{PendingDeletionRecord, PendingDeletionRecordDAO}
-import com.gu.multimedia.storagetier.models.nearline_archive.{FailureRecordDAO, NearlineRecord, NearlineRecordDAO}
-import com.gu.multimedia.storagetier.plutocore.EntryStatus
-import messages.MediaRemovedMessage
-
-import scala.language.postfixOps
-import scala.util.{Failure, Success}
-import com.gu.multimedia.storagetier.plutocore.{AssetFolderLookup, PlutoCoreConfig, ProjectRecord}
-import com.gu.multimedia.storagetier.vidispine.VidispineCommunicator
-import com.om.mxs.client.japi.{MxsObject, Vault}
-import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
+import com.gu.multimedia.storagetier.models.nearline_archive.NearlineRecordDAO
 import io.circe.generic.auto._
-import io.circe.syntax._
-import matrixstore.MatrixStoreConfig
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 
-import java.io.IOException
-import java.nio.file.{Path, Paths}
-import java.util.UUID
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
+import scala.language.postfixOps
 import scala.util.Try
 
+//noinspection ScalaDeprecation
 class PendingDeletionHelperSpec extends Specification with Mockito {
 
   "PendingDeletionHelper.storeDeletionPending" should {
@@ -104,8 +81,8 @@ class PendingDeletionHelperSpec extends Specification with Mockito {
 
       implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
-      val existingRecord = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsid"), MediaTiers.NEARLINE, 1)
-      val expectedUpdatedRecordToSave = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsid"), MediaTiers.NEARLINE, 2)
+      val existingRecord = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsId"), MediaTiers.NEARLINE, 1)
+      val expectedUpdatedRecordToSave = PendingDeletionRecord(Some(234), "some/file/path", Some("nearline-test-id"), Some("vsId"), MediaTiers.NEARLINE, 2)
       pendingDeletionRecordDAO.findByNearlineIdForNEARLINE(any) returns Future(Some(existingRecord))
       pendingDeletionRecordDAO.writeRecord(expectedUpdatedRecordToSave) returns Future(234)
 

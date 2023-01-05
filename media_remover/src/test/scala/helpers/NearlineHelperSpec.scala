@@ -28,6 +28,7 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
 
+//noinspection ScalaDeprecation
 class NearlineHelperSpec extends Specification with Mockito{
   implicit val mxsConfig: MatrixStoreConfig = MatrixStoreConfig(Array("127.0.0.1"), "cluster-id", "mxs-access-key", "mxs-secret-key", "vault-id", None)
 
@@ -518,7 +519,6 @@ class NearlineHelperSpec extends Specification with Mockito{
 
       "return original path if putBackBase fails" in {
         val basePath = "/srv/Multimedia2/NextGenDev/Media Production/Assets/"
-        val fakeConfig = PlutoCoreConfig("test", "test", Paths.get(basePath))
 
         implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
         implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
@@ -748,7 +748,6 @@ class NearlineHelperSpec extends Specification with Mockito{
 
       val result = Try { Await.result(toTest.findMatchingFilesOnVault(MediaTiers.NEARLINE, vault, filePath, 10L), 2.seconds) }
 
-      println(s"<<<< $result")
       result must beAFailedTry
       result.failed.get.getMessage mustEqual "Could not check for matching files of /path/to/some/file.ext because 3 / 3 had no size"
     }

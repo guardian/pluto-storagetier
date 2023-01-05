@@ -11,9 +11,9 @@ import utils.Ensurer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class PendingDeletionHelper (implicit
-                             ec: ExecutionContext,
-                             pendingDeletionRecordDAO: PendingDeletionRecordDAO) {
+class PendingDeletionHelper(implicit
+                            ec: ExecutionContext,
+                            pendingDeletionRecordDAO: PendingDeletionRecordDAO) {
 
   private val logger = LoggerFactory.getLogger(getClass)
 

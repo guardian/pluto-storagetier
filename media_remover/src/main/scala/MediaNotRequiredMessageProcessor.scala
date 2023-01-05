@@ -137,7 +137,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     // We know we have an online item to delete, but no DA
     // -> vidispine.itemneedsbackup ---> vidispine.itemneedsarchive.online because we don't wanna trigger the other copy needlessly
     // -> implement copy from vs a la online_nearline but to S3
-    logger.info(s"Outputting Deep Archive copy required for online item (not removing ${tier} ${path})")
+    logger.info(s"Outputting Deep Archive copy required for online item (not removing $tier $path)")
     val itemNeedsArchiving = VidispineMediaIngested(List(VidispineField("itemId", itemId)))
     Future(Right(MessageProcessorReturnValue(itemNeedsArchiving.asJson, Seq(RMQDestination("vidispine-events", "vidispine.itemneedsarchive.online")))))
   }
@@ -155,7 +155,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     // We know we have an online item to delete, but no DA
     // -> vidispine.itemneedsbackup ---> vidispine.itemneedsarchive.nearline because we don't wanna trigger the other copy needlessly
     // -> implement copy from vs a la online_nearline but to S3
-    logger.info(s"Outputting Deep Archive copy required for nearline item (not removing ${tier} ${path})")
+    logger.info(s"Outputting Deep Archive copy required for nearline item (not removing $tier $path)")
     val itemNeedsArchiving = VidispineMediaIngested(List(VidispineField("itemId", itemId)))
     Future(Right(MessageProcessorReturnValue(itemNeedsArchiving.asJson, Seq(RMQDestination("vidispine-events", "vidispine.itemneedsarchive.nearline")))))
   }

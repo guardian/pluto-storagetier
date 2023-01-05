@@ -119,7 +119,6 @@ class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
     val filePathBack = nearlineHelper.putItBack(filePath)
     for {
       maybeChecksum <- nearlineHelper.getChecksumForNearline(vault, nearlineId)
-      //TODO add nearlineId to parameter list for logging purposes(?)
       exists <- nearlineHelper.existsInTargetVaultWithMd5Match(MediaTiers.NEARLINE, nearlineId, internalArchiveVault, filePathBack, fileSize, maybeChecksum)
     } yield exists
   }

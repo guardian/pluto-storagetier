@@ -1,13 +1,9 @@
 import com.gu.multimedia.storagetier.models.common.MediaTiers
-import com.gu.multimedia.storagetier.plutocore.PlutoCoreConfig
-import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
-import org.mockito.ArgumentMatchersSugar.eqTo
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model._
 
-import java.nio.file.Paths
 import java.util.concurrent.CompletableFuture
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
