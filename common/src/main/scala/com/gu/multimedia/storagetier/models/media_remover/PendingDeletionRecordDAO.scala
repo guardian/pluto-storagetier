@@ -103,10 +103,18 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
     )
   }
 
-  def findBySourceFilenameAndMediaTier(filename:String, mediaTier: MediaTiers.Value): Future[Option[PendingDeletionRecord]] =
+  def findByOriginalFilePathForNEARLINE(originalFilePath:String): Future[Option[PendingDeletionRecord]] =
     db.run(
-      TableQuery[PendingDeletionRecordRow].filter(row => row.originalFilePath===filename && row.mediaTier===mediaTier).result
+      TableQuery[PendingDeletionRecordRow].filter(row => row.originalFilePath===originalFilePath && row.mediaTier===MediaTiers.NEARLINE).result
     ).map(_.headOption)
+
+  def findAllByOriginalFilePathForNEARLINE(originalFilePath:String): Future[Seq[PendingDeletionRecord]] =
+    db.run(
+      TableQuery[PendingDeletionRecordRow]
+        .filter(row => row.originalFilePath===originalFilePath && row.mediaTier===MediaTiers.NEARLINE)
+        .sortBy(_.attempt)
+        .result
+    )
 
   def findByOnlineIdForONLINE(vsItemId: String): Future[Option[PendingDeletionRecord]] =
     db.run(
@@ -114,6 +122,13 @@ class PendingDeletionRecordDAO(override protected val db: Database)(implicit
         row => row.vidispineItemId===vsItemId && row.mediaTier===MediaTiers.ONLINE
       ).result
     ).map(_.headOption)
+
+  def findAllByOnlineIdForNEARLINE(vsItemId: String): Future[Seq[PendingDeletionRecord]] =
+    db.run(
+      TableQuery[PendingDeletionRecordRow].filter(
+        row => row.vidispineItemId===vsItemId && row.mediaTier===MediaTiers.NEARLINE
+      ).result
+    )
 
   def findByNearlineIdForNEARLINE(oid: String): Future[Option[PendingDeletionRecord]] =
     db.run(
