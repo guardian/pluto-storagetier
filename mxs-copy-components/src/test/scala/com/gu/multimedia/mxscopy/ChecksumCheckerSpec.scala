@@ -31,13 +31,10 @@ class ChecksumCheckerSpec extends Specification with Mockito {
 
       val toTest = new ChecksumChecker() {
         override def getChecksumFromPath(filePath: Path): Future[Option[String]] = mockGetChecksumFromPath(filePath)
-
         override def getOMFileMd5(mxsFile: MxsObject): Future[Try[String]] = mockGetOMFileMD5(mxsFile)
-
-        def callVerify(filePath:Path, potentialFiles:Seq[MxsObject]) = verifyChecksumMatch(filePath, potentialFiles)
       }
 
-      val result = Await.result(toTest.callVerify(Paths.get("/path/to/test.file"), fakeFiles), 2.seconds)
+      val result = Await.result(toTest.verifyChecksumMatch(Paths.get("/path/to/test.file"), fakeFiles), 2.seconds)
 
       result must beSome("the-correct-file")
       there was one(mockGetChecksumFromPath).apply(Paths.get("/path/to/test.file"))
@@ -65,13 +62,10 @@ class ChecksumCheckerSpec extends Specification with Mockito {
 
       val toTest = new ChecksumChecker() {
         override def getChecksumFromPath(filePath: Path): Future[Option[String]] = mockGetChecksumFromPath(filePath)
-
         override def getOMFileMd5(mxsFile: MxsObject): Future[Try[String]] = mockGetOMFileMD5(mxsFile)
-
-        def callVerify(filePath:Path, potentialFiles:Seq[MxsObject]) = verifyChecksumMatch(filePath, potentialFiles)
       }
 
-      val result = Await.result(toTest.callVerify(Paths.get("/path/to/test.file"), fakeFiles), 2.seconds)
+      val result = Await.result(toTest.verifyChecksumMatch(Paths.get("/path/to/test.file"), fakeFiles), 2.seconds)
 
       result must beNone
       there was one(mockGetChecksumFromPath).apply(Paths.get("/path/to/test.file"))
