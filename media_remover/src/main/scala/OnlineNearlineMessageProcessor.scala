@@ -12,7 +12,6 @@ import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
-import jdk.vm.ci.code.BailoutException
 import matrixstore.MatrixStoreConfig
 import org.slf4j.LoggerFactory
 
