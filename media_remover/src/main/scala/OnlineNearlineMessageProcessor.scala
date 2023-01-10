@@ -12,13 +12,14 @@ import helpers.{NearlineHelper, OnlineHelper, PendingDeletionHelper}
 import io.circe.Json
 import io.circe.generic.auto._
 import io.circe.syntax._
+import jdk.vm.ci.code.BailoutException
 import matrixstore.MatrixStoreConfig
 import org.slf4j.LoggerFactory
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
+class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup, selfHealRetryLimit:Int=10)(
   implicit
   pendingDeletionRecordDAO: PendingDeletionRecordDAO,
   ec: ExecutionContext,
@@ -105,8 +106,12 @@ class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
                   _ <- pendingDeletionRecordDAO.deleteRecord(rec)
                 } yield mediaRemovedMsg
               case false =>
-                pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
-                nearlineHelper.outputInternalArchiveCopyRequiredForNearline(rec.nearlineId.get, Some(rec.originalFilePath))
+                if (rec.attempt >= selfHealRetryLimit) {
+                  Future.failed(new RuntimeException(s"Too many self-heal retries for ${MediaTiers.NEARLINE} ${rec.nearlineId.get}, ${rec.originalFilePath}, see logs for details"))
+                } else {
+                  pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
+                  nearlineHelper.outputInternalArchiveCopyRequiredForNearline(rec.nearlineId.get, Some(rec.originalFilePath))
+                }
             })
 
           case None => throw new RuntimeException("NEARLINE pending deletion record w/o nearline id!")
@@ -140,8 +145,12 @@ class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
                       _ <- pendingDeletionRecordDAO.deleteRecord(rec)
                     } yield mediaRemovedMessage
                   case false =>
-                    pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
-                    nearlineHelper.outputInternalArchiveCopyRequiredForOnline(vsItemId, rec.originalFilePath)
+                    if (rec.attempt >= selfHealRetryLimit) {
+                      Future.failed(new RuntimeException(s"Too many self-heal retries for ${MediaTiers.ONLINE} ${vsItemId}, ${rec.originalFilePath}, see logs for details"))
+                    } else {
+                      pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
+                      nearlineHelper.outputInternalArchiveCopyRequiredForOnline(vsItemId, rec.originalFilePath)
+                    }
                 })
               case _ =>
                 logger.info(s"Could not get online size from Vidispine, retrying")
@@ -168,9 +177,13 @@ class OnlineNearlineMessageProcessor(asLookup: AssetFolderLookup)(
                       _ <- pendingDeletionRecordDAO.deleteRecord(rec)
                     } yield mediaRemovedMessage
                   case false =>
-                    pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
-                    logger.debug(s"Could not find exact match in nearline vault for $vsItemId, size $onlineSize, ${rec.originalFilePath}, wait for next newfile.success")
-                    throw SilentDropMessage(Some("Could not find exact match in nearline vault, wait for next newfile.success"))
+                    if (rec.attempt >= selfHealRetryLimit) {
+                      Future.failed(new RuntimeException(s"Too many self-heal retries for ${MediaTiers.ONLINE} ${rec.nearlineId.get}, $vsItemId, size $onlineSize, ${rec.originalFilePath}, see logs for details"))
+                    } else {
+                      pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
+                      logger.debug(s"Could not find exact match in nearline vault for $vsItemId, size $onlineSize, ${rec.originalFilePath}, wait for next newfile.success")
+                      throw SilentDropMessage(Some("Could not find exact match in nearline vault, wait for next newfile.success"))
+                    }
                 })
               case _ =>
                 logger.info(s"Could not get online size from Vidispine, retrying")

@@ -18,7 +18,7 @@ import utils.Ensurer
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
+class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup, selfHealRetryLimit:Int=10)(
   implicit
   pendingDeletionRecordDAO: PendingDeletionRecordDAO,
   nearlineRecordDAO: NearlineRecordDAO,
@@ -115,7 +115,8 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
             case true => handleNearlineDeletion(vault, rec)
             case false => retryRequireCopyOrFail(rec, nearlineId)
           }).recover({
-            case err: Throwable =>
+            // We only want to transform S3 connection errors to Lefts
+            case err: Throwable if !err.getMessage.startsWith("Cannot request deep archive copy") =>
               logger.info(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
               Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
           })
@@ -134,7 +135,8 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
             case listOfExistsRecTuples if listOfExistsRecTuples.nonEmpty => handleNearlineDeletion(vault, listOfExistsRecTuples.head)
             case _ => retryRequireCopyOrFail(archivedRecord, recs)
           }).recover({
-            case err: Throwable if !err.getMessage.startsWith("Cannot request deep archive copy for") =>
+            // We only want to transform S3 connection errors to Lefts
+            case err: Throwable if !err.getMessage.startsWith("Cannot request deep archive copy") =>
               logger.info(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
               Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
           })
@@ -153,8 +155,12 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
   private def retryRequireCopyOrFail(rec: PendingDeletionRecord, nearlineId: String): Future[Either[String, MessageProcessorReturnValue]] = {
     rec.vidispineItemId match {
       case Some(vsItemId) =>
-        pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
-        outputDeepArchiveCopyRequiredForNearline(vsItemId, rec.mediaTier.toString, Some(rec.originalFilePath))
+        if (rec.attempt >= selfHealRetryLimit) {
+          Future.failed(new RuntimeException(s"Cannot request deep archive copy - too many self-heal retries for ${rec.mediaTier} ${rec.nearlineId.get}, ${rec.originalFilePath}, see logs for details"))
+        } else {
+          pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
+          outputDeepArchiveCopyRequiredForNearline(vsItemId, rec.mediaTier.toString, Some(rec.originalFilePath))
+        }
       case None => Future.failed(new RuntimeException(s"Cannot request deep archive copy for ${rec.mediaTier}, ${rec.originalFilePath}, $nearlineId - missing vidispine ID!"))
     }
   }
@@ -165,8 +171,12 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
     val recMaybe = recs.find(rec => rec.vidispineItemId.isDefined)
     recMaybe match {
       case Some(rec) =>
-        pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
-        outputDeepArchiveCopyRequiredForNearline(rec.vidispineItemId.get, MediaTiers.NEARLINE.toString, Some(archivedRecord.originalFilePath))
+        if (rec.attempt >= selfHealRetryLimit) {
+          Future.failed(new RuntimeException(s"Cannot request deep archive copy - too many self-heal retries for ${rec.mediaTier} ${rec.nearlineId.get}, ${rec.originalFilePath}, see logs for details"))
+        } else {
+          pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
+          outputDeepArchiveCopyRequiredForNearline(rec.vidispineItemId.get, MediaTiers.NEARLINE.toString, Some(archivedRecord.originalFilePath))
+        }
       case None =>
         Future.failed(new RuntimeException(s"Cannot request deep archive copy for ${MediaTiers.NEARLINE}, ${archivedRecord.originalFilePath}, none of the matching pending deletion records has a vidispine ID!"))
     }
@@ -211,12 +221,17 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
                       _ <- pendingDeletionRecordDAO.deleteRecord(rec)
                     } yield mediaRemovedMsg
                   case false =>
-                    pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
-                    outputDeepArchiveCopyRequiredForOnline(rec.vidispineItemId.get, rec.mediaTier.toString, Some(rec.originalFilePath))
+                    if (rec.attempt >= selfHealRetryLimit) {
+                      Future.failed(new RuntimeException(s"Cannot request deep archive copy - too many self-heal retries for ${rec.mediaTier} ${rec.nearlineId.get}, ${rec.originalFilePath}, see logs for details"))
+                    } else {
+                      pendingDeletionRecordDAO.updateAttemptCount(rec.id.get, rec.attempt + 1)
+                      outputDeepArchiveCopyRequiredForOnline(rec.vidispineItemId.get, rec.mediaTier.toString, Some(rec.originalFilePath))
+                    }
                 })
               })
             }).recover({
-                case err: Throwable =>
+                // We only want to transform S3 connection errors to Lefts
+                case err: Throwable if !err.getMessage.startsWith("Cannot request deep archive copy") =>
                   logger.info(s"Could not connect to deep archive to check if copy of ${MediaTiers.ONLINE} media exists, do not delete. Reason: ${err.getMessage}")
                   Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.ONLINE} media exists, do not delete. Reason: ${err.getMessage}")
               })

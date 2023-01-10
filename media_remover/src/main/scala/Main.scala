@@ -60,6 +60,7 @@ object Main {
   }
 
   private lazy val retryLimit = sys.env.get("RETRY_LIMIT").map(_.toInt).getOrElse(200)
+  private lazy val selfHealRetryLimit = sys.env.get("SELF_HEAL_RETRY_LIMIT").map(_.toInt).getOrElse(10)
 
   def main(args:Array[String]):Unit = {
     implicit lazy val pendingDeletionRecordDAO = new PendingDeletionRecordDAO(db)
@@ -87,6 +88,8 @@ object Main {
     implicit lazy val onlineHelper = new OnlineHelper()
     implicit lazy val nearlineHelper = new NearlineHelper(assetFolderLookup)
 
+
+
     val config = Seq(
       ProcessorConfiguration(
         exchangeName = "storagetier-project-restorer",
@@ -98,13 +101,13 @@ object Main {
         exchangeName = "storagetier-online-nearline",
         routingKey = Seq("storagetier.nearline.internalarchive.nearline", "storagetier.nearline.internalarchive.online", "storagetier.nearline.newfile.success"),
         outputRoutingKey = Seq("storagetier.mediaremover.removedfile.nearline", "storagetier.mediaremover.removedfile.online", "storagetier.mediaremover.removedfile.online"),
-        new OnlineNearlineMessageProcessor(assetFolderLookup) // may also send "storagetier.nearline.internalarchive.required"
+        new OnlineNearlineMessageProcessor(assetFolderLookup, selfHealRetryLimit) // may also send "storagetier.nearline.internalarchive.required"
       ),
       ProcessorConfiguration(
         exchangeName = "storagetier-online-archive",
         routingKey = Seq("storagetier.onlinearchive.mediaingest.nearline", "storagetier.onlinearchive.mediaingest.online"),
         outputRoutingKey = Seq("storagetier.mediaremover.removedfile.nearline", "storagetier.mediaremover.removedfile.online"),
-        new OnlineArchiveMessageProcessor(assetFolderLookup) // may also send "vidispine.itemneedsarchive.{nearline|online}"
+        new OnlineArchiveMessageProcessor(assetFolderLookup, selfHealRetryLimit) // may also send "vidispine.itemneedsarchive.{nearline|online}"
       ),
     )
 

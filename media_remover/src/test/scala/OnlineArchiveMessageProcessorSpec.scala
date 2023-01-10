@@ -130,6 +130,42 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
 
 
   "OnlineArchiveMessageProcessor.handleDeepArchiveCompleteForNearline" should {
+    "send DLQ if too many retries" in {
+      implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val mockVidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      val mockVault = mock[Vault]
+
+      val archivedRec = makeArchiveRecord("original/file/path/some.file", "uploaded/path/some.file", Some("VX-1"))
+      val pendingRec = PendingDeletionRecord(Some(1), "original/file/path/some.file", Some("mxs-1"), Some("VX-1"), MediaTiers.NEARLINE, 10)
+
+      mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(any) returns Future(Seq())
+      mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE("original/file/path/some.file") returns Future(Seq(pendingRec))
+
+      mockNearlineHelper.getNearlineFileSize(any, any) returns Future(50L)
+      mockNearlineHelper.getChecksumForNearline(any, any) returns Future(Some("07ce8816e0217b02568ef03612fc6207"))
+
+      val anOriginalFilePath = "original/file/path/some.file"
+      val anUploadedPath = "uploaded/path/some.file"
+      val aChecksum = "07ce8816e0217b02568ef03612fc6207"
+
+      mockS3ObjectChecker.nearlineMediaExistsInDeepArchive(Some(aChecksum), 50L, anOriginalFilePath, anUploadedPath) returns Future(false)
+
+      val toTest = new OnlineArchiveMessageProcessor(mockAssetFolderLookup)
+
+      val result = Try {Await.result(toTest.handleDeepArchiveCompleteForNearline(mockVault, archivedRec), 2.seconds)}
+
+      result must beFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "Cannot request deep archive copy - too many self-heal retries for NEARLINE mxs-1, original/file/path/some.file, see logs for details"
+    }
+
     "send DLQ if no itemId" in {
       implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
@@ -145,8 +181,6 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       val archivedRec = makeArchiveRecord("original/file/path/some.file", "uploaded/path/some.file", Some("VX-1"))
       val pendingRec = PendingDeletionRecord(None, "original/file/path/some.file", None, Some("VX-1"), MediaTiers.NEARLINE, 1)
 
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(any) returns Future(None)
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE("original/file/path/some.file") returns Future(Some(pendingRec))
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(any) returns Future(Seq())
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE("original/file/path/some.file") returns Future(Seq(pendingRec))
 
@@ -177,8 +211,6 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       val pendingRec = PendingDeletionRecord(None, anOriginalFilePath, Some("mxs-1"), Some("VX-1"), MediaTiers.NEARLINE, 1)
       val aChecksum = "07ce8816e0217b02568ef03612fc6207"
 
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(any) returns Future(None)
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Some(pendingRec))
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(any) returns Future(Seq())
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Seq(pendingRec))
 
@@ -219,8 +251,6 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       val pendingRec = PendingDeletionRecord(None, anOriginalFilePath, Some("mxs-1"), Some("VX-1"), MediaTiers.NEARLINE, 1)
       val aChecksum = "07ce8816e0217b02568ef03612fc6207"
 
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(any) returns Future(None)
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Some(pendingRec))
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(any) returns Future(Seq())
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Seq(pendingRec))
 
@@ -442,7 +472,6 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
 
       val archivedRec = makeArchiveRecord("original/file/path/some.file", "uploaded/path/some.file", Some("VX-1"))
 
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(any) returns Future(None)
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE("original/file/path/some.file") returns Future(Seq())
 
       val toTest = new OnlineArchiveMessageProcessor(mockAssetFolderLookup)
