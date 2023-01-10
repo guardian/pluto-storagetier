@@ -64,10 +64,10 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       val mockAssetFolderLookup = mock[AssetFolderLookup]
 
       val archivedRec = makeArchiveRecord("original/file/path/some.file", "uploaded/path/some.file", None)
-      val pendingRec = PendingDeletionRecord(None, "original/file/path/some.file", None, Some("VX-1"), MediaTiers.NEARLINE, 1)
+      val pendingRec = PendingDeletionRecord(None, "original/file/path/some.file", None, Some("VX-1"), MediaTiers.ONLINE, 1)
 
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(any) returns Future(None)
-      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE("original/file/path/some.file") returns Future(Some(pendingRec))
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(any) returns Future(None)
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE("original/file/path/some.file") returns Future(Some(pendingRec))
 
       val toTest = new OnlineArchiveMessageProcessor(mockAssetFolderLookup)
 
@@ -96,6 +96,35 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       val result = Try { Await.result(toTest.handleDeepArchiveCompleteForOnline(archivedRec), 2.seconds) }
 
       result must beFailedTry(SilentDropMessage(Some("ignoring archive confirmation, no pending deletion for this ONLINE item with original/file/path/some.file")))
+    }
+
+    "send Left if we couldn't connect to S3" in {
+      implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val mockVidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val archivedRec = makeArchiveRecord("original/file/path/some.file", "uploaded/path/some.file", Some("VX-1"))
+      val pendingRec = PendingDeletionRecord(None, "original/file/path/some.file", None, Some("VX-1"), MediaTiers.ONLINE, 1)
+
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE(any) returns Future(None)
+      mockPendingDeletionRecordDAO.findByOnlineIdForONLINE("VX-1") returns Future(Some(pendingRec))
+
+      mockOnlineHelper.getOnlineSize("VX-1") returns Future(Some(1024L))
+      mockOnlineHelper.getMd5ChecksumForOnline(any) returns Future(Some("fake-MD5"))
+
+      mockS3ObjectChecker.onlineMediaExistsInDeepArchive(any, any, any, any) throws new RuntimeException("Can't connect to S3!")
+
+      val toTest = new OnlineArchiveMessageProcessor(mockAssetFolderLookup)
+
+      val result = Await.result(toTest.handleDeepArchiveCompleteForOnline(archivedRec), 2.seconds)
+
+      result must beLeft("Could not connect to deep archive to check if copy of ONLINE media exists, do not delete. Reason: Can't connect to S3!")
     }
   }
 
@@ -128,6 +157,48 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       result must beFailedTry
       result.failed.get must beAnInstanceOf[RuntimeException]
       result.failed.get.getMessage mustEqual "No nearline ID in pending deletion rec for media original/file/path/some.file"
+    }
+
+    "send Left if one pending deletion but cannot connect to S3" in {
+      implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val mockVidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      val mockVault = mock[Vault]
+
+      val anOriginalFilePath = "original/file/path/some.file"
+      val anUploadedPath = "uploaded/path/some.file"
+      val archivedRec = makeArchiveRecord(anOriginalFilePath, anUploadedPath, Some("VX-1"))
+      val pendingRec = PendingDeletionRecord(None, anOriginalFilePath, Some("mxs-1"), Some("VX-1"), MediaTiers.NEARLINE, 1)
+      val aChecksum = "07ce8816e0217b02568ef03612fc6207"
+
+      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(any) returns Future(None)
+      mockPendingDeletionRecordDAO.findByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Some(pendingRec))
+      mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(any) returns Future(Seq())
+      mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Seq(pendingRec))
+
+      mockNearlineHelper.getNearlineFileSize(any, any) returns Future(50L)
+      mockNearlineHelper.getChecksumForNearline(any, any) returns Future(Some(aChecksum))
+      mockNearlineHelper.deleteMediaFromNearline(any, any, any, any, any) returns
+        Future(Right(MediaRemovedMessage("NEARLINE", anOriginalFilePath, Some("VX-1"), Some("mxs-1")).asJson))
+
+      mockPendingDeletionRecordDAO.deleteRecord(any) returns Future(1)
+
+      // Poor man's validation - tests throws an error if this mock isn't matched
+      mockS3ObjectChecker.nearlineMediaExistsInDeepArchive(Some(aChecksum), 50L, anOriginalFilePath, anUploadedPath) returns Future(true)
+
+      val toTest = new OnlineArchiveMessageProcessor(mockAssetFolderLookup) {
+        override def getNearlineDataAndCheckExistsInDeepArchive(vault: Vault, archivedRec: ArchivedRecord, pendingRec: PendingDeletionRecord, nearlineId: String): Future[Boolean] = Future.failed(new RuntimeException("S3-fail"))
+      }
+
+      val result = Await.result(toTest.handleDeepArchiveCompleteForNearline(mockVault, archivedRec), 2.seconds)
+
+      result must beLeft("Could not connect to deep archive to check if copy of NEARLINE media exists, do not delete. Reason: S3-fail")
     }
 
     "delete item if one pending deletion and exists" in {
@@ -196,15 +267,10 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
       val pendingRec = PendingDeletionRecord(None, anOriginalFilePath, Some("mxs-5"), Some("VX-3"), MediaTiers.NEARLINE, 1)
       val pendingRec2 = PendingDeletionRecord(None, anOriginalFilePath, Some("mxs-4"), Some("VX-3"), MediaTiers.NEARLINE, 1)
 
-//      mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(any) returns Future(Seq())
       mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Seq(pendingRec, pendingRec2))
 
       mockNearlineHelper.getNearlineFileSize(any, any) returns Future(50L)
       mockNearlineHelper.getChecksumForNearline(any, any) returns Future(Some(aChecksum))
-//      val m = mock[MediaRemovedMessage]
-//      val j = mock[Json]
-//        Future(Right(m.asJson))
-//        Future(Right(MediaRemovedMessage("NEARLINE", anOriginalFilePath, Some("VX-33"), Some("mxs-33")).asJson))
 
       // Poor man's validation - test throws an error if this mock isn't matched
       mockS3ObjectChecker.nearlineMediaExistsInDeepArchive(Some(aChecksum), 50L, anOriginalFilePath, anUploadedPath) returns Future(true)
@@ -226,12 +292,46 @@ class OnlineArchiveMessageProcessorSpec extends Specification with Mockito {
         vidispineItemIdMaybe = eqTo(Some("VX-3")))
 
       result must beRight
-//      val mediaRemovedMessage =
-//        result.right.get.content.as[MediaRemovedMessage].right.get must beAnInstanceOf[MediaRemovedMessage]
-//      mediaRemovedMessage.vidispineItemId must beSome("VX-3")
-//      mediaRemovedMessage.nearlineId must beSome("mxs-3")
-//      mediaRemovedMessage.originalFilePath mustEqual anOriginalFilePath
-//      mediaRemovedMessage.mediaTier mustEqual MediaTiers.NEARLINE.toString
+    }
+
+    "return Left if two pending deletions and at least one of the S3 checks throws an exception" in {
+      implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val mockVidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      val mockVault = mock[Vault]
+
+      val anOriginalFilePath = "original/file/path/some.file"
+      val anUploadedPath = "uploaded/path/some.file"
+      val aChecksum = "07ce8816e0217b02568ef03612fc6207"
+      val archivedRec = makeArchiveRecord(anOriginalFilePath, anUploadedPath, Some("VX-3"))
+      val pendingRec = PendingDeletionRecord(Some(1), anOriginalFilePath, Some("mxs-5"), Some("VX-3"), MediaTiers.NEARLINE, 1)
+      val pendingRec2 = PendingDeletionRecord(Some(2), anOriginalFilePath, Some("mxs-4"), Some("VX-3"), MediaTiers.NEARLINE, 1)
+
+      mockPendingDeletionRecordDAO.findAllByOriginalFilePathForNEARLINE(anOriginalFilePath) returns Future(Seq(pendingRec, pendingRec2))
+
+      mockNearlineHelper.getNearlineFileSize(any, any) returns Future(50L)
+      mockNearlineHelper.getChecksumForNearline(any, any) returns Future(Some(aChecksum))
+
+      // Poor man's validation - test throws an error if this mock isn't matched
+      mockS3ObjectChecker.nearlineMediaExistsInDeepArchive(Some(aChecksum), 50L, anOriginalFilePath, anUploadedPath) returns Future(true)
+
+      mockNearlineHelper.deleteMediaFromNearline(any, any, any, any, any) returns Future(Right(mock[Json]))
+      mockPendingDeletionRecordDAO.deleteRecord(any) returns Future(1)
+
+      val toTest = new OnlineArchiveMessageProcessor(mockAssetFolderLookup) {
+        override def getNearlineDataAndCheckExistsInDeepArchive(vault: Vault, archivedRec: ArchivedRecord, pendingRec: PendingDeletionRecord, nearlineId: String): Future[Boolean] =
+          Future.failed(new RuntimeException("S3-fail multi"))
+      }
+
+      val result = Await.result(toTest.handleDeepArchiveCompleteForNearline(mockVault, archivedRec), 2.seconds)
+
+      result must beLeft("Could not connect to deep archive to check if copy of NEARLINE media exists, do not delete. Reason: S3-fail multi")
     }
 
     "update one pdr and send one copy request if two pending deletions and none of their items exist" in {

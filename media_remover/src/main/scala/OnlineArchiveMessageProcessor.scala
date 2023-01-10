@@ -114,6 +114,10 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
           case Some(nearlineId) => getNearlineDataAndCheckExistsInDeepArchive(vault, archivedRecord, rec, nearlineId).flatMap({
             case true => handleNearlineDeletion(vault, rec)
             case false => retryRequireCopyOrFail(rec, nearlineId)
+          }).recover({
+            case err: Throwable =>
+              logger.info(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
+              Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
           })
           case None =>
             logger.warn(s"No nearline ID in pending deletion rec for media ${archivedRecord.originalFilePath}")
@@ -121,17 +125,20 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
         }
 
       case _ =>
-        val listOfExistsRecTuples = recs.map(rec => {
-          rec.nearlineId match {
-            case Some(nearlineId) => getNearlineDataAndCheckExistsInDeepArchive(vault, archivedRecord, rec, nearlineId).zip(Future(rec))
-            case None => Future(false).zip(Future(rec)) // Cannot really happen
-          }
-        })
-
-        Future.find(listOfExistsRecTuples)(_._1).flatMap({
-          case Some(existsRecTuple) => handleNearlineDeletion(vault, existsRecTuple)
-          case None => retryRequireCopyOrFail(archivedRecord, recs)
-        })
+        val recsWithNearlineId = recs.collect({ case rec if rec.nearlineId.isDefined => rec })
+        if (recsWithNearlineId.isEmpty) {
+          retryRequireCopyOrFail(archivedRecord, recs)
+        } else {
+          val listOfExistsRecTupleFuts = recsWithNearlineId.map(rec => getNearlineDataAndCheckExistsInDeepArchive(vault, archivedRecord, rec, rec.nearlineId.get).zip(Future(rec)))
+          Future.sequence(listOfExistsRecTupleFuts).flatMap(_.filter(_._1) match {
+            case listOfExistsRecTuples if listOfExistsRecTuples.nonEmpty => handleNearlineDeletion(vault, listOfExistsRecTuples.head)
+            case _ => retryRequireCopyOrFail(archivedRecord, recs)
+          }).recover({
+            case err: Throwable if !err.getMessage.startsWith("Cannot request deep archive copy for") =>
+              logger.info(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
+              Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete. Reason: ${err.getMessage}")
+          })
+        }
     })
   }
 
@@ -173,7 +180,7 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
     } yield result
   }
 
-  private def getNearlineDataAndCheckExistsInDeepArchive(vault: Vault, archivedRec: ArchivedRecord, pendingRec: PendingDeletionRecord, nearlineId: String): Future[Boolean] =
+  def getNearlineDataAndCheckExistsInDeepArchive(vault: Vault, archivedRec: ArchivedRecord, pendingRec: PendingDeletionRecord, nearlineId: String): Future[Boolean] =
     for {
       // We fetch the current size, because we don't know how old the message is
       nearlineFileSize <- nearlineHelper.getNearlineFileSize(vault, nearlineId)
@@ -208,7 +215,12 @@ class OnlineArchiveMessageProcessor(asLookup: AssetFolderLookup)(
                     outputDeepArchiveCopyRequiredForOnline(rec.vidispineItemId.get, rec.mediaTier.toString, Some(rec.originalFilePath))
                 })
               })
-            })
+            }).recover({
+                case err: Throwable =>
+                  logger.info(s"Could not connect to deep archive to check if copy of ${MediaTiers.ONLINE} media exists, do not delete. Reason: ${err.getMessage}")
+                  Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.ONLINE} media exists, do not delete. Reason: ${err.getMessage}")
+              })
+
           case None =>
             Future.failed(SilentDropMessage(Some(s"ignoring archive confirmation, no pending deletion for this ${MediaTiers.ONLINE} item with ${archivedRecord.originalFilePath}")))
         })

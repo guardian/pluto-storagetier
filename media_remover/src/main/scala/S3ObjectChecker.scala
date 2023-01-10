@@ -70,10 +70,6 @@ class S3ObjectChecker(client: S3AsyncClient, var bucketName: String)(implicit ec
       case false =>
         logger.info(s"$mediaTier file with path $originalFilePath: No file $objectKey with matching size $fileSize found, do not delete")
         false
-    }).recover({
-      case err: Throwable =>
-        logger.warn(s"Could not connect to deep archive to check if copy of $mediaTier media exists, do not delete. Err: ${err.getMessage}")
-        false
     })
 
 }

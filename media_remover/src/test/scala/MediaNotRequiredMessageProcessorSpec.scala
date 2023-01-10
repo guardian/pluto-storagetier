@@ -38,6 +38,65 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   private val logger = LoggerFactory.getLogger(getClass)
 
 
+  "MediaNotRequiredMessageProcessor.handleDeepArchiveCompleteForOnline" should {
+
+    "send Left if we couldn't connect to S3 for NEARLINE item" in {
+      implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val mockVidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val builder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      val mockVault = mock[Vault]
+      val mockProject = mock[ProjectRecord]
+
+      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.NEARLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes")
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future.failed(new RuntimeException("failed to connect"))
+      }
+
+      val result = Await.result(toTest.handleCheckDeepArchiveForNearline(mockVault, onlineOutputMessage, mockProject), 2.seconds)
+
+      result must beLeft("Could not connect to deep archive to check if copy of NEARLINE media exists, do not delete yet. Reason: failed to connect")
+    }
+
+    "send Left if we couldn't connect to S3 for ONLINE item" in {
+      implicit val mockPendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val mockNearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val mockVidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val builder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+      val mockVault = mock[Vault]
+      val mockProject = mock[ProjectRecord]
+
+      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.ONLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes")
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
+        override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future.failed(new RuntimeException("failed to connect"))
+      }
+
+      val result = Await.result(toTest.handleCheckDeepArchiveForOnline(onlineOutputMessage), 2.seconds)
+
+      result must beLeft("Could not connect to deep archive to check if copy of NEARLINE media exists, do not delete yet. Reason: failed to connect")
+    }
+  }
+
   "MediaNotRequiredMessageProcessor.mediaExistsInDeepArchive" should {
     "relativize when called with item in path" in {
       val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))

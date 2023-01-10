@@ -43,6 +43,18 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
 
       result must beTrue
     }
+
+    "onlineMediaExistsInDeepArchive gets a passed through exception" in {
+      val mockedS3Async = mock[S3AsyncClient]
+
+      val toTest = new S3ObjectChecker(mockedS3Async, "bucket") {
+        override def objectExistsWithSizeAndMaybeChecksum(objectKey: String, fileSize: Long, maybeLocalMd5: Option[String]): Future[Boolean] = Future.failed(new RuntimeException("no S3 for you"))
+      }
+
+      val result = Try { Await.result(toTest.onlineMediaExistsInDeepArchive(Some("aChecksum"), 8888, "some/file/path", "anObjectKey"), 1.second) }
+
+      result must beFailedTry
+    }
   }
 
 
@@ -217,7 +229,7 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
       result must beFalse
     }
 
-    "return future false if objectExistsWithSizeAndMaybeChecksum throws exception" in {
+    "forwards exception if objectExistsWithSizeAndMaybeChecksum throws exception" in {
       val mockedS3Async = mock[S3AsyncClient]
       val bucketName = "aBucket"
       val objectKey = "anObjectKey"
@@ -228,9 +240,11 @@ class S3ObjectCheckerSpec extends Specification with Mockito {
           Future.failed(new RuntimeException(s"Could not check pre-existing versions for s3://$bucketName/$objectKey: some message"))
       }
 
-      val result = Await.result(toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, Some("aChecksum"), 8888, "some/file/path", objectKey), 1.second)
+      val result = Try { Await.result(toTest.mediaExistsInDeepArchive(MediaTiers.NEARLINE, Some("aChecksum"), 8888, "some/file/path", objectKey), 1.second) }
 
-      result must beFalse
+      result must beAFailedTry
+      result.failed.get must beAnInstanceOf[RuntimeException]
+      result.failed.get.getMessage mustEqual "Could not check pre-existing versions for s3://aBucket/anObjectKey: some message"
     }
   }
 

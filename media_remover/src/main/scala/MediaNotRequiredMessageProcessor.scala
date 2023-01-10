@@ -312,7 +312,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def handleCheckDeepArchiveForNearline(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
+  def handleCheckDeepArchiveForNearline(nearlineVault: Vault, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord): Future[Either[String, MessageProcessorReturnValue]] = {
     nearlineMediaExistsInDeepArchive(nearlineVault, onlineOutputMessage).flatMap({
       case true =>
         logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' exists in Deep Archive, going to delete nearline copy")
@@ -321,6 +321,10 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         logger.debug(s"'${getInformativeIdString(onlineOutputMessage, project)}' does not exist in Deep Archive, going to store deletion pending and request Deep Archive copy")
         pendingDeletionHelper.storeDeletionPending(onlineOutputMessage)
         outputDeepArchiveCopyRequiredForNearline(onlineOutputMessage)
+    }).recover({
+      case err: Throwable =>
+        logger.info(s"Could not connect to deep archive to check if copy of ${onlineOutputMessage.mediaTier} media exists, do not delete yet. Reason: ${err.getMessage}")
+        Left(s"Could not connect to deep archive to check if copy of ${onlineOutputMessage.mediaTier} media exists, do not delete yet. Reason: ${err.getMessage}")
     })
   }
 
@@ -386,13 +390,17 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  private def handleCheckDeepArchiveForOnline(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] =
+  def handleCheckDeepArchiveForOnline(onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] =
     onlineMediaExistsInDeepArchive(onlineOutputMessage).flatMap({
       case true =>
         handleDeleteOnlineAndClear(onlineOutputMessage)
       case false =>
         pendingDeletionHelper.storeDeletionPending(onlineOutputMessage)
         outputDeepArchiveCopyRequiredForOnline(onlineOutputMessage)
+    }).recover({
+      case err: Throwable =>
+        logger.warn(s"Could not connect to deep archive to check if copy of ${onlineOutputMessage.mediaTier} media exists, do not delete yet. Reason: ${err.getMessage}")
+        Left(s"Could not connect to deep archive to check if copy of ${MediaTiers.NEARLINE} media exists, do not delete yet. Reason: ${err.getMessage}")
     })
 
 
