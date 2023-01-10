@@ -99,7 +99,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
   "MediaNotRequiredMessageProcessor.mediaExistsInDeepArchive" should {
     "relativize when called with item in path" in {
-      val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/srv/Multimedia2/NextGenDev/Media Production/Assets/"))
+      val fakeConfig = PlutoCoreConfig("test", "test", Paths.get("/path/to/assetfolders"))
 
       implicit val pendingDeletionRecordDAO: PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
@@ -119,17 +119,17 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val toTest = new MediaNotRequiredMessageProcessor(assetFolderLookup)
 
-      val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/srv/Multimedia2/NextGenDev/Media Production/Assets/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML","fileSize":8823,"vidispineItemId":null,"nearlineId":"51a0f742-3d89-11ec-a895-8e29f591bdb6-2319","mediaCategory":"metadata"}"""
+      val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/path/to/assetfolders/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML","fileSize":8823,"vidispineItemId":null,"nearlineId":"mxs-1","mediaCategory":"metadata"}"""
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
 
       mockNearlineHelper.getChecksumForNearline(any, any) returns Future(Some("aChecksum"))
 
-      mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
+      mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any, any, any) returns Future(true)
 
       toTest.nearlineMediaExistsInDeepArchive(mockVault, msgObj)
 
-      there was one(mockS3ObjectChecker).nearlineMediaExistsInDeepArchive(Some("aChecksum"), 8823L, "/srv/Multimedia2/NextGenDev/Media Production/Assets/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", "Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML")
+      there was one(mockS3ObjectChecker).nearlineMediaExistsInDeepArchive(Some("aChecksum"), 8823L, "/path/to/assetfolders/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", "Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML")
     }
 
     "strip slash when called with item not in path" in {
@@ -155,7 +155,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4","fileSize":291354,"vidispineItemId":null,"nearlineId":"741d089d-a920-11ec-a895-8e29f591bdb6-1568","mediaCategory":"proxy"}"""
 
-      mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any(), any(), any()) returns Future(true)
+      mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any, any, any) returns Future(true)
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
 
