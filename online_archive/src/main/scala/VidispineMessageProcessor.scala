@@ -3,7 +3,7 @@ import akka.stream.Materializer
 import archivehunter.ArchiveHunterCommunicator
 import com.gu.multimedia.storagetier.framework.{MessageProcessingFramework, MessageProcessor, MessageProcessorReturnValue, SilentDropMessage}
 import com.gu.multimedia.storagetier.framework.MessageProcessorConverters._
-import com.gu.multimedia.storagetier.messages.VidispineMediaIngested
+import com.gu.multimedia.storagetier.messages.{VidispineField, VidispineMediaIngested}
 import com.gu.multimedia.storagetier.models.common.{ErrorComponents, RetryStates}
 import com.gu.multimedia.storagetier.models.online_archive.{ArchivedRecord, ArchivedRecordDAO, FailureRecord, FailureRecordDAO, IgnoredRecord, IgnoredRecordDAO}
 import com.gu.multimedia.storagetier.utils.FilenameSplitter
@@ -192,6 +192,62 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
     }
   }
 
+  def handleVidispineItemNeedsArchive(mediaItemOnly: VidispineMediaIngested): Future[Either[String, MessageProcessorReturnValue]] = {
+  logger.debug(s"Received message content needing backup $mediaItemOnly")
+
+    mediaItemOnly.itemId match {
+      case Some(itemId) => //unfortunately we can't accurately determine the _original_ file from an essence_version message so we need to go back to the item
+        //and query that
+        logger.debug(s"Got ingested item ID $itemId from the message")
+        for {
+          originalShape <- findOriginalShape(vidispineCommunicator.listItemShapes(itemId))
+          shapeVersion <- Future(originalShape.flatMap(_.essenceVersion))
+          shapeFileInfo <- Future(originalShape.flatMap(_.getLikelyFile))
+          absPath <- Future(shapeFileInfo.flatMap(_.getAbsolutePath))
+          maybeProject <- absPath.map(Paths.get(_)).map(asLookup.assetFolderProjectLookup).getOrElse(Future(None))
+          result <- (absPath, maybeProject) match {
+            case (None, _) =>
+              logger.error(s"Could not get absolute filepath for item $itemId")
+              Future.failed(new RuntimeException(s"Could not get absolute filepath for file $itemId"))
+            case (Some(absPath), Some(projectInfo)) =>
+              if (projectInfo.deletable.contains(true) || projectInfo.sensitive.contains(true)) {
+                setIgnoredRecord(absPath, Some(itemId), shapeVersion, "Project was either deletable or sensitive")
+                  .flatMap(_ =>
+                    Future.failed(SilentDropMessage(Some(s"$absPath is from project ${projectInfo.id} which is either deletable or sensitive")))
+                  )
+              } else {
+                val enhancedItem = vsMediaIngestedWithVersion(itemId, shapeVersion)
+                getRelativePath(absPath, None /* just assume it's NOT pluto-deliverables */) match {
+                  case Left(err) =>
+                    logger.error(s"Could not relativize file path $absPath: $err. Uploading to $absPath")
+                    vidispineFunctions.uploadIfRequiredAndNotExists(absPath, absPath, enhancedItem)
+                  case Right(relativePath) =>
+                    vidispineFunctions.uploadIfRequiredAndNotExists(absPath, relativePath.toString, enhancedItem)
+                }
+              }
+            case (_, None) =>
+              Future(Left(s"Could not look up a project for itemId $itemId ($absPath)"))
+          }
+        } yield result.map(MessageProcessorReturnValue.apply)
+      case None =>
+        logger.error(s"The incoming message had no source file ID parameter, can't continue with backup of item")
+        Future.failed(new RuntimeException(s"No source file ID parameter"))
+    }
+  }
+
+  def findOriginalShape(itemShapesFut: Future[Option[Seq[ShapeDocument]]]): Future[Option[ShapeDocument]] = {
+    itemShapesFut.map({
+      case None => None
+      case Some(shapes) => shapes.find(_.tag.contains("original"))
+    })
+  }
+
+  def vsMediaIngestedWithVersion(itemId: String, version: Option[Int]): VidispineMediaIngested =
+    VidispineMediaIngested(List(
+      VidispineField("itemId", itemId),
+      VidispineField("essenceVersion", version.map(_.toString).getOrElse(""))
+    ).collect({ case vf if vf.value.nonEmpty => vf }))
+
   /**
    *
    * @param msg        the message body, as a circe Json object. You can unmarshal this into a case class by
@@ -285,6 +341,10 @@ class VidispineMessageProcessor(plutoCoreConfig: PlutoCoreConfig, deliverablesCo
         handleIngestedMedia(mediaIngested)
       case (Right(mediaIngested), "vidispine.job.raw_import.stop")=>
         handleIngestedMedia(mediaIngested)
+      case (Right(mediaItemIdOnly), "vidispine.itemneedsarchive.nearline") =>
+        handleVidispineItemNeedsArchive(mediaItemIdOnly)
+      case (Right(mediaItemIdOnly), "vidispine.itemneedsarchive.online") =>
+        handleVidispineItemNeedsArchive(mediaItemIdOnly)
       case (Right(shapeUpdate), "vidispine.item.shape.modify")=>
         (shapeUpdate.shapeId, shapeUpdate.shapeTag, shapeUpdate.itemId) match {
           case (None, _, _)=>
