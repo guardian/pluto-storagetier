@@ -126,8 +126,9 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       mockNearlineHelper.getChecksumForNearline(any, any) returns Future(Some("aChecksum"))
 
       mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any, any, any) returns Future(true)
+      mockS3ObjectChecker.nearlineMediaExistsInDeepArchive(any, any, any, any) returns Future(true)
 
-      toTest.nearlineMediaExistsInDeepArchive(mockVault, msgObj)
+      Await.result(toTest.nearlineMediaExistsInDeepArchive(mockVault, msgObj), 2.seconds)
 
       there was one(mockS3ObjectChecker).nearlineMediaExistsInDeepArchive(Some("aChecksum"), 8823L, "/path/to/assetfolders/Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML", "Fred_In_Bed/This_Is_A_Test/david_allison_Deletion_Test_5/VX-3183.XML")
     }
@@ -156,12 +157,13 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val msgContent = """{"mediaTier":"NEARLINE","projectIds":["374"],"originalFilePath":"/srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4","fileSize":291354,"vidispineItemId":null,"nearlineId":"741d089d-a920-11ec-a895-8e29f591bdb6-1568","mediaCategory":"proxy"}"""
 
       mockS3ObjectChecker.objectExistsWithSizeAndMaybeChecksum(any, any, any) returns Future(true)
+      mockS3ObjectChecker.nearlineMediaExistsInDeepArchive(any, any, any, any) returns Future(true)
 
       val msgObj = io.circe.parser.parse(msgContent).flatMap(_.as[OnlineOutputMessage]).right.get
 
       mockNearlineHelper.getChecksumForNearline(any, any) returns Future(None)
 
-      toTest.nearlineMediaExistsInDeepArchive(mockVault, msgObj)
+      Await.result(toTest.nearlineMediaExistsInDeepArchive(mockVault, msgObj), 2.seconds)
 
       there was one(mockS3ObjectChecker).nearlineMediaExistsInDeepArchive(None, 291354L, "/srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4", "srv/Multimedia2/NextGenDev/Proxies/VX-11976.mp4")
     }
