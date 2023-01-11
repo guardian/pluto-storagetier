@@ -49,8 +49,8 @@ object AssetSweeperNewFile {
           aTime <- c.downField("atime").as[Double]
           owner <- c.downField("owner").as[Int]
           group <- c.downField("group").as[Int]
-          filename <- c.downField("parent_dir").as[String]
-          parentDir <- c.downField("filename").as[String]
+          parentDir <- c.downField("parent_dir").as[String]
+          filename <- c.downField("filename").as[String]
         } yield AssetSweeperNewFile(
           importedId,
           size,
@@ -61,8 +61,8 @@ object AssetSweeperNewFile {
           ZonedDateTime.ofInstant(Instant.ofEpochMilli((aTime*1000.0).toLong), ZoneId.of("Etc/UTC")),
           owner,
           group,
-          filename,
-          parentDir
+          parentDir,
+          filename
         )
       }
     }
