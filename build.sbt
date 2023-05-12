@@ -83,7 +83,7 @@ lazy val `mxscopy` = (project in file("mxs-copy-components"))
     )
   )
 
-val awsSdk2Version = "2.17.124"
+val awsSdk2Version = "2.20.46"
 
 lazy val `online_archive` = (project in file("online_archive"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
