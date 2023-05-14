@@ -2,7 +2,8 @@ import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, ListObjectVersionsResponse, NoSuchKeyException, ObjectVersion, PutObjectResponse, S3Exception}
-import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3TransferManager, Upload, UploadRequest}
+import software.amazon.awssdk.transfer.s3.S3TransferManager
+import software.amazon.awssdk.transfer.s3.model.{CompletedUpload, Upload, UploadRequest}
 
 import scala.jdk.CollectionConverters._
 import scala.concurrent.duration._

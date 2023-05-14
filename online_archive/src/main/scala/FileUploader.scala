@@ -1,23 +1,23 @@
 import akka.http.scaladsl.model.{ContentType, Uri}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{FileIO, Sink, Source}
+import akka.stream.scaladsl.{FileIO, Source}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.{LoggerFactory, MDC}
 import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, NoSuchKeyException, PutObjectRequest}
-import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
+import software.amazon.awssdk.services.s3.model._
+import software.amazon.awssdk.services.s3.{S3AsyncClient, S3Client}
+import software.amazon.awssdk.transfer.s3.S3TransferManager
+import software.amazon.awssdk.transfer.s3.model.UploadRequest
 
-import java.io.{File, InputStream}
+import java.io.File
 import java.nio.file.{Files, Paths}
 import java.util.Base64
-
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: S3TransferManager, client: S3Client, var bucketName: String)(implicit ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -35,27 +35,26 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @return a Try, containing a Tuple where the first value is a String containing the uploaded file name and the second value is a
    *         Long containing the file size.
    */
-  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Future[(String, Long)] = {
+  def copyFileToS3(file: File, maybeUploadPath: Option[String] = None): Future[(String, Long)] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Future.failed(new RuntimeException(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
-      //object lock and bucket versioning will ensure that nothing gets over-written and we don't have to change filename.
       val uploadName = maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/")
 
       objectExistsWithSize(uploadName, file.length()) match {
-        case Success(true)=>
+        case Success(true) =>
           logger.info(s"No upload needed for ${file.getAbsolutePath} as a matching copy already exists")
-          Future(uploadName, file.length())
-        case Success(false)=>
+          Future.successful((uploadName, file.length()))
+        case Success(false) =>
           logger.info(s"Uploading ${file.getAbsolutePath} as there is no previously matching copy")
-          uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
-        case Failure(err)=>
+          uploadFile(file, uploadName).map(response => (uploadName, response.contentLength().toLong))
+        case Failure(err) =>
           Future.failed(err)
       }
-      //tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
+
 
   private def getObjectMetadata(bucketName: String, key: String) = Try {
     val req = HeadObjectRequest.builder().bucket(bucketName).key(key).build()
@@ -213,7 +212,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
 object FileUploader {
   private def s3ClientConfig = {
-    val b = S3ClientConfiguration.builder()
+    val b = S3AsyncClient.builder()
     val withRegion = sys.env.get("AWS_REGION") match {
       case Some(rgn)=>b.region(Region.of(rgn))
       case None=>b
@@ -222,7 +221,7 @@ object FileUploader {
   }
   private def initTransferManager = wrapJavaMethod(()=>
     S3TransferManager.builder()
-      .s3ClientConfiguration(s3ClientConfig)
+      .s3Client(s3ClientConfig)
       .build()
   )
 
