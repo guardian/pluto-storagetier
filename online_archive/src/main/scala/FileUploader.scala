@@ -22,6 +22,7 @@ import scala.util.{Failure, Success, Try}
 class FileUploader(transferManager: S3TransferManager, client: S3Client, var bucketName: String)(implicit ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
   import FileUploader._
+  protected def AwsRequestBodyFromFile(file:File) = AsyncRequestBody.fromFile(file)
 
   /**
    * Attempt to copy the given file to S3 under a distinct name.
@@ -163,6 +164,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @param keyName S3 key name to upload to
    * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
+
   private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
     val loggerContext = Option(MDC.getCopyOfContextMap)
@@ -178,7 +180,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
     val response = for {
       job <- Future.fromTry(Try {
-        val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AsyncRequestBody.fromFile(file))
+        val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AwsRequestBodyFromFile(file))
           .build()
 
         transferManager.upload(req)

@@ -1,5 +1,6 @@
 import org.specs2.mock.Mockito
 import org.specs2.mutable.Specification
+import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, ListObjectVersionsResponse, NoSuchKeyException, ObjectVersion, PutObjectResponse, S3Exception}
 import software.amazon.awssdk.transfer.s3.S3TransferManager
@@ -71,7 +72,9 @@ class FileUploaderSpec extends Specification with Mockito {
       val mockTransferManager = mock[S3TransferManager]
       mockTransferManager.upload(org.mockito.ArgumentMatchers.any[UploadRequest]) returns mockUpload
 
-      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket")
+      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket") {
+        override protected def AwsRequestBodyFromFile(file: File) = AsyncRequestBody.fromString("fake data where the file body would be")
+      }
 
       val result = Try { Await.result(fileUploader.copyFileToS3(file), 2.seconds) }
       there was one(mockTransferManager).upload(org.mockito.ArgumentMatchers.any[UploadRequest])
