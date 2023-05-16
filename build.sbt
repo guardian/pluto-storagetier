@@ -115,7 +115,8 @@ lazy val `online_archive` = (project in file("online_archive"))
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
       "software.amazon.awssdk" % "s3" % awsSdk2Version,
       "software.amazon.awssdk" % "s3-transfer-manager" % "2.20.65",
-      "software.amazon.awssdk" % "url-connection-client" % awsSdk2Version,
+      "software.amazon.awssdk.crt" % "aws-crt" % "0.21.15",
+      "software.amazon.awssdk" % "url-connection-client" % awsSdk2Version
     )
   )
 
