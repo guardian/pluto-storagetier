@@ -7,8 +7,9 @@ import org.slf4j.{LoggerFactory, MDC}
 import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.s3.S3Client
+import software.amazon.awssdk.services.s3.internal.crt.S3CrtAsyncClient
 import software.amazon.awssdk.services.s3.model._
-import software.amazon.awssdk.services.s3.{S3AsyncClient, S3Client}
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.UploadRequest
 
@@ -214,7 +215,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
 object FileUploader {
   private def s3ClientConfig = {
-    val b = S3AsyncClient.builder()
+    val b = S3CrtAsyncClient.builder()
     val withRegion = sys.env.get("AWS_REGION") match {
       case Some(rgn)=>b.region(Region.of(rgn))
       case None=>b
