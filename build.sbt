@@ -83,7 +83,7 @@ lazy val `mxscopy` = (project in file("mxs-copy-components"))
     )
   )
 
-val awsSdk2Version = "2.17.124"
+val awsSdk2Version = "2.20.65"
 
 lazy val `online_archive` = (project in file("online_archive"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
@@ -114,7 +114,7 @@ lazy val `online_archive` = (project in file("online_archive"))
       "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
       "software.amazon.awssdk" % "s3" % awsSdk2Version,
-      "software.amazon.awssdk" % "s3-transfer-manager" % "2.20.26",
+      "software.amazon.awssdk" % "s3-transfer-manager" % "2.20.65",
       "software.amazon.awssdk" % "url-connection-client" % awsSdk2Version,
     )
   )
