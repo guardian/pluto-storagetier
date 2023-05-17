@@ -5,6 +5,7 @@ import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model._
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.{CompletedUpload, Upload, UploadRequest}
+import scala.util.Success
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -90,7 +91,7 @@ class FileUploaderSpec extends Specification with Mockito {
       }
 
       val spyFileUploader = spy(fileUploader)
-      doReturn("mockMd5Value").when(spyFileUploader).calculateMD5(any[File])
+      doReturn(Success("mockMd5Value")).when(spyFileUploader).calculateMD5(any[File])
 
       val result = Try { Await.result(spyFileUploader.copyFileToS3(file), 2.seconds) }
       there was one(mockTransferManager).upload(org.mockito.ArgumentMatchers.any[UploadRequest])
