@@ -186,8 +186,6 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     import scala.jdk.FutureConverters._
     val loggerContext = Option(MDC.getCopyOfContextMap)
 
-
-
     val basePutReq = PutObjectRequest.builder()
       .bucket(bucketName)
       .key(keyName)
@@ -234,7 +232,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
 object FileUploader {
   private def s3ClientConfig = {
-    val b = S3CrtAsyncClient.builder()
+    val b = S3CrtAsyncClient.builder().minimumPartSizeInBytes(20 * 1024)
     val withRegion = sys.env.get("AWS_REGION") match {
       case Some(rgn)=>b.region(Region.of(rgn))
       case None=>b
