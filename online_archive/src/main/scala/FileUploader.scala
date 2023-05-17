@@ -17,7 +17,6 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
 import java.util.Base64
-import javax.xml.bind.DatatypeConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -178,9 +177,10 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
     } finally {
       inputStream.close()
     }
-
     // Convert the byte array into a Base64 string
-    DatatypeConverter.printBase64Binary(messageDigest.digest())
+    val md5String = Base64.getEncoder.encodeToString(messageDigest.digest())
+    logger.info(s"MD5 string value: ${md5String}")
+    md5String
   }
   private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
