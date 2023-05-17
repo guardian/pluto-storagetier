@@ -15,6 +15,7 @@ import software.amazon.awssdk.transfer.s3.model.UploadRequest
 
 import java.io.File
 import java.nio.file.{Files, Paths}
+import java.security.MessageDigest
 import java.util.Base64
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
@@ -166,13 +167,22 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
 
+  def calculateMD5(file: File): String = {
+    val buffer = Files.readAllBytes(Paths.get(file.getPath))
+    val messageDigest = MessageDigest.getInstance("MD5")
+    val md5Bytes = messageDigest.digest(buffer)
+    Base64.getEncoder.encodeToString(md5Bytes)
+  }
   private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
     val loggerContext = Option(MDC.getCopyOfContextMap)
 
+
+
     val basePutReq = PutObjectRequest.builder()
       .bucket(bucketName)
       .key(keyName)
+      .contentMD5(calculateMD5(file))
 
     val putReq = contentType match {
       case Some(contentType)=>basePutReq.contentType(contentType)
