@@ -13,10 +13,11 @@ import software.amazon.awssdk.services.s3.model._
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.UploadRequest
 
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
-import java.security.MessageDigest
+import java.security.{DigestInputStream, MessageDigest}
 import java.util.Base64
+import javax.xml.bind.DatatypeConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -167,50 +168,67 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
 
-  def calculateMD5(file: File): String = {
-    val buffer = new Array[Byte](8192) // 8KB buffer
-    val messageDigest = MessageDigest.getInstance("MD5")
-    val inputStream = Files.newInputStream(Paths.get(file.getPath))
+  def calculateMD5(file: File): Try[String] = {
+    Try {
+      val buffer = new Array[Byte](8192)
+      val md5 = MessageDigest.getInstance("MD5")
+      val dis = new DigestInputStream(new FileInputStream(file), md5)
 
-    try {
-      LazyList.continually(inputStream.read(buffer)).takeWhile(_ != -1).foreach(messageDigest.update(buffer, 0, _))
-    } finally {
-      inputStream.close()
+      try {
+        while (dis.read(buffer) != -1) {}
+      } finally {
+        dis.close()
+      }
+
+      DatatypeConverter.printHexBinary(md5.digest())
     }
-    // Convert the byte array into a Base64 string
-    val md5String = Base64.getEncoder.encodeToString(messageDigest.digest())
-    logger.info(s"MD5 string value: ${md5String}")
-    md5String
   }
-  private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
+
+  private def uploadFile(file: File, keyName: String, contentType: Option[String] = None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
     val loggerContext = Option(MDC.getCopyOfContextMap)
 
-    val basePutReq = PutObjectRequest.builder()
-      .bucket(bucketName)
-      .key(keyName)
-      .contentMD5(calculateMD5(file))
+    val md5Result = calculateMD5(file)
 
-    val putReq = contentType match {
-      case Some(contentType)=>basePutReq.contentType(contentType)
-      case None=>basePutReq
+    md5Result match {
+      case Success(md5) =>
+        logger.info(s"Calculated MD5 for $file: $md5")
+
+        val basePutReq = PutObjectRequest.builder()
+          .bucket(bucketName)
+          .key(keyName)
+          .contentMD5(md5)
+
+        val putReq = contentType match {
+          case Some(contentType) => basePutReq.contentType(contentType)
+          case None => basePutReq
+        }
+
+        val response = for {
+          job <- Future.fromTry(Try {
+            val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AwsRequestBodyFromFile(file))
+              .build()
+
+            transferManager.upload(req)
+          })
+          _ <- job.completionFuture().asScala
+          result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
+        } yield result
+
+        response.recover {
+          case e: S3Exception =>
+            logger.error(s"S3Exception when uploading $file: ${e.getMessage}", e)
+            throw e
+          case e =>
+            throw e
+        }.map(result => {
+          loggerContext.map(MDC.setContextMap) //restore the logger context if it was set
+          result
+        })
+      case Failure(e) =>
+        logger.error(s"Failed to calculate MD5 for $file: ${e.getMessage}", e)
+        Future.failed(e)
     }
-
-    val response = for {
-      job <- Future.fromTry(Try {
-        val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AwsRequestBodyFromFile(file))
-          .build()
-
-        transferManager.upload(req)
-      })
-      _ <- job.completionFuture().asScala
-      result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
-    } yield result
-
-    response.map(result=>{
-      loggerContext.map(MDC.setContextMap)  //restore the logger context if it was set
-      result
-    })
   }
 
   private def generateS3Uri(bucket:String, keyToUpload:String) = {

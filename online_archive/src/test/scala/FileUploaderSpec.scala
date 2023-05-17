@@ -18,6 +18,7 @@ import scala.jdk.FutureConverters._
 import scala.util.Try
 
 class FileUploaderSpec extends Specification with Mockito {
+
   "FileUploader" should {
     "Failure when file doesn't exist" in {
       val mockedS3 = mock[S3Client]
@@ -170,6 +171,33 @@ class FileUploaderSpec extends Specification with Mockito {
       fileUploader.objectExists("my-object-key") must beAFailedTry
     }
   }
+
+//  "FileUploader.calculateMD5" should {
+//    "return correct MD5 hash for a file" in {
+//      val file = mock[File]
+//      val fileData = "Hello, World!"
+//
+//      // Mock the file methods to behave as if the file contains the string "Hello, World!"
+//      file.exists returns true
+//      file.isFile returns true
+//      file.length returns fileData.length
+//
+//      val mockedS3 = mock[S3Client]
+//      val mockTransferManager = mock[S3TransferManager]
+//      val fileUploader = new FileUploader(mockTransferManager, mockedS3, "bucket") {
+//        override protected def AwsRequestBodyFromFile(file: File) = AsyncRequestBody.fromString(fileData)
+//      }
+//
+//      // Calculate the expected MD5 hash of the file data
+//      val md5 = MessageDigest.getInstance("MD5")
+//      val digest = md5.digest(fileData.getBytes(StandardCharsets.UTF_8))
+//      val expectedHash = DatatypeConverter.printHexBinary(digest)
+//
+//      val actualHash = fileUploader.calculateMD5(file)
+//      println(actualHash)
+//      actualHash must beEqualTo(expectedHash)
+//    }
+//  }
 
   "FileUploader.vsMD5ToS3" should {
     "convert hex string to base64 string" in {
