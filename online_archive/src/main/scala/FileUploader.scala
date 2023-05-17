@@ -17,6 +17,7 @@ import java.io.File
 import java.nio.file.{Files, Paths}
 import java.security.MessageDigest
 import java.util.Base64
+import javax.xml.bind.DatatypeConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -168,10 +169,18 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    */
 
   def calculateMD5(file: File): String = {
-    val buffer = Files.readAllBytes(Paths.get(file.getPath))
+    val buffer = new Array[Byte](8192) // 8KB buffer
     val messageDigest = MessageDigest.getInstance("MD5")
-    val md5Bytes = messageDigest.digest(buffer)
-    Base64.getEncoder.encodeToString(md5Bytes)
+    val inputStream = Files.newInputStream(Paths.get(file.getPath))
+
+    try {
+      LazyList.continually(inputStream.read(buffer)).takeWhile(_ != -1).foreach(messageDigest.update(buffer, 0, _))
+    } finally {
+      inputStream.close()
+    }
+
+    // Convert the byte array into a Base64 string
+    DatatypeConverter.printBase64Binary(messageDigest.digest())
   }
   private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
