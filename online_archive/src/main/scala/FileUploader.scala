@@ -17,7 +17,6 @@ import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
 import java.security.{DigestInputStream, MessageDigest}
 import java.util.Base64
-import javax.xml.bind.DatatypeConverter
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
@@ -180,7 +179,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
         dis.close()
       }
 
-      DatatypeConverter.printHexBinary(md5.digest())
+      Base64.getEncoder.encodeToString(md5.digest())
     }
   }
 
@@ -204,10 +203,14 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
           case None => basePutReq
         }
 
+        logger.info(s"Put request for $file: ${putReq.build().toString}")
+
         val response = for {
           job <- Future.fromTry(Try {
-            val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AwsRequestBodyFromFile(file))
+            val md5 = calculateMD5(file).get
+            val req = UploadRequest.builder().putObjectRequest(putReq.contentMD5(md5).build()).requestBody(AwsRequestBodyFromFile(file))
               .build()
+            logger.info(s"Request used by S3TransferManager: $req")
 
             transferManager.upload(req)
           })
