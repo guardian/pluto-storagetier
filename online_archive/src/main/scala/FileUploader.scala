@@ -223,6 +223,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
             logger.error(s"S3Exception when uploading $file: ${e.getMessage}", e)
             throw e
           case e =>
+            logger.error(s"Other exception when uploading $file: ${e.getMessage}", e)
             throw e
         }.map(result => {
           loggerContext.map(MDC.setContextMap) //restore the logger context if it was set
