@@ -1,21 +1,20 @@
 package com.gu.multimedia.storagetier.framework
 
 import com.rabbitmq.client.AMQP.BasicProperties
-import com.rabbitmq.client.impl.{CredentialsProvider, DefaultCredentialsProvider}
-import com.rabbitmq.client.{AMQP, Channel, Connection, Consumer, Envelope, LongString, ShutdownSignalException}
+import com.rabbitmq.client.impl.DefaultCredentialsProvider
+import com.rabbitmq.client._
 import io.circe.Json
 import io.circe.syntax.EncoderOps
-
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
-import scala.jdk.CollectionConverters._
-import scala.util.{Failure, Success, Try}
 import org.slf4j.{LoggerFactory, MDC}
 
-import scala.concurrent.duration._
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
 import java.util.UUID
 import scala.collection.mutable
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 /**
  * This class forms the basis of the message processing framework.
@@ -211,6 +210,7 @@ class MessageProcessingFramework (ingest_queue_name:String,
       .contentType("application/json")
       .contentEncoding("UTF-8")
       .messageId(UUID.randomUUID().toString)
+      .deliveryMode(2)
       .build()
 
     chan.basicPublish(outputExchange, routingKey, false,msgProps, stringContent.getBytes(cs) )

@@ -37,7 +37,7 @@ class MediaRemoverMessageProcessor(implicit nearlineRecordDAO: NearlineRecordDAO
    */
   override def handleMessage(routingKey: String, msg: Json, framework: MessageProcessingFramework): Future[Either[String, MessageProcessorReturnValue]] =
     routingKey match {
-      case r if r == "storagetier.nearline.internalarchive.required.nearline" || r == "storagetier.nearline.internalarchive.online" =>
+      case r if r == "storagetier.nearline.internalarchive.required.nearline" || r == "storagetier.nearline.internalarchive.required.online" =>
         msg.as[NearlineRecord] match {
           case Left(err) =>
             Future.failed(new RuntimeException(s"Could not parse message as a nearline record: $err"))
