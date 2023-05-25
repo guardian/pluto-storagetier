@@ -44,8 +44,8 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
       Future.failed(new RuntimeException(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
       val uploadName = maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/")
-
-      objectExistsWithSize(uploadName, file.length()) match {
+      val fileSize = file.length()
+      objectExistsWithSize(uploadName, fileSize) match {
         case Success(true) =>
           logger.info(s"No upload needed for ${file.getAbsolutePath} as a matching copy already exists")
           Future.successful((uploadName, file.length()))
@@ -254,7 +254,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
 object FileUploader {
   private def s3ClientConfig = {
-    val b = S3CrtAsyncClient.builder().minimumPartSizeInBytes(20 * 1024 * 1024)
+    val b = S3CrtAsyncClient.builder().minimumPartSizeInBytes(104857600) // 100MB = 100 * 1024 * 1024 = 104857600
     val withRegion = sys.env.get("AWS_REGION") match {
       case Some(rgn)=>b.region(Region.of(rgn))
       case None=>b
