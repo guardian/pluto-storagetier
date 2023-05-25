@@ -10,14 +10,14 @@
         <appender-ref ref="STDOUT"/>
         <includeCallerData>true</includeCallerData>
     </appender>
-<!--    <logger name="com.gu.multimedia" level="DEBUG"/>-->
+    <!-- <logger name="com.gu.multimedia" level="DEBUG"/> -->
     <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
-    <logger name="FakeMessageProcessor" level="DEBUG"/>
+    <!-- <logger name="FakeMessageProcessor" level="DEBUG"/> -->
     <logger name="com.gu.multimedia.storagetier.plutocore" level="INFO"/>
     <logger name="AssetSweeperMessageProcessor" level="INFO"/>
-<!--    <logger name="VidispineMessageProcessor" level="DEBUG"/>-->
-<!--    <logger name="archivehunter" level="DEBUG"/>-->
-    <logger name="FileUploader" level="DEBUG"/>
+    <!-- <logger name="VidispineMessageProcessor" level="DEBUG"/> -->
+    <!-- <logger name="archivehunter" level="DEBUG"/>
+    <logger name="FileUploader" level="DEBUG"/> -->
     <logger name="Main$" level="INFO"/>
 
     <root level="INFO">
