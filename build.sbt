@@ -1,6 +1,6 @@
 import com.typesafe.sbt.packager.docker
-import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport.{dockerExposedPorts, dockerUsername}
-import com.typesafe.sbt.packager.docker.{Cmd, DockerChmodType, DockerPermissionStrategy}
+import com.typesafe.sbt.packager.docker.DockerPlugin.autoImport.dockerUsername
+import com.typesafe.sbt.packager.docker.{DockerChmodType, DockerPermissionStrategy}
 import sbt.Keys.{libraryDependencies, scalacOptions}
 
 name := "pluto-storagetier"
@@ -83,7 +83,7 @@ lazy val `mxscopy` = (project in file("mxs-copy-components"))
     )
   )
 
-val awsSdk2Version = "2.17.124"
+val awsSdk2Version = "2.20.65"
 
 lazy val `online_archive` = (project in file("online_archive"))
   .enablePlugins(DockerPlugin, AshScriptPlugin, plugins.JUnitXmlReportPlugin)
@@ -114,8 +114,9 @@ lazy val `online_archive` = (project in file("online_archive"))
       "org.specs2" %% "specs2-mock" % "4.12.3" % Test,
       "org.mockito" %% "mockito-scala-specs2" % "1.16.39" % Test,
       "software.amazon.awssdk" % "s3" % awsSdk2Version,
-      "software.amazon.awssdk" % "s3-transfer-manager" % "2.17.177-PREVIEW",
-      "software.amazon.awssdk" % "url-connection-client" % awsSdk2Version,
+      "software.amazon.awssdk" % "s3-transfer-manager" % "2.20.65",
+      "software.amazon.awssdk.crt" % "aws-crt" % "0.21.15",
+      "software.amazon.awssdk" % "url-connection-client" % awsSdk2Version
     )
   )
 

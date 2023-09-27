@@ -1,6 +1,6 @@
 import akka.http.scaladsl.model.{ContentType, Uri}
 import akka.stream.Materializer
-import akka.stream.scaladsl.{FileIO, Sink, Source}
+import akka.stream.scaladsl.{FileIO, Source}
 import akka.util.ByteString
 import org.apache.commons.codec.binary.Hex
 import org.slf4j.{LoggerFactory, MDC}
@@ -8,20 +8,23 @@ import software.amazon.awssdk.core.async.AsyncRequestBody
 import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{HeadObjectRequest, HeadObjectResponse, ListObjectVersionsRequest, NoSuchKeyException, PutObjectRequest}
-import software.amazon.awssdk.transfer.s3.{CompletedUpload, S3ClientConfiguration, S3TransferManager, UploadRequest}
+import software.amazon.awssdk.services.s3.internal.crt.S3CrtAsyncClient
+import software.amazon.awssdk.services.s3.model._
+import software.amazon.awssdk.transfer.s3.S3TransferManager
+import software.amazon.awssdk.transfer.s3.model.UploadRequest
 
-import java.io.{File, InputStream}
+import java.io.{File, FileInputStream}
 import java.nio.file.{Files, Paths}
+import java.security.{DigestInputStream, MessageDigest}
 import java.util.Base64
-
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 
 class FileUploader(transferManager: S3TransferManager, client: S3Client, var bucketName: String)(implicit ec:ExecutionContext) {
   private val logger = LoggerFactory.getLogger(getClass)
   import FileUploader._
+  protected def AwsRequestBodyFromFile(file:File) = AsyncRequestBody.fromFile(file)
 
   /**
    * Attempt to copy the given file to S3 under a distinct name.
@@ -35,27 +38,26 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @return a Try, containing a Tuple where the first value is a String containing the uploaded file name and the second value is a
    *         Long containing the file size.
    */
-  def copyFileToS3(file: File, maybeUploadPath:Option[String]=None): Future[(String, Long)] = {
+  def copyFileToS3(file: File, maybeUploadPath: Option[String] = None): Future[(String, Long)] = {
     if (!file.exists || !file.isFile) {
       logger.info(s"File ${file.getAbsolutePath} doesn't exist")
       Future.failed(new RuntimeException(s"File ${file.getAbsolutePath} doesn't exist"))
     } else {
-      //object lock and bucket versioning will ensure that nothing gets over-written and we don't have to change filename.
       val uploadName = maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/")
-
-      objectExistsWithSize(uploadName, file.length()) match {
-        case Success(true)=>
+      val fileSize = file.length()
+      objectExistsWithSize(uploadName, fileSize) match {
+        case Success(true) =>
           logger.info(s"No upload needed for ${file.getAbsolutePath} as a matching copy already exists")
-          Future(uploadName, file.length())
-        case Success(false)=>
+          Future.successful((uploadName, file.length()))
+        case Success(false) =>
           logger.info(s"Uploading ${file.getAbsolutePath} as there is no previously matching copy")
-          uploadFile(file, uploadName).map(response=> (uploadName, response.contentLength().toLong) ) //scala long !== java long so we must convert java long to scala long here
-        case Failure(err)=>
+          uploadFile(file, uploadName).map(response => (uploadName, response.contentLength().toLong))
+        case Failure(err) =>
           Future.failed(err)
       }
-      //tryUploadFile(file, maybeUploadPath.getOrElse(file.getAbsolutePath).stripPrefix("/"))
     }
   }
+
 
   private def getObjectMetadata(bucketName: String, key: String) = Try {
     val req = HeadObjectRequest.builder().bucket(bucketName).key(key).build()
@@ -164,34 +166,73 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
    * @param keyName S3 key name to upload to
    * @return a Future that completes with a HeadObjectResponse once the upload is completed.
    */
-  private def uploadFile(file: File, keyName: String, contentType:Option[String]=None): Future[HeadObjectResponse] = {
+
+  def calculateMD5(file: File): Try[String] = {
+    Try {
+      val buffer = new Array[Byte](8192)
+      val md5 = MessageDigest.getInstance("MD5")
+      val dis = new DigestInputStream(new FileInputStream(file), md5)
+
+      try {
+        while (dis.read(buffer) != -1) {}
+      } finally {
+        dis.close()
+      }
+
+      Base64.getEncoder.encodeToString(md5.digest())
+    }
+  }
+
+  private def uploadFile(file: File, keyName: String, contentType: Option[String] = None): Future[HeadObjectResponse] = {
     import scala.jdk.FutureConverters._
     val loggerContext = Option(MDC.getCopyOfContextMap)
 
-    val basePutReq = PutObjectRequest.builder()
-      .bucket(bucketName)
-      .key(keyName)
+    val md5Result = calculateMD5(file)
 
-    val putReq = contentType match {
-      case Some(contentType)=>basePutReq.contentType(contentType)
-      case None=>basePutReq
+    md5Result match {
+      case Success(md5) =>
+        logger.info(s"Calculated MD5 for $file: $md5")
+
+        val basePutReq = PutObjectRequest.builder()
+          .bucket(bucketName)
+          .key(keyName)
+          .contentMD5(md5)
+
+        val putReq = contentType match {
+          case Some(contentType) => basePutReq.contentType(contentType)
+          case None => basePutReq
+        }
+
+        logger.info(s"Put request for $file: ${putReq.build().toString}")
+
+        val response = for {
+          job <- Future.fromTry(Try {
+            val md5 = calculateMD5(file).get
+            val req = UploadRequest.builder().putObjectRequest(putReq.contentMD5(md5).build()).requestBody(AwsRequestBodyFromFile(file))
+              .build()
+            logger.info(s"Request used by S3TransferManager: $req")
+
+            transferManager.upload(req)
+          })
+          _ <- job.completionFuture().asScala
+          result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
+        } yield result
+
+        response.recover {
+          case e: S3Exception =>
+            logger.error(s"S3Exception when uploading $file: ${e.getMessage}", e)
+            throw e
+          case e =>
+            logger.error(s"Other exception when uploading $file: ${e.getMessage}", e)
+            throw e
+        }.map(result => {
+          loggerContext.map(MDC.setContextMap) //restore the logger context if it was set
+          result
+        })
+      case Failure(e) =>
+        logger.error(s"Failed to calculate MD5 for $file: ${e.getMessage}", e)
+        Future.failed(e)
     }
-
-    val response = for {
-      job <- Future.fromTry(Try {
-        val req = UploadRequest.builder().putObjectRequest(putReq.build()).requestBody(AsyncRequestBody.fromFile(file))
-          .build()
-
-        transferManager.upload(req)
-      })
-      _ <- job.completionFuture().asScala
-      result <- Future.fromTry(getObjectMetadata(bucketName, keyName))
-    } yield result
-
-    response.map(result=>{
-      loggerContext.map(MDC.setContextMap)  //restore the logger context if it was set
-      result
-    })
   }
 
   private def generateS3Uri(bucket:String, keyToUpload:String) = {
@@ -213,7 +254,7 @@ class FileUploader(transferManager: S3TransferManager, client: S3Client, var buc
 
 object FileUploader {
   private def s3ClientConfig = {
-    val b = S3ClientConfiguration.builder()
+    val b = S3CrtAsyncClient.builder().minimumPartSizeInBytes(104857600) // 100MB = 100 * 1024 * 1024 = 104857600
     val withRegion = sys.env.get("AWS_REGION") match {
       case Some(rgn)=>b.region(Region.of(rgn))
       case None=>b
@@ -222,7 +263,7 @@ object FileUploader {
   }
   private def initTransferManager = wrapJavaMethod(()=>
     S3TransferManager.builder()
-      .s3ClientConfiguration(s3ClientConfig)
+      .s3Client(s3ClientConfig)
       .build()
   )
 
