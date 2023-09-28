@@ -6,4 +6,5 @@ case class OnlineOutputMessage(mediaTier: String,
                                fileSize: Option[Long],
                                vidispineItemId: Option[String],
                                nearlineId: Option[String],
-                               mediaCategory: String)
+                               mediaCategory: String,
+                               forceDelete: Option[Boolean])

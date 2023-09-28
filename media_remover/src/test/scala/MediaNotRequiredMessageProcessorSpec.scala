@@ -57,7 +57,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val mockVault = mock[Vault]
       val mockProject = mock[ProjectRecord]
 
-      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.NEARLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes")
+      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.NEARLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes", None)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future.failed(new RuntimeException("failed to connect"))
@@ -85,7 +85,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val mockVault = mock[Vault]
       val mockProject = mock[ProjectRecord]
 
-      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.ONLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes")
+      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.ONLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes", None)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future.failed(new RuntimeException("failed to connect"))
@@ -215,7 +215,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val result = toTest.getActionToPerformOnline(msgObj, None)
+      val result = toTest.getActionToPerformOnline(msgObj, None, None)
 
       result._1 mustEqual Action.DropMsg
     }

@@ -28,7 +28,8 @@ object InternalOnlineOutputMessage {
           file.maybeGetSize(),
           file.stringAttribute("GNM_VIDISPINE_ITEM"),
           Some(file.oid),
-          gnmType
+          gnmType,
+          None
         )
       case _=>
         throw new RuntimeException(s"Objectmatrix file ${file.oid} is missing either GNM_PROJECT_ID or GNM_TYPE fields")
@@ -43,6 +44,7 @@ object InternalOnlineOutputMessage {
       file.fileSize,
       file.itemId,
       file.nearlineId,
-      file.mediaCategory)
+      file.mediaCategory,
+      None)
   }
 }

@@ -40,7 +40,8 @@ class NearlineHelperSpec extends Specification with Mockito{
       fileSize = None,
       vidispineItemId = Some("VX-151922"),
       nearlineId = maybeNearlineId,
-      mediaCategory = "Deliverables")
+      mediaCategory = "Deliverables",
+      None)
 
 
   "NearlineHelper.dealWithAttFiles" should {

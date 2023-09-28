@@ -176,12 +176,15 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
   }
 
 
-  def getActionToPerformOnline(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord]): (Action.Value, Option[ProjectRecord]) =
+  def getActionToPerformOnline(onlineOutputMessage: OnlineOutputMessage, maybeProject: Option[ProjectRecord], maybeForceDelete: Option[Boolean]): (Action.Value, Option[ProjectRecord]) = {
     maybeProject match {
       case None =>
         logger.debug(s"Action to perform: '${Action.DropMsg}' for ${getInformativeIdStringNoProject(onlineOutputMessage)}")
         (Action.DropMsg, None)
       case Some(project) =>
+        if (maybeForceDelete == Some(true)) {
+          logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
+        }
         project.status match {
           case status if status == EntryStatus.Held =>
             logAndSelectAction(Action.CheckExistsOnNearline, onlineOutputMessage, project)
@@ -220,6 +223,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
             }
         }
     }
+  }
 
 
   private def logAndSelectAction(action: MediaNotRequiredMessageProcessor.Action.Value, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
@@ -465,7 +469,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         for {
           /* ignore all but the first project - we're only getting the main project as of yet */
           projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
-          actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe))
+          actionToPerform <- Future(getActionToPerformOnline(onlineOutputMessage, projectRecordMaybe, onlineOutputMessage.forceDelete))
           fileRemoveResult <- performActionOnline(vault, internalArchiveVault, onlineOutputMessage, actionToPerform)
         } yield fileRemoveResult
       case notWanted =>
