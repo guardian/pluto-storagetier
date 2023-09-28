@@ -228,7 +228,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
 
   private def logAndSelectAction(action: MediaNotRequiredMessageProcessor.Action.Value, onlineOutputMessage: OnlineOutputMessage, project: ProjectRecord) = {
-    logger.debug(s"Action to perform: '$action' for ${getInformativeIdString(onlineOutputMessage, project)}")
+    logger.info(s"Action to perform: '$action' for ${getInformativeIdString(onlineOutputMessage, project)}")
     (action, Some(project))
   }
 
