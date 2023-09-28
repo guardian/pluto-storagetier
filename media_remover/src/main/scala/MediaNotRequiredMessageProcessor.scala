@@ -184,7 +184,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
       case Some(project) =>
         if (maybeForceDelete == Some(true)) {
           logger.info(s"Force delete found set.")
-          logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
+          return logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
         }
         project.status match {
           case status if status == EntryStatus.Held =>
