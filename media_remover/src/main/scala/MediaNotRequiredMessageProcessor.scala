@@ -466,6 +466,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
     validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
     onlineOutputMessage.mediaTier match {
       case "ONLINE" =>
+        logger.info(s"Force delete setting is ${onlineOutputMessage.forceDelete}")
         for {
           /* ignore all but the first project - we're only getting the main project as of yet */
           projectRecordMaybe <- asLookup.getProjectMetadata(onlineOutputMessage.projectIds.head)
