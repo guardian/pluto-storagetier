@@ -57,7 +57,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val mockVault = mock[Vault]
       val mockProject = mock[ProjectRecord]
 
-      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.NEARLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes")
+      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.NEARLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes", None)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def nearlineMediaExistsInDeepArchive(vault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future.failed(new RuntimeException("failed to connect"))
@@ -85,7 +85,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
       val mockVault = mock[Vault]
       val mockProject = mock[ProjectRecord]
 
-      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.ONLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes")
+      val onlineOutputMessage = OnlineOutputMessage(MediaTiers.ONLINE.toString, Seq("1"), Some("original/file/path/some.file"), Some(1024L), Some("VX-1"), Some("mxs-1"), "Rushes", None)
 
       val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup) {
         override def onlineMediaExistsInDeepArchive(onlineOutputMessage: OnlineOutputMessage): Future[Boolean] = Future.failed(new RuntimeException("failed to connect"))
@@ -170,6 +170,58 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
   }
 
   "MediaNotRequiredMessageProcessor.getActionToPerformOnline" should {
+
+    "run a ClearAndDelete action when the forceDelete option is found set to true" in {
+      implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
+      implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
+      implicit val vidispineCommunicator: VidispineCommunicator = mock[VidispineCommunicator]
+      implicit val mat: Materializer = mock[Materializer]
+      implicit val sys: ActorSystem = mock[ActorSystem]
+      implicit val mockBuilder: MXSConnectionBuilderImpl = mock[MXSConnectionBuilderImpl]
+      implicit val mockS3ObjectChecker: S3ObjectChecker = mock[S3ObjectChecker]
+      implicit val mockChecksumChecker: ChecksumChecker = mock[ChecksumChecker]
+
+      implicit val mockOnlineHelper: OnlineHelper = mock[OnlineHelper]
+      implicit val mockNearlineHelper: NearlineHelper = mock[NearlineHelper]
+      implicit val mockPendingDeletionHelper: PendingDeletionHelper = mock[PendingDeletionHelper]
+
+      val mockAssetFolderLookup = mock[AssetFolderLookup]
+
+      val fakeProject = mock[ProjectRecord]
+      fakeProject.id returns Some(22)
+      fakeProject.status returns EntryStatus.InProduction
+      fakeProject.deep_archive returns Some(true)
+      fakeProject.deletable returns Some(true)
+      fakeProject.sensitive returns None
+      mockAssetFolderLookup.getProjectMetadata("22") returns Future(Some(fakeProject))
+
+      val mockVault = mock[Vault]
+      val mockObject = mock[MxsObject]
+      mockVault.getObject(any) returns mockObject
+
+      val toTest = new MediaNotRequiredMessageProcessor(mockAssetFolderLookup)
+
+      val msgContent =
+        """{
+          |"mediaTier": "ONLINE",
+          |"projectIds": ["22"],
+          |"originalFilePath": "/srv/Multimedia2/Media Production/Assets/Multimedia_Reactive_News_and_Sport/Reactive_News_Explainers_2022/monika_cvorak_MH_Investigation/Footage Vera Productions/2022-03-18_MH.mp4",
+          |"fileSize": 1024,
+          |"vidispineItemId": "VX-151922",
+          |"nearlineId": "8abdd9c8-dc1e-11ec-a895-8e29f591bdb6-8765",
+          |"mediaCategory": "Assets",
+          |"forceDelete": true
+          |}""".stripMargin
+
+      val msg = io.circe.parser.parse(msgContent)
+
+      val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
+
+      val result = toTest.getActionToPerformOnline(msgObj, Some(fakeProject), Some(true))
+
+      result._1 mustEqual Action.ClearAndDelete
+    }
+
     "XYZ route online deletable Completed project with deliverable media should drop silently" in {
       implicit val pendingDeletionRecordDAO :PendingDeletionRecordDAO = mock[PendingDeletionRecordDAO]
       implicit val nearlineRecordDAO: NearlineRecordDAO = mock[NearlineRecordDAO]
@@ -215,7 +267,7 @@ class MediaNotRequiredMessageProcessorSpec extends Specification with Mockito {
 
       val msgObj = msg.flatMap(_.as[OnlineOutputMessage]).right.get
 
-      val result = toTest.getActionToPerformOnline(msgObj, None)
+      val result = toTest.getActionToPerformOnline(msgObj, None, None)
 
       result._1 mustEqual Action.DropMsg
     }
