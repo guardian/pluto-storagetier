@@ -183,7 +183,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         (Action.DropMsg, None)
       case Some(project) =>
         if (maybeForceDelete == Some(true)) {
-          logger.info(s"Force delete found set.")
           return logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
         }
         project.status match {
@@ -197,7 +196,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                     // deletable + Completed/Killed
                     logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
                   case _ =>
-                    logger.info(s"About to run a DropMsg action. Line 200.")
                     logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
                 }
               case _ =>
@@ -208,7 +206,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                       // not deletable + deep_archive + sensitive + Completed/Killed
                       logAndSelectAction(Action.CheckInternalArchive, onlineOutputMessage, project)
                     } else {
-                      logger.info(s"About to run a DropMsg action. Line 211.")
                       logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
                     }
                   } else {
@@ -216,7 +213,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
                       // not deletable + deep_archive + not sensitive + Completed/Killed
                       logAndSelectAction(Action.CheckDeepArchiveForOnline, onlineOutputMessage, project)
                     } else {
-                      logger.info(s"About to run a DropMsg action. Line 219.")
                       logAndSelectAction(Action.DropMsg, onlineOutputMessage, project)
                     }
                   }
@@ -242,7 +238,6 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
         (Action.DropMsg, None)
       case Some(project) =>
         if (maybeForceDelete == Some(true)) {
-          logger.info(s"Force delete found set.")
           return logAndSelectAction(Action.ClearAndDelete, onlineOutputMessage, project)
         }
         project.deletable match {
