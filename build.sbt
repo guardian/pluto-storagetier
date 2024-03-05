@@ -46,7 +46,7 @@ lazy val `common` = (project in file("common"))
       "io.circe" %% "circe-parser" % circeVersion,
       "com.typesafe.slick" %% "slick" % slickVersion,
       "com.typesafe.slick" %% "slick-hikaricp" % slickVersion,
-      "org.postgresql" % "postgresql" % "42.3.3",
+      "org.postgresql" % "postgresql" % "42.7.2",
       "org.slf4j" % "slf4j-api" % slf4jVersion,
       "ch.qos.logback" % "logback-core" % "1.2.7",
       "ch.qos.logback" % "logback-classic" % "1.2.7",
