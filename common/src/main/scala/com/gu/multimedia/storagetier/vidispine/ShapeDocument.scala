@@ -48,8 +48,14 @@ case class ShapeDocument(
     val binaryFiles = binaryComponent.getOrElse(Seq.empty[SimplifiedComponent]).flatMap(_.file)
 
     val allComponentFiles = containerComponent match {
-      case Some(container) => container.file ++ audioFiles ++ videoFiles ++ binaryFiles
-      case None => audioFiles ++ videoFiles ++ binaryFiles
+      case Some(container) =>
+        val  files = container.file ++ audioFiles ++ videoFiles ++ binaryFiles
+        logger.info(s"allComponentFiles with container: $files")
+        files
+      case None =>
+        val files = audioFiles ++ videoFiles ++ binaryFiles
+        logger.info(s"allComponentFiles without container: $files")
+        files
     }
     val fileIdMap = allComponentFiles.foldLeft(Map[String, VSShapeFile]())((acc, elem)=>acc + (elem.id->elem))
     if(fileIdMap.size>1) {

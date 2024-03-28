@@ -55,9 +55,13 @@ object VSOnlineOutputMessage {
       itemSimplified: SearchResultItemSimplified,
       projectId: Int
   ): Option[VSOnlineOutputMessage] = {
+    logger.info(s"itemSimplified: $itemSimplified")
+    logger.info(s"itemSimplified.item: ${itemSimplified.item}")
+
     val mediaTier = "ONLINE"
     val itemId = Option(itemSimplified.id)
     val likelyFile = itemSimplified.item.shape.headOption.flatMap(_.getLikelyFile)
+    logger.info(s"likelyFile: $likelyFile")
     val filePath = likelyFile.flatMap(_.getAbsolutePath)
     val fileSize = likelyFile.flatMap(_.sizeOption)
     val projectIdAndContainingProjectIds = projectId +: safeGetContainingProjects(itemSimplified)
