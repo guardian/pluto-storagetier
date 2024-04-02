@@ -11,10 +11,11 @@ import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
 import io.circe.generic.auto._
 import org.slf4j.{LoggerFactory, MDC}
+import shapeless.Lazy.apply
 
 import java.net.URLEncoder
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
@@ -255,7 +256,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
 
 
   def recursivelyGetFilesOfProject(projectId: Int, start: Int = 1, pageSize: Int = 100, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
-    val pageSize = Math.min(100, pageSize) // Vidispine has a limit of 100 items per page
+//    val pageSize: Int = Math.min(100, pageSize) // Vidispine has a limit of 100 items per page
     getPageOfFilesOfProject(projectId, start, pageSize).flatMap(results => {
       if (results.isEmpty || start > maxFilesToFetch) {
         if (start > maxFilesToFetch) logger.warn(s"Exiting early from getting online files, because we have found more than maxFilesToFetch: $maxFilesToFetch, namely ${existingResults.length + results.length} files")
@@ -278,17 +279,18 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
         <intervals>generic</intervals>
       </ItemSearchDocument>
 
-    val searchResult = callToVidispine[SearchResultDocument](
+    val searchResultFuture: Future[Option[SearchResultDocument]] = callToVidispine[SearchResultDocument](
       HttpRequest(
         uri = s"${config.baseUri}/API/search;first=$currentItem;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
         method = HttpMethods.PUT,
         entity = HttpEntity(ContentType(MediaTypes.`application/xml`, HttpCharsets.`UTF-8`), doc.toString)))
 
-      searchResult.map({
-        case Some(searchResultDocument) =>
-          searchResultDocument.entry.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId))
-        case None => Seq[Option[VSOnlineOutputMessage]]()
-      })
+    searchResultFuture.flatMap {
+      case Some(SearchResultDocument(_, entries)) =>
+        Future.successful(entries.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId)))
+      case _ =>
+        Future.successful(Seq[Option[VSOnlineOutputMessage]]())
+    }
   }
 
 
