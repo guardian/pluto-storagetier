@@ -256,7 +256,6 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
 
 
   def recursivelyGetFilesOfProject(projectId: Int, start: Int = 1, pageSize: Int = 100, existingResults: Seq[Option[VSOnlineOutputMessage]] = Seq()): Future[Seq[Option[VSOnlineOutputMessage]]] = {
-//    val pageSize: Int = Math.min(100, pageSize) // Vidispine has a limit of 100 items per page
     getPageOfFilesOfProject(projectId, start, pageSize).flatMap(results => {
       if (results.isEmpty || start > maxFilesToFetch) {
         if (start > maxFilesToFetch) logger.warn(s"Exiting early from getting online files, because we have found more than maxFilesToFetch: $maxFilesToFetch, namely ${existingResults.length + results.length} files")

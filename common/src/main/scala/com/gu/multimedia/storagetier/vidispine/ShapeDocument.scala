@@ -50,11 +50,11 @@ case class ShapeDocument(
     val allComponentFiles = containerComponent match {
       case Some(container) =>
         val  files = container.file ++ audioFiles ++ videoFiles ++ binaryFiles
-        logger.info(s"allComponentFiles with container: $files")
+        logger.debug(s"allComponentFiles with container: $files")
         files
       case None =>
         val files = audioFiles ++ videoFiles ++ binaryFiles
-        logger.info(s"allComponentFiles without container: $files")
+        logger.debug(s"allComponentFiles without container: $files")
         files
     }
     val fileIdMap = allComponentFiles.foldLeft(Map[String, VSShapeFile]())((acc, elem)=>acc + (elem.id->elem))
