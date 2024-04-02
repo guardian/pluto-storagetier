@@ -11,11 +11,10 @@ import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers
 import com.gu.multimedia.storagetier.utils.AkkaHttpHelpers.{RedirectRequired, RetryRequired, consumeStream, contentBodyToJson}
 import io.circe.generic.auto._
 import org.slf4j.{LoggerFactory, MDC}
-import shapeless.Lazy.apply
 
 import java.net.URLEncoder
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
