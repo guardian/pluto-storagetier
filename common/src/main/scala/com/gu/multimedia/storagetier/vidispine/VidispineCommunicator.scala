@@ -277,17 +277,18 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
         <intervals>generic</intervals>
       </ItemSearchDocument>
 
-    val searchResult = callToVidispine[SearchResultDocument](
+    val searchResultFuture: Future[Option[SearchResultDocument]] = callToVidispine[SearchResultDocument](
       HttpRequest(
         uri = s"${config.baseUri}/API/search;first=$currentItem;number=$pageSize?content=shape,metadata&tag=original&field=title,gnm_category,gnm_containing_projects,gnm_nearline_id,itemId",
         method = HttpMethods.PUT,
         entity = HttpEntity(ContentType(MediaTypes.`application/xml`, HttpCharsets.`UTF-8`), doc.toString)))
 
-      searchResult.map({
-        case Some(searchResultDocument) =>
-          searchResultDocument.entry.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId))
-        case None => Seq[Option[VSOnlineOutputMessage]]()
-      })
+    searchResultFuture.flatMap {
+      case Some(SearchResultDocument(_, entries)) =>
+        Future.successful(entries.map(simplifiedItem => VSOnlineOutputMessage.fromResponseItem(simplifiedItem, projectId)))
+      case _ =>
+        Future.successful(Seq[Option[VSOnlineOutputMessage]]())
+    }
   }
 
 
