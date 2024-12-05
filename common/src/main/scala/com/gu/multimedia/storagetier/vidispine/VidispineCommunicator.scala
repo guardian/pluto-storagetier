@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
 
-  private final val maxFilesToFetch = 10000
+  private final val maxFilesToFetch = 20000
 
   protected def callHttp = Http()
 
