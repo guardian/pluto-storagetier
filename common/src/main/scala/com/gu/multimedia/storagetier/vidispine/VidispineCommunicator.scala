@@ -20,6 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContext, mat:Materializer, actorSystem:ActorSystem){
   private final val logger = LoggerFactory.getLogger(getClass)
 
+  // maxFilesToFetch should have the same value as index.max_result_window in OpenSearch.
   private final val maxFilesToFetch = 20000
 
   protected def callHttp = Http()
