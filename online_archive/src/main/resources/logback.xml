@@ -11,16 +11,16 @@
         <includeCallerData>true</includeCallerData>
     </appender>
     <!-- <logger name="com.gu.multimedia" level="DEBUG"/> -->
-    <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
+    <logger name="com.gu.multimedia.storagetier.auth" level="DEBUG"/>
     <!-- <logger name="FakeMessageProcessor" level="DEBUG"/> -->
-    <logger name="com.gu.multimedia.storagetier.plutocore" level="INFO"/>
-    <logger name="AssetSweeperMessageProcessor" level="INFO"/>
+    <logger name="com.gu.multimedia.storagetier.plutocore" level="DEBUG"/>
+    <logger name="AssetSweeperMessageProcessor" level="DEBUG"/>
     <!-- <logger name="VidispineMessageProcessor" level="DEBUG"/> -->
     <!-- <logger name="archivehunter" level="DEBUG"/>
     <logger name="FileUploader" level="DEBUG"/> -->
-    <logger name="Main$" level="INFO"/>
+    <logger name="Main$" level="DEBUG"/>
 
-    <root level="INFO">
+    <root level="DEBUG">
         <appender-ref ref="ASYNC_STDOUT" />
         <!-- <appender-ref ref="Sentry" />-->
     </root>
