@@ -170,7 +170,7 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
   private def processResults(allResults: Seq[Either[String, Seq[OnlineOutputMessage]]], routingKey: String, framework: MessageProcessingFramework, projectId: Int, projectStatus: String): Either[String, MessageProcessorReturnValue] =
     (allResults.head, allResults(1), allResults(2)) match {
       case (Right(onlineResults), Right(nearlineResults), Right(_)) =>
-        if (nearlineResults.length < 10000 && onlineResults.length < 10000) {
+        if (nearlineResults.length < 20000 && onlineResults.length < 20000) {
           logger.info(s"About to send bulk messages for ${nearlineResults.length} filtered nearline results")
           framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
 
