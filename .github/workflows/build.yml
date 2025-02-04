@@ -97,7 +97,7 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: online_archive
           path: build-info.yaml
@@ -192,7 +192,7 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: storagetier-project-restorer
           path: build-info.yaml
@@ -287,7 +287,7 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: storagetier-media-remover
           path: build-info.yaml
@@ -381,7 +381,7 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: online_nearline
           path: build-info.yaml
