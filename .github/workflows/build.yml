@@ -8,7 +8,7 @@ on:
 
 jobs:
   online_archive:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     # The first two permissions are needed to interact with GitHub's OIDC Token endpoint.
     # The second set of two permissions are needed to write test results back to GH
     permissions:
@@ -97,13 +97,13 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: online_archive
           path: build-info.yaml
 
   project_restorer:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     # The first two permissions are needed to interact with GitHub's OIDC Token endpoint.
     # The second set of two permissions are needed to write test results back to GH
     permissions:
@@ -192,13 +192,13 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: storagetier-project-restorer
           path: build-info.yaml
 
   media_remover:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     # The first two permissions are needed to interact with GitHub's OIDC Token endpoint.
     # The second set of two permissions are needed to write test results back to GH
     permissions:
@@ -287,13 +287,13 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: storagetier-media-remover
           path: build-info.yaml
           
   online_nearline:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     # The first two permissions are needed to interact with GitHub's OIDC Token endpoint.
     # The second set of two permissions are needed to write test results back to GH
     permissions:
@@ -381,7 +381,7 @@ jobs:
         run: cat build-info.yaml
 
       - name: Upload build info
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: online_nearline
           path: build-info.yaml
