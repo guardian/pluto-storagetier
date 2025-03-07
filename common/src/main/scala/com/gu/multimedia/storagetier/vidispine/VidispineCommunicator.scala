@@ -21,7 +21,7 @@ class VidispineCommunicator(config:VidispineConfig) (implicit ec:ExecutionContex
   private final val logger = LoggerFactory.getLogger(getClass)
 
   // maxFilesToFetch should have the same value as index.max_result_window in OpenSearch.
-  private final val maxFilesToFetch = 30000
+  private final val maxFilesToFetch = 50000
 
   protected def callHttp = Http()
 
