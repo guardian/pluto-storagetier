@@ -185,24 +185,41 @@ class OwnMessageProcessor(mxsConfig:MatrixStoreConfig, asLookup:AssetFolderLooku
    * @param targetLength length of the original item
    * @return a Future, with a sequence of matching ObjectMatrixEntry instances for each matching file
    */
-  def matchingFiles(vault:Vault, completeFilePath:String, targetLength:Long) = {
+  def matchingFiles(vault: Vault, completeFilePath: String, targetLength: Long) = {
     val interestingFields = Array("MXFS_PATH, __mxs_length, DPSP_SIZE")
+    logger.info(s"Looking for files with the name $completeFilePath and length $targetLength in vault ${vault.getId}")
 
-    val graph = GraphDSL.createGraph(Sink.seq[ObjectMatrixEntry]) { implicit builder=> sink=>
+    val graph = GraphDSL.createGraph(Sink.seq[ObjectMatrixEntry]) { implicit builder => sink =>
       import akka.stream.scaladsl.GraphDSL.Implicits._
       val src = builder.add(new OMFastContentSearchSource(vault, s"MXFS_PATH:\"$completeFilePath\"", interestingFields))
-      src.out.filter(_.maybeGetSize().contains(targetLength)) ~> sink
+      src.out.filter { entry =>
+        val sizeMatch = entry.maybeGetSize().contains(targetLength)
+        if (!sizeMatch) {
+          logger.info(s"File found with path $completeFilePath in vault ${vault.getId} but size did not match: expected $targetLength, got ${entry.maybeGetSize()}")
+        }
+        sizeMatch
+      } ~> sink
       ClosedShape
     }
 
     RunnableGraph
       .fromGraph(graph)
       .run()
-      .map(matches=>{
-        logger.info(s"There are ${matches.length} files with the file name $completeFilePath and length $targetLength in vault ${vault.getId}")
+      .map(matches => {
+        if (matches.isEmpty) {
+          logger.info(s"No files found with the name $completeFilePath and length $targetLength in vault ${vault.getId}")
+        } else {
+          logger.info(s"There are ${matches.length} files with the file name $completeFilePath and length $targetLength in vault ${vault.getId}")
+        }
         matches
       })
+      .recover {
+        case ex: Throwable =>
+          logger.error(s"Error occurred while searching for files in vault ${vault.getId} for file path: $completeFilePath with target length: $targetLength", ex)
+          Seq.empty[ObjectMatrixEntry]
+      }
   }
+
 
   /**
    * Queries the destination vault to see if we already have at least one entry of the given name and of the file size
