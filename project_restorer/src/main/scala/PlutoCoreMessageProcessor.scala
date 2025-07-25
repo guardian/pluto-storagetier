@@ -171,8 +171,14 @@ class PlutoCoreMessageProcessor(mxsConfig: MatrixStoreConfig, asLookup: AssetFol
     (allResults.head, allResults(1), allResults(2)) match {
       case (Right(onlineResults), Right(nearlineResults), Right(_)) =>
         if (nearlineResults.length < 50000 && onlineResults.length < 50000) {
-          logger.info(s"About to send bulk messages for ${nearlineResults.length} filtered nearline results")
-          framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
+          var processNearline = true
+          if (sys.env.get("PROCESS_NEARLINE") == Some("false")) {
+            processNearline = false
+          }
+          if (processNearline) {
+            logger.info(s"About to send bulk messages for ${nearlineResults.length} filtered nearline results")
+            framework.bulkSendMessages(routingKey + ".nearline", nearlineResults)
+          }
 
           logger.info(s"About to send bulk messages for ${onlineResults.length} filtered online results")
           framework.bulkSendMessages(routingKey + ".online", onlineResults)
