@@ -1,5 +1,5 @@
 import MediaNotRequiredMessageProcessor.Action
-import utils.Ensurer.validateNeededFields
+import utils.Ensurer.{validateNeededFields, validateSizeAndIdentity}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.gu.multimedia.mxscopy.helpers.MatrixStoreHelper
@@ -466,7 +466,7 @@ class MediaNotRequiredMessageProcessor(asLookup: AssetFolderLookup)(
 
   def handleOnlineMediaNotRequired(vault: Vault, internalArchiveVault: Vault, onlineOutputMessage: OnlineOutputMessage): Future[Either[String, MessageProcessorReturnValue]] = {
     // Sanity checks
-    validateNeededFields(onlineOutputMessage.fileSize, onlineOutputMessage.originalFilePath, onlineOutputMessage.vidispineItemId)
+    validateSizeAndIdentity(onlineOutputMessage.fileSize, onlineOutputMessage.vidispineItemId)
     onlineOutputMessage.mediaTier match {
       case "ONLINE" =>
         logger.info(s"Force delete setting is ${onlineOutputMessage.forceDelete}")

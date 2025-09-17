@@ -15,4 +15,12 @@ object Ensurer {
       case Some(id) => id
       case None => throw new RuntimeException(s"media id is missing")
     }
+
+  def validateSizeAndIdentity(fileSizeMaybe: Option[Long], nearlineOrOnlineIdMaybe: Option[String]): (Long, String) =
+    (fileSizeMaybe, nearlineOrOnlineIdMaybe) match {
+      case (None, _) => throw new RuntimeException(s"fileSize is missing")
+      case (_, None) => throw new RuntimeException(s"media id is missing")
+      case (Some(-1), _) => throw new RuntimeException(s"fileSize is -1")
+      case (Some(fileSize), Some(id)) => (fileSize, id)
+    }
 }
