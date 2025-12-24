@@ -6,9 +6,9 @@
         </encoder>
     </appender>
 
-    <logger name="com.gu.multimedia" level="INFO"/>
-    <logger name="FakeMessageProcessor" level="INFO"/>
-    <logger name="Main$" level="INFO"/>
+    <logger name="com.gu.multimedia" level="DEBUG"/>
+    <logger name="FakeMessageProcessor" level="DEBUG"/>
+    <logger name="Main$" level="DEBUG"/>
 
     <root level="ERROR">
         <appender-ref ref="STDOUT" />

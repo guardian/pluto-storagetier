@@ -12,15 +12,15 @@
     </appender>
     <!-- <logger name="com.gu.multimedia.mxscopy.MXSConnectionBuilderImpl" level="DEBUG"/>
     <logger name="com.gu.multimedia.storagetier.vidispine.VidispineCommunicator" level="DEBUG"/> -->
-    <logger name="com.gu.multimedia" level="INFO"/>
-    <logger name="com.gu.multimedia.storagetier.auth" level="INFO"/>
-    <logger name="com.gu.multimedia.storagetier.plutocore" level="INFO"/>
+    <logger name="com.gu.multimedia" level="DEBUG"/>
+    <logger name="com.gu.multimedia.storagetier.auth" level="DEBUG"/>
+    <logger name="com.gu.multimedia.storagetier.plutocore" level="DEBUG"/>
     <!-- <logger name="AssetSweeperMessageProcessor" level="DEBUG"/>
     <logger name="FileCopier" level="DEBUG"/>
     <logger name="OwnMessageProcessor" level="DEBUG"/> -->
-    <logger name="Main$" level="INFO"/>
+    <logger name="Main$" level="DEBUG"/>
 
-    <root level="INFO">
+    <root level="DEBUG">
         <appender-ref ref="ASYNC_STDOUT" />
         <!-- <appender-ref ref="Sentry" />-->
     </root>
